@@ -137,11 +137,17 @@ async def me_command(message: types.Message):
     async with SessionLocal() as session:
         user_settings = await core.settings_getOrCreate(user, session)
         craft_text = f"{settler.profession.emoji} {settler.profession.name}" if settler.profession else "❓ Без дела"
-        can_choose = can_choose_craft(settler)
+        can_choose, when = can_choose_craft(settler.last_profession_change)
+        can_work, work_countdown = core.can_work_now(settler)
         
-        kb = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="🪭 Косметика", switch_inline_query_current_chat="Косметика"), InlineKeyboardButton(text="📦 Инвентарь", switch_inline_query_current_chat="Инвентарь")]])
-        kb.inline_keyboard.append([InlineKeyboardButton(text="🕒 Лишняя мера", switch_inline_query_current_chat="Лишняя мера"), InlineKeyboardButton(text=f"{settler.profession.emoji} Трудиться", switch_inline_query_current_chat="Трудиться") if settler.profession else None])
-        kb.inline_keyboard.append([InlineKeyboardButton(text="💼 Выбрать ремесло", switch_inline_query_current_chat="Выбрать ремесло")]) if can_choose else None
+        kb = InlineKeyboardBuilder()
+        buttons = []
+        buttons.append(InlineKeyboardButton(text="🪭 Косметика", switch_inline_query_current_chat="Косметика"))
+        buttons.append(InlineKeyboardButton(text="📦 Инвентарь", switch_inline_query_current_chat="Инвентарь"))
+        buttons.append(InlineKeyboardButton(text="🕒 Лишняя мера", switch_inline_query_current_chat="Лишняя мера"))
+        buttons.append(InlineKeyboardButton(text=f"{settler.profession.emoji} Трудиться", switch_inline_query_current_chat="Трудиться")) if settler.profession and can_work else None
+        buttons.append(InlineKeyboardButton(text="💼 Выбрать ремесло", switch_inline_query_current_chat="Выбрать ремесло")) if can_choose else None
+        kb.row(*buttons, width=2)
         
         
         if user_settings.compact_style:
@@ -150,7 +156,8 @@ async def me_command(message: types.Message):
                 f"💡 {settler.level} — {settler.emoji} <b>{settler.rank}</b>\n"
                 f"(🗂 <b>{round(settler.exp)}/{round(settler.target_exp)}</b>) | "
                 f"📄 {f'<b>{settler.quote}/{settler.target_quote}</b>' if not settler.quote_is_completed else f'{settler.target_quote}/{settler.target_quote}'} {'(⏳) ' if settler.overtime_is_toggled else ''}| "
-                f"💰 <b>{round(settler.balance)}</b> ({'<b>' if settler.income != 0 else ''}{round(settler.income)}/день{'</b>' if settler.income != 0 else ''})"
+                f"💰 <b>{round(settler.balance)}</b> ({'<b>' if settler.income != 0 else ''}{round(settler.income)}/день{'</b>' if settler.income != 0 else ''})\n"
+                f"\n {(settler.profession.emoji + ' Трудиться можно через <b>' + work_countdown + '</b> ⚠️') if (settler.profession and not can_work) else ((settler.profession.emoji + ' <b>Можно трудиться</b> ✅') if settler.profession else '')} "
             )
         else:
             text = (
@@ -161,9 +168,10 @@ async def me_command(message: types.Message):
                 f"🏷 <b>Ранг:</b> {settler.emoji} {settler.rank}\n"
                 f"📄 <b>Мера:</b> {f'<b>{settler.quote}/{settler.target_quote}</b>' if not settler.quote_is_completed else f'{settler.target_quote}/{settler.target_quote}'} {'(⏳ Мера лишняя взята)' if settler.overtime_is_toggled else ''}\n"
                 f"💰 <b>Баланс:</b> {round(settler.balance)} ({'<b>' if settler.income != 0 else ''}{round(settler.income)}/день{'</b>' if settler.income != 0 else ''})\n"
+                f"\n {(settler.profession.emoji + ' Трудиться можно через <b>' + work_countdown + '</b> ⚠️') if (settler.profession and not can_work) else ((settler.profession.emoji + ' <b>Можно трудиться</b> ✅') if settler.profession else '')} "
             )
         
-        await message.answer(text, reply_markup=kb)
+        await message.answer(text, reply_markup=kb.as_markup())
     log.debug(f"{message.chat.id} | Функция me_command() выполнена")
 
 @router.message(or_f(Command("cosmetics"), F.text.lower() == "косметика", F.text.lower() == "@mysettlementbot косметика"))
@@ -385,8 +393,13 @@ async def choose_craft_command(message: types.Message):
         await message.answer('❌ Нет доступных ремесел. Обратитесь к <a href="https://t.me/megatocha">создателю.</a>')
         return
     
-    text = f"💼 <b>Выбор ремесла</b>\n\n"
+    can_choose, when = True, ""
+    if settler.profession_id:
+            can_choose, when = can_choose_craft(settler.last_profession_change)
+    
+    text = f"💼 <b>Выбор ремесла</b>\n{'⚠️ Сменить ремесло можно через <b>' + when + '</b>\n' if not can_choose and settler.profession else ''}\n"
     kb = InlineKeyboardBuilder()
+
     async with SessionLocal() as session:
         user_settings = await core.settings_getOrCreate(user, session)
     buttons = []
@@ -396,7 +409,7 @@ async def choose_craft_command(message: types.Message):
                 text += f"{prof.emoji} <b>{prof.name}:</b> {prof.description}\n{'✅' if settler.profession_id == prof.id else '☑️'} (<b>{settler.level}/{prof.required_level}</b>💡)\n\n"
             else:
                 text += f"{prof.emoji} <b>{prof.name}:</b> {prof.description}\n{'✅ <b>Выбрано</b>' if settler.profession_id == prof.id else '☑️ Доступно'} (Требуется уровень <b>{settler.level}/{prof.required_level}</b>💡)\n\n"
-            buttons.append(InlineKeyboardButton(text=f"Выбрать {prof.emoji} {prof.name}", callback_data=f"select_craft:{prof.id}")) if settler.profession_id != prof.id else None
+            buttons.append(InlineKeyboardButton(text=f"Выбрать {prof.emoji} {prof.name}", callback_data=f"select_craft:{prof.id}")) if settler.profession_id != prof.id and can_choose else None
         else:
             if user_settings.compact_style:
                 text += f"{prof.emoji} {prof.name}: {prof.description}\n🔒 ({settler.level}/<b>{prof.required_level}</b>💡)\n\n"

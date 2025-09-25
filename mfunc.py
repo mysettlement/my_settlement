@@ -109,7 +109,7 @@ def get_work_remaining_time(chat_id: int) -> int:
     remaining = 180 - elapsed  # 3 минуты = 180 секунд
     return max(0, int(remaining))
 
-def can_choose_craft(last_profession_change) -> bool:
+def can_choose_craft(last_profession_change) -> tuple[bool, str]:
     now_ts = int(datetime.now().timestamp())
     last_ts = last_profession_change or 0
     cooldown = int(timedelta(days=3).total_seconds())
@@ -120,4 +120,4 @@ def can_choose_craft(last_profession_change) -> bool:
         minutes = (remaining % 3600) // 60
         when = f"{days}д. {hours}ч. {minutes}м." if days > 0 else (f"{hours}ч. {minutes}м." if hours > 0 else f"{minutes}м.")
         return False, when
-    return True
+    return True, ""

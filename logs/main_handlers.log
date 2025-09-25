@@ -1,0 +1,10 @@
+2025-09-24 11:47:23 | main_handlers | DEBUG | -1003065205593 | Функция start_command() выполнена
+2025-09-24 11:47:32 | main_handlers | DEBUG | -1003065205593 | Функция me_command() выполнена
+2025-09-24 11:47:36 | main_handlers | DEBUG | -1003065205593 | Функция craft_command() выполнена
+2025-09-24 11:47:43 | main_handlers | DEBUG | -1003065205593 | 4 | 💼 Выбрано ремесло: Ловчий
+2025-09-24 11:47:43 | main_handlers | DEBUG | -1003065205593 | Функция select_prof_callback() выполнена
+2025-09-24 11:48:57 | main_handlers | DEBUG | -1003065205593 | Функция me_command() выполнена
+2025-09-24 11:49:02 | main_handlers | DEBUG | -1003065205593 | Функция craft_command() выполнена
+2025-09-24 11:49:15 | main_handlers | DEBUG | -1003065205593 | Функция overtime_command() выполнена
+2025-09-24 11:56:34 | main_handlers | DEBUG | -1003065205593 | Функция me_command() выполнена
+2025-09-24 11:57:12 | main_handlers | DEBUG | -1003065205593 | Функция craft_command() выполнена

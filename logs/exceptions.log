@@ -1,0 +1,160 @@
+2025-09-19 22:05:44 | exceptions | ERROR | -1003065205593 | Ошибка при создании/получении пользователя 5195134444: (sqlalchemy.dialects.postgresql.asyncpg.IntegrityError) <class 'asyncpg.exceptions.UniqueViolationError'>: повторяющееся значение ключа нарушает ограничение уникальности "ix_users_user_id"
+DETAIL:  Ключ "(user_id)=(5195134444)" уже существует.
+[SQL: INSERT INTO users (user_id, name) VALUES ($1::BIGINT, $2::VARCHAR) RETURNING users.id]
+[parameters: (5195134444, 'Tochka! 🍂')]
+(Background on this error at: https://sqlalche.me/e/20/gkpj) | user_id=5195134444
+2025-09-19 22:06:44 | exceptions | CRITICAL | -1003065205593 | Неизвестная ошибка: Parent instance <Settler at 0x156f66d7050> is not bound to a Session; lazy load operation of attribute 'profession' cannot proceed (Background on this error at: https://sqlalche.me/e/20/bhk3)
+2025-09-19 22:10:57 | exceptions | ERROR | -1003065205593 | Ошибка при создании/получении пользователя 5195134444: (sqlalchemy.dialects.postgresql.asyncpg.IntegrityError) <class 'asyncpg.exceptions.UniqueViolationError'>: повторяющееся значение ключа нарушает ограничение уникальности "ix_users_user_id"
+DETAIL:  Ключ "(user_id)=(5195134444)" уже существует.
+[SQL: INSERT INTO users (user_id, name) VALUES ($1::BIGINT, $2::VARCHAR) RETURNING users.id]
+[parameters: (5195134444, 'Tochka! 🍂')]
+(Background on this error at: https://sqlalche.me/e/20/gkpj) | user_id=5195134444
+2025-09-19 22:12:50 | exceptions | CRITICAL | -1003065205593 | Неизвестная ошибка: 4 validation errors for SendMessage
+reply_markup.InlineKeyboardMarkup
+  Input should be a valid dictionary or instance of InlineKeyboardMarkup [type=model_type, input_value=<aiogram.utils.keyboard.I...t at 0x000001E8997E7560>, input_type=InlineKeyboardBuilder]
+    For further information visit https://errors.pydantic.dev/2.11/v/model_type
+reply_markup.ReplyKeyboardMarkup
+  Input should be a valid dictionary or instance of ReplyKeyboardMarkup [type=model_type, input_value=<aiogram.utils.keyboard.I...t at 0x000001E8997E7560>, input_type=InlineKeyboardBuilder]
+    For further information visit https://errors.pydantic.dev/2.11/v/model_type
+reply_markup.ReplyKeyboardRemove
+  Input should be a valid dictionary or instance of ReplyKeyboardRemove [type=model_type, input_value=<aiogram.utils.keyboard.I...t at 0x000001E8997E7560>, input_type=InlineKeyboardBuilder]
+    For further information visit https://errors.pydantic.dev/2.11/v/model_type
+reply_markup.ForceReply
+  Input should be a valid dictionary or instance of ForceReply [type=model_type, input_value=<aiogram.utils.keyboard.I...t at 0x000001E8997E7560>, input_type=InlineKeyboardBuilder]
+    For further information visit https://errors.pydantic.dev/2.11/v/model_type
+2025-09-19 22:50:11 | exceptions | CRITICAL | unknown | Неизвестная ошибка: 'Insert' object has no attribute 'on_conflict_do_update'
+2025-09-19 22:56:13 | exceptions | CRITICAL | -1003065205593 | Неизвестная ошибка: cannot unpack non-iterable Resource object
+2025-09-19 22:59:39 | exceptions | CRITICAL | -1003065205593 | Неизвестная ошибка: cannot unpack non-iterable Resource object
+2025-09-20 12:51:17 | exceptions | CRITICAL | unknown | Неизвестная ошибка: Telegram server says - Bad Request: message is not modified: specified new message content and reply markup are exactly the same as a current content and reply markup of the message
+2025-09-20 12:51:24 | exceptions | CRITICAL | unknown | Неизвестная ошибка: Telegram server says - Bad Request: message is not modified: specified new message content and reply markup are exactly the same as a current content and reply markup of the message
+2025-09-20 12:51:24 | exceptions | CRITICAL | unknown | Неизвестная ошибка: Telegram server says - Flood control exceeded on method 'EditMessageText' in chat -1003065205593. Retry in 28 seconds.
+Original description: Too Many Requests: retry after 28
+(background on this error at: https://core.telegram.org/bots/faq#my-bot-is-hitting-limits-how-do-i-avoid-this)
+2025-09-20 12:51:24 | exceptions | CRITICAL | unknown | Неизвестная ошибка: Telegram server says - Flood control exceeded on method 'EditMessageText' in chat -1003065205593. Retry in 28 seconds.
+Original description: Too Many Requests: retry after 28
+(background on this error at: https://core.telegram.org/bots/faq#my-bot-is-hitting-limits-how-do-i-avoid-this)
+2025-09-20 12:51:24 | exceptions | CRITICAL | unknown | Неизвестная ошибка: Telegram server says - Flood control exceeded on method 'EditMessageText' in chat -1003065205593. Retry in 28 seconds.
+Original description: Too Many Requests: retry after 28
+(background on this error at: https://core.telegram.org/bots/faq#my-bot-is-hitting-limits-how-do-i-avoid-this)
+2025-09-20 12:52:15 | exceptions | CRITICAL | -1003065205593 | Неизвестная ошибка: 'int' object has no attribute 'quantity'
+2025-09-20 12:53:13 | exceptions | CRITICAL | -1003065205593 | Неизвестная ошибка: 'int' object has no attribute 'name'
+2025-09-20 13:07:47 | exceptions | CRITICAL | unknown | Неизвестная ошибка: Telegram server says - Bad Request: message is not modified: specified new message content and reply markup are exactly the same as a current content and reply markup of the message
+2025-09-20 13:07:47 | exceptions | CRITICAL | unknown | Неизвестная ошибка: Telegram server says - Bad Request: message is not modified: specified new message content and reply markup are exactly the same as a current content and reply markup of the message
+2025-09-20 13:07:53 | exceptions | CRITICAL | unknown | Неизвестная ошибка: Telegram server says - Bad Request: message is not modified: specified new message content and reply markup are exactly the same as a current content and reply markup of the message
+2025-09-20 13:07:53 | exceptions | CRITICAL | unknown | Неизвестная ошибка: Telegram server says - Flood control exceeded on method 'EditMessageReplyMarkup' in chat -1003065205593. Retry in 41 seconds.
+Original description: Too Many Requests: retry after 41
+(background on this error at: https://core.telegram.org/bots/faq#my-bot-is-hitting-limits-how-do-i-avoid-this)
+2025-09-20 13:07:53 | exceptions | CRITICAL | unknown | Неизвестная ошибка: Telegram server says - Flood control exceeded on method 'EditMessageText' in chat -1003065205593. Retry in 41 seconds.
+Original description: Too Many Requests: retry after 41
+(background on this error at: https://core.telegram.org/bots/faq#my-bot-is-hitting-limits-how-do-i-avoid-this)
+2025-09-20 13:07:53 | exceptions | CRITICAL | unknown | Неизвестная ошибка: Telegram server says - Flood control exceeded on method 'EditMessageText' in chat -1003065205593. Retry in 40 seconds.
+Original description: Too Many Requests: retry after 40
+(background on this error at: https://core.telegram.org/bots/faq#my-bot-is-hitting-limits-how-do-i-avoid-this)
+2025-09-20 13:07:59 | exceptions | CRITICAL | unknown | Неизвестная ошибка: Telegram server says - Flood control exceeded on method 'EditMessageText' in chat -1003065205593. Retry in 35 seconds.
+Original description: Too Many Requests: retry after 35
+(background on this error at: https://core.telegram.org/bots/faq#my-bot-is-hitting-limits-how-do-i-avoid-this)
+2025-09-20 13:11:46 | exceptions | CRITICAL | -1003065205593 | Неизвестная ошибка: Clicker.__init__() missing 2 required positional arguments: 'objects' and 'rules'
+2025-09-22 16:10:22 | exceptions | CRITICAL | unknown | Неизвестная ошибка: Telegram server says - Bad Request: message is not modified: specified new message content and reply markup are exactly the same as a current content and reply markup of the message
+2025-09-22 16:10:22 | exceptions | CRITICAL | unknown | Неизвестная ошибка: Telegram server says - Bad Request: message is not modified: specified new message content and reply markup are exactly the same as a current content and reply markup of the message
+2025-09-22 16:10:27 | exceptions | CRITICAL | unknown | Неизвестная ошибка: Telegram server says - Bad Request: message is not modified: specified new message content and reply markup are exactly the same as a current content and reply markup of the message
+2025-09-22 16:10:27 | exceptions | CRITICAL | unknown | Неизвестная ошибка: Telegram server says - Flood control exceeded on method 'EditMessageText' in chat -1003065205593. Retry in 42 seconds.
+Original description: Too Many Requests: retry after 42
+(background on this error at: https://core.telegram.org/bots/faq#my-bot-is-hitting-limits-how-do-i-avoid-this)
+2025-09-22 16:10:27 | exceptions | CRITICAL | unknown | Неизвестная ошибка: Telegram server says - Flood control exceeded on method 'EditMessageText' in chat -1003065205593. Retry in 42 seconds.
+Original description: Too Many Requests: retry after 42
+(background on this error at: https://core.telegram.org/bots/faq#my-bot-is-hitting-limits-how-do-i-avoid-this)
+2025-09-22 16:10:58 | exceptions | CRITICAL | unknown | Неизвестная ошибка: Telegram server says - Flood control exceeded on method 'EditMessageText' in chat -1003065205593. Retry in 11 seconds.
+Original description: Too Many Requests: retry after 11
+(background on this error at: https://core.telegram.org/bots/faq#my-bot-is-hitting-limits-how-do-i-avoid-this)
+2025-09-22 16:13:10 | exceptions | CRITICAL | unknown | Неизвестная ошибка: Telegram server says - Flood control exceeded on method 'EditMessageText' in chat -1003065205593. Retry in 10 seconds.
+Original description: Too Many Requests: retry after 10
+(background on this error at: https://core.telegram.org/bots/faq#my-bot-is-hitting-limits-how-do-i-avoid-this)
+2025-09-22 16:16:07 | exceptions | CRITICAL | unknown | Неизвестная ошибка: Telegram server says - Flood control exceeded on method 'EditMessageText' in chat -1003065205593. Retry in 30 seconds.
+Original description: Too Many Requests: retry after 30
+(background on this error at: https://core.telegram.org/bots/faq#my-bot-is-hitting-limits-how-do-i-avoid-this)
+2025-09-22 16:42:45 | exceptions | CRITICAL | unknown | Неизвестная ошибка: Telegram server says - Bad Request: message is not modified: specified new message content and reply markup are exactly the same as a current content and reply markup of the message
+2025-09-22 16:42:48 | exceptions | CRITICAL | unknown | Неизвестная ошибка: Telegram server says - Bad Request: message is not modified: specified new message content and reply markup are exactly the same as a current content and reply markup of the message
+2025-09-22 16:42:48 | exceptions | CRITICAL | unknown | Неизвестная ошибка: Telegram server says - Bad Request: message is not modified: specified new message content and reply markup are exactly the same as a current content and reply markup of the message
+2025-09-22 16:42:51 | exceptions | CRITICAL | unknown | Неизвестная ошибка: Telegram server says - Flood control exceeded on method 'EditMessageText' in chat -1003065205593. Retry in 41 seconds.
+Original description: Too Many Requests: retry after 41
+(background on this error at: https://core.telegram.org/bots/faq#my-bot-is-hitting-limits-how-do-i-avoid-this)
+2025-09-22 16:42:51 | exceptions | CRITICAL | unknown | Неизвестная ошибка: Telegram server says - Flood control exceeded on method 'EditMessageText' in chat -1003065205593. Retry in 41 seconds.
+Original description: Too Many Requests: retry after 41
+(background on this error at: https://core.telegram.org/bots/faq#my-bot-is-hitting-limits-how-do-i-avoid-this)
+2025-09-22 16:42:51 | exceptions | CRITICAL | unknown | Неизвестная ошибка: Telegram server says - Flood control exceeded on method 'EditMessageText' in chat -1003065205593. Retry in 41 seconds.
+Original description: Too Many Requests: retry after 41
+(background on this error at: https://core.telegram.org/bots/faq#my-bot-is-hitting-limits-how-do-i-avoid-this)
+2025-09-22 16:42:52 | exceptions | CRITICAL | unknown | Неизвестная ошибка: Telegram server says - Flood control exceeded on method 'EditMessageText' in chat -1003065205593. Retry in 40 seconds.
+Original description: Too Many Requests: retry after 40
+(background on this error at: https://core.telegram.org/bots/faq#my-bot-is-hitting-limits-how-do-i-avoid-this)
+2025-09-22 16:57:04 | exceptions | CRITICAL | unknown | Неизвестная ошибка: 'int' object has no attribute 'quantity'
+2025-09-22 16:57:20 | exceptions | CRITICAL | unknown | Неизвестная ошибка: 'int' object has no attribute 'quantity'
+2025-09-22 18:07:05 | exceptions | DEBUG | unknown | Игнорируем некритичную ошибку: Telegram server says - Bad Request: message is not modified: specified new message content and reply markup are exactly the same as a current content and reply markup of the message
+2025-09-22 18:34:40 | exceptions | DEBUG | unknown | Игнорируем некритичную ошибку: Telegram server says - Flood control exceeded on method 'EditMessageText' in chat -1003065205593. Retry in 19 seconds.
+Original description: Too Many Requests: retry after 19
+(background on this error at: https://core.telegram.org/bots/faq#my-bot-is-hitting-limits-how-do-i-avoid-this)
+2025-09-22 20:09:49 | exceptions | CRITICAL | unknown | Неизвестная ошибка: 'int' object has no attribute 'quantity'
+2025-09-22 20:21:10 | exceptions | DEBUG | unknown | Игнорируем некритичную ошибку: Telegram server says - Bad Request: message is not modified: specified new message content and reply markup are exactly the same as a current content and reply markup of the message
+2025-09-22 21:13:15 | exceptions | CRITICAL | -1003065205593 | Неизвестная ошибка: Parent instance <User at 0x19862d4b380> is not bound to a Session; lazy load operation of attribute 'settings' cannot proceed (Background on this error at: https://sqlalche.me/e/20/bhk3)
+2025-09-22 21:13:47 | exceptions | CRITICAL | -1003065205593 | Неизвестная ошибка: Parent instance <User at 0x19862d6e900> is not bound to a Session; lazy load operation of attribute 'settings' cannot proceed (Background on this error at: https://sqlalche.me/e/20/bhk3)
+2025-09-22 21:15:02 | exceptions | CRITICAL | -1003065205593 | Неизвестная ошибка: 'NoneType' object has no attribute 'emoji'
+2025-09-22 21:15:14 | exceptions | CRITICAL | -1003065205593 | Неизвестная ошибка: 'NoneType' object has no attribute 'emoji'
+2025-09-22 21:16:23 | exceptions | CRITICAL | -1003065205593 | Неизвестная ошибка: 'NoneType' object has no attribute 'emoji'
+2025-09-22 21:39:51 | exceptions | ERROR | -1003065205593 | Ошибка при создании/получении пользователя 5195134444: (sqlalchemy.dialects.postgresql.asyncpg.IntegrityError) <class 'asyncpg.exceptions.UniqueViolationError'>: повторяющееся значение ключа нарушает ограничение уникальности "ix_users_user_id"
+DETAIL:  Ключ "(user_id)=(5195134444)" уже существует.
+[SQL: INSERT INTO users (user_id, name) VALUES ($1::BIGINT, $2::VARCHAR) RETURNING users.id]
+[parameters: (5195134444, 'Tochka! 🍂')]
+(Background on this error at: https://sqlalche.me/e/20/gkpj) | user_id=5195134444
+2025-09-22 22:40:13 | exceptions | CRITICAL | -1003065205593 | Неизвестная ошибка: (sqlalchemy.dialects.postgresql.asyncpg.ProgrammingError) <class 'asyncpg.exceptions.UndefinedColumnError'>: столбец user_settings.compact_style не существует
+[SQL: SELECT user_settings.id, user_settings.user_id, user_settings.compact_style 
+FROM user_settings 
+WHERE user_settings.user_id = $1::BIGINT]
+[parameters: (2,)]
+(Background on this error at: https://sqlalche.me/e/20/f405)
+2025-09-22 22:53:58 | exceptions | CRITICAL | -1003065205593 | Неизвестная ошибка: 'Settler' object has no attribute 'settings'
+2025-09-22 23:01:28 | exceptions | CRITICAL | -1003065205593 | Неизвестная ошибка: cannot access local variable 'session' where it is not associated with a value
+2025-09-22 23:01:35 | exceptions | CRITICAL | -1003065205593 | Неизвестная ошибка: cannot access local variable 'session' where it is not associated with a value
+2025-09-22 23:01:44 | exceptions | CRITICAL | -1003065205593 | Неизвестная ошибка: cannot access local variable 'session' where it is not associated with a value
+2025-09-23 08:36:29 | exceptions | ERROR | -1003065205593 | Ошибка при создании/получении пользователя 5768545131: (sqlalchemy.dialects.postgresql.asyncpg.IntegrityError) <class 'asyncpg.exceptions.UniqueViolationError'>: повторяющееся значение ключа нарушает ограничение уникальности "ix_users_user_id"
+DETAIL:  Ключ "(user_id)=(5768545131)" уже существует.
+[SQL: INSERT INTO users (user_id, name) VALUES ($1::BIGINT, $2::VARCHAR) RETURNING users.id]
+[parameters: (5768545131, 'AnimalBoriska')]
+(Background on this error at: https://sqlalche.me/e/20/gkpj) | user_id=5768545131
+2025-09-23 08:37:40 | exceptions | DEBUG | unknown | Игнорируем некритичную ошибку: Telegram server says - Bad Request: message is not modified: specified new message content and reply markup are exactly the same as a current content and reply markup of the message
+2025-09-23 08:37:57 | exceptions | DEBUG | unknown | Игнорируем некритичную ошибку: Telegram server says - Bad Request: message is not modified: specified new message content and reply markup are exactly the same as a current content and reply markup of the message
+2025-09-23 10:00:50 | exceptions | ERROR | -1003065205593 | Неожиданная ошибка при создании/получении поселения -1003065205593: (sqlalchemy.dialects.postgresql.asyncpg.ProgrammingError) <class 'asyncpg.exceptions.UndefinedColumnError'>: столбец settlers.last_profession_change не существует
+[SQL: SELECT settlers.settlement_id AS settlers_settlement_id, settlers.id AS settlers_id, settlers.user_id AS settlers_user_id, settlers.level AS settlers_level, settlers.exp AS settlers_exp, settlers.target_exp AS settlers_target_exp, settlers.rank AS settlers_rank, settlers.emoji AS settlers_emoji, settlers.rank_emoji_available AS settlers_rank_emoji_available, settlers.special_emoji_available AS settlers_special_emoji_available, settlers.profession_id AS settlers_profession_id, settlers.work_is_completed AS settlers_work_is_completed, settlers.last_work_time AS settlers_last_work_time, settlers.last_profession_change AS settlers_last_profession_change, settlers.quote AS settlers_quote, settlers.target_quote AS settlers_target_quote, settlers.quote_is_completed AS settlers_quote_is_completed, settlers.overtime_count AS settlers_overtime_count, settlers.overtime_is_toggled AS settlers_overtime_is_toggled, settlers.balance AS settlers_balance, settlers.income AS settlers_income 
+FROM settlers 
+WHERE settlers.settlement_id IN ($1::BIGINT)]
+[parameters: (1,)]
+(Background on this error at: https://sqlalche.me/e/20/f405) | user_id=unknown
+2025-09-25 12:05:46 | exceptions | CRITICAL | -1003065205593 | Неизвестная ошибка: Parent instance <User at 0x1f0a8e22390> is not bound to a Session; lazy load operation of attribute 'settings' cannot proceed (Background on this error at: https://sqlalche.me/e/20/bhk3)
+2025-09-25 12:36:51 | exceptions | CRITICAL | -1003065205593 | Неизвестная ошибка: 4 validation errors for SendMessage
+reply_markup.InlineKeyboardMarkup
+  Input should be a valid dictionary or instance of InlineKeyboardMarkup [type=model_type, input_value=<bound method InlineKeybo... at 0x000001B574295F10>>, input_type=method]
+    For further information visit https://errors.pydantic.dev/2.11/v/model_type
+reply_markup.ReplyKeyboardMarkup
+  Input should be a valid dictionary or instance of ReplyKeyboardMarkup [type=model_type, input_value=<bound method InlineKeybo... at 0x000001B574295F10>>, input_type=method]
+    For further information visit https://errors.pydantic.dev/2.11/v/model_type
+reply_markup.ReplyKeyboardRemove
+  Input should be a valid dictionary or instance of ReplyKeyboardRemove [type=model_type, input_value=<bound method InlineKeybo... at 0x000001B574295F10>>, input_type=method]
+    For further information visit https://errors.pydantic.dev/2.11/v/model_type
+reply_markup.ForceReply
+  Input should be a valid dictionary or instance of ForceReply [type=model_type, input_value=<bound method InlineKeybo... at 0x000001B574295F10>>, input_type=method]
+    For further information visit https://errors.pydantic.dev/2.11/v/model_type
+2025-09-25 12:37:34 | exceptions | CRITICAL | -1003065205593 | Неизвестная ошибка: 4 validation errors for SendMessage
+reply_markup.InlineKeyboardMarkup
+  Input should be a valid dictionary or instance of InlineKeyboardMarkup [type=model_type, input_value=<bound method InlineKeybo... at 0x000001B5742F3050>>, input_type=method]
+    For further information visit https://errors.pydantic.dev/2.11/v/model_type
+reply_markup.ReplyKeyboardMarkup
+  Input should be a valid dictionary or instance of ReplyKeyboardMarkup [type=model_type, input_value=<bound method InlineKeybo... at 0x000001B5742F3050>>, input_type=method]
+    For further information visit https://errors.pydantic.dev/2.11/v/model_type
+reply_markup.ReplyKeyboardRemove
+  Input should be a valid dictionary or instance of ReplyKeyboardRemove [type=model_type, input_value=<bound method InlineKeybo... at 0x000001B5742F3050>>, input_type=method]
+    For further information visit https://errors.pydantic.dev/2.11/v/model_type
+reply_markup.ForceReply
+  Input should be a valid dictionary or instance of ForceReply [type=model_type, input_value=<bound method InlineKeybo... at 0x000001B5742F3050>>, input_type=method]
+    For further information visit https://errors.pydantic.dev/2.11/v/model_type
+2025-09-25 12:48:44 | exceptions | DEBUG | unknown | Игнорируем некритичную ошибку: Telegram server says - Bad Request: message is not modified: specified new message content and reply markup are exactly the same as a current content and reply markup of the message
+2025-09-25 12:49:03 | exceptions | DEBUG | unknown | Игнорируем некритичную ошибку: Telegram server says - Bad Request: message is not modified: specified new message content and reply markup are exactly the same as a current content and reply markup of the message
+2025-09-25 12:50:04 | exceptions | DEBUG | unknown | Игнорируем некритичную ошибку: Telegram server says - Bad Request: message is not modified: specified new message content and reply markup are exactly the same as a current content and reply markup of the message

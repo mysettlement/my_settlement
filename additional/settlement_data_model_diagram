@@ -1,0 +1,51 @@
+// Interactive Data Models
+digraph {
+	graph [bgcolor="#EEEEEE" rankdir=TB splines=spline]
+	node [fontname=Roboto fontsize=12 shape=none]
+	edge [fontname=Roboto fontsize=10]
+	User [label=<
+        <TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0">
+        <TR><TD COLSPAN="2" BGCOLOR="#3F51B5"><FONT COLOR="white">User</FONT></TD></TR>
+        <TR>
+                         <TD BGCOLOR="#BBDEFB">id</TD>
+                         <TD BGCOLOR="#BBDEFB">INTEGER (PK,Index)</TD>
+                         </TR><TR>
+                         <TD BGCOLOR="#BBDEFB">user_id</TD>
+                         <TD BGCOLOR="#BBDEFB">INTEGER (Unique,Index)</TD>
+                         </TR></TABLE>> URL="http://User_details.html"]
+	User -> Settlement [label=owned_settlements color="#1E88E5" style=dashed tooltip="Relation between User and Settlement"]
+	User -> Settler [label=memberships color="#1E88E5" style=dashed tooltip="Relation between User and Settler"]
+	Settlement [label=<
+        <TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0">
+        <TR><TD COLSPAN="2" BGCOLOR="#3F51B5"><FONT COLOR="white">Settlement</FONT></TD></TR>
+        <TR>
+                         <TD BGCOLOR="#BBDEFB">id</TD>
+                         <TD BGCOLOR="#BBDEFB">INTEGER (PK,Index)</TD>
+                         </TR><TR>
+                         <TD BGCOLOR="#BBDEFB">chat_id</TD>
+                         <TD BGCOLOR="#BBDEFB">INTEGER (Unique,Index)</TD>
+                         </TR><TR>
+                         <TD BGCOLOR="#BBDEFB">name</TD>
+                         <TD BGCOLOR="#BBDEFB">VARCHAR ()</TD>
+                         </TR><TR>
+                         <TD BGCOLOR="#BBDEFB">owner_id</TD>
+                         <TD BGCOLOR="#BBDEFB">INTEGER ()</TD>
+                         </TR></TABLE>> URL="http://Settlement_details.html"]
+	Settlement -> User [label=owner color="#1E88E5" style=dashed tooltip="Relation between Settlement and User"]
+	Settlement -> Settler [label=members color="#1E88E5" style=dashed tooltip="Relation between Settlement and Settler"]
+	Settler [label=<
+        <TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0">
+        <TR><TD COLSPAN="2" BGCOLOR="#3F51B5"><FONT COLOR="white">Settler</FONT></TD></TR>
+        <TR>
+                         <TD BGCOLOR="#BBDEFB">id</TD>
+                         <TD BGCOLOR="#BBDEFB">INTEGER (PK,Index)</TD>
+                         </TR><TR>
+                         <TD BGCOLOR="#BBDEFB">user_id</TD>
+                         <TD BGCOLOR="#BBDEFB">INTEGER ()</TD>
+                         </TR><TR>
+                         <TD BGCOLOR="#BBDEFB">settlement_id</TD>
+                         <TD BGCOLOR="#BBDEFB">INTEGER ()</TD>
+                         </TR></TABLE>> URL="http://Settler_details.html"]
+	Settler -> User [label=user color="#1E88E5" style=dashed tooltip="Relation between Settler and User"]
+	Settler -> Settlement [label=settlement color="#1E88E5" style=dashed tooltip="Relation between Settler and Settlement"]
+}

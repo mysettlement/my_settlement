@@ -1,0 +1,21 @@
+{
+	"folders": [
+		{
+			"path": "."
+		},
+		{
+			"path": "../settlements"
+		}
+	],
+	"settings": {
+		"cSpell.words": [
+			"backref",
+			"levelname",
+			"sessionmaker",
+			"worksel",
+			"логгер",
+			"поселец",
+			"форматтер"
+		]
+	}
+}

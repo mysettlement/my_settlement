@@ -15,7 +15,7 @@ from config import setup_logging, settings
 from db import SessionLocal
 import core
 import models
-from mfunc import can_click_button, can_start_work, format_reward_text, start_work, end_work, get_work_remaining_time, can_choose_craft, work_in_progress, work_timeout_tasks, work_start_time, work_in_progress, active_games
+from mfunc import can_click_button, can_start_work, format_reward_text, start_work, end_work, get_work_remaining_time, can_choose_craft, is_meaningful, get_daily_reset_countdown, work_in_progress, work_timeout_tasks, work_start_time, work_in_progress, active_games
 
 bot = Bot(
         token=settings.BOT_TOKEN,
@@ -273,26 +273,25 @@ async def overtime_command(message: types.Message):
     settlement = await core.settlement_getOrCreate(message.chat, user)
     settler = await core.settler_getOrCreate(user, settlement)
     
-    reset_countdown = core.get_daily_reset_countdown()
+    reset_countdown = get_daily_reset_countdown()
     text = f"🕒 <b>Лишняя мера</b>\n\n"
-    if settler.level < 2:
-        text += f"ℹ️ Коль добра тебе мало, можешь <b>лишнюю меру</b> взять. С каждой лишней мерой работа тяжелеет, мудрости меньше наберёшь, но грошей столько же получишь. Коль <b>не поспеешь труд свершить</b> до нового дня (🕒 {reset_countdown}), на тебя <b>виру</b> наложат в 💰 <b>20</b>.\n\n"
+    text += f"ℹ️ Коль добра тебе мало, можешь <b>лишнюю меру</b> взять. С каждой лишней мерой работа тяжелеет, мудрости меньше наберёшь, но грошей столько же получишь. Коль <b>не поспеешь труд свершить</b> до нового дня (🕒 {reset_countdown}), на тебя <b>виру</b> наложат в 💰 <b>20</b>.\n\n" if settler.level < 2 else ""
     async with SessionLocal() as session:
         user_settings = await core.settings_getOrCreate(user, session)
         
         kb = InlineKeyboardMarkup(inline_keyboard=[])
         if settler.overtime_is_toggled and not settler.quote_is_completed:
             if user_settings.compact_style:
-                text += f"🔘 {settler.overtime_count} (🕒 {core.get_daily_reset_countdown()}) | 📄 <b>{settler.quote}/{settler.target_quote}</b>"
+                text += f"🔘 {settler.overtime_count} (🕒 {get_daily_reset_countdown()}) | 📄 <b>{settler.quote}/{settler.target_quote}</b>"
             else:
-                text += f"Состояние лишней меры: ⚪️ Деятельно\nСколько лишней меры взято: {settler.overtime_count} (🕒 {core.get_daily_reset_countdown()} до новой меры осталось)\n📄 Мера: <b>{settler.quote}/{settler.target_quote}</b>"
+                text += f"Состояние лишней меры: ⚪️ <b>Деятельно</b>\nСколько лишней меры взято: {settler.overtime_count} (🕒 <b>{get_daily_reset_countdown()}</b>осталось до новой меры)\n📄 Мера: <b>{settler.quote}/{settler.target_quote}</b>"
         elif not settler.overtime_is_toggled and not settler.quote_is_completed:
             text += f"⚠️ Лишнюю меру брать можно, токмо основную 📄 меру свершив!"
         else:
             if user_settings.compact_style:
                 text += f"🔘 {settler.overtime_count}"
             else:
-                text += f"Состояние лишней меры: 🔘 Неактивный\nСколько лишней меры взято: {settler.overtime_count}"
+                text += f"Состояние лишней меры: 🔘 <b>Неактивный</b>\nСколько лишней меры взято: {settler.overtime_count}"
             kb.inline_keyboard.append([InlineKeyboardButton(text="🕒 Взять лишнюю меру", callback_data="overtime_take")])
 
     
@@ -322,7 +321,7 @@ async def overtime_take(callback: types.CallbackQuery):
         log.debug(f"{callback.message.chat.id} | {settler.user_id} | 🔄 Лишняя мера взята: 0/{round((settler.level * 0.85 + 6) + (2 * (settler.overtime_count + 1)))}")
         await session.commit()
         
-        reset_countdown = core.get_daily_reset_countdown()
+        reset_countdown = get_daily_reset_countdown()
         await callback.message.edit_text(f"⏳ <b>Мера лишняя взялась!</b>\nПора тебе осталась 🕒 <b>{reset_countdown}</b> чтоб новую меру исполнить!")
         log.debug(f"{callback.message.chat.id} | Функция overtime_take() выполнена")
 
@@ -689,7 +688,7 @@ async def hitter_callback(callback: types.CallbackQuery):
     remaining_time = get_work_remaining_time(callback.message.chat.id)
     if remaining_time <= 0:
         await callback.answer("⏰ Пора труда миновала! Дело отложено.", True)
-        await callback.message.edit_text("⏰ Долго ты без дела стоял! Труд отложен.")
+        await callback.message.edit_text("⏰ <b>Долго ты без дела стоял!</b> Труд отложен.")
         return
     
     workflow_or_step = active_games.get(user_key)
@@ -760,7 +759,7 @@ async def hitter_callback(callback: types.CallbackQuery):
             return
     
     else:
-        # Поддержка одиночных мини-игр (например, 🎣 Catch), использующих callback "hit:idx"
+        # Поддержка одиночных шагов (например, 🎣 Catch), использующих callback "hit:idx"
         game = workflow_or_step
         if hasattr(game, 'click') and hasattr(game, 'render_keyboard'):
             result = game.click(position)
@@ -935,15 +934,14 @@ async def settings_callback(callback: types.CallbackQuery):
 @router.message(or_f(Command("help"), F.text.lower() == "Помощь", F.text.lower() == "@mysettlementbot помощь"))
 async def help_command(message: types.Message):
     help_text = (
-        "<b>❓ Помощь</b>\n\n"
-        'Добро пожаловать в игру <b>Моё поселение</b>! Это текстовая RPG, где вы — часть поселения.\n\n'
-        "<b>Основные команды:</b>\n"
-        "/start - Начать игру или перезапустить её\n"
-        "/help - Показать это сообщение помощи\n"
-        "/me - Показать профиль вашего поселенца\n"
-        "/craft - Выполнить работу для получения ресурсов и опыта\n"
-        "/inventory - Показать ваш инвентарь с ресурсами и предметами\n"
-        "Если у вас возникнут вопросы или проблемы, не стесняйтесь обращаться за помощью!"
+        "🛖 <b>Моё поселение</b> — текстовая MMORPG о жизни общины.\n"
+        "Ты выбираешь ремесло, трудишься в мини-играх и развиваешь поселенца.\n\n"
+        "▶️ <b>Как играть</b>\n"
+        "• /start — начать и осмотреть поселение\n"
+        "• /me — профиль и действия\n"
+        "• /choose_craft — выбрать ремесло\n"
+        "• /craft — начать работу\n\n"
+        '📚 Полные гайды <a href="https://mysettlement.github.io/">ТУТ</a>'
     )
     await message.answer(help_text, parse_mode=ParseMode.HTML)
 
@@ -970,7 +968,7 @@ async def quote_handler(message: types.Message):
             return
             
         try:
-            if await core.is_meaningful(message.text) and not settler.quote_is_completed:
+            if await is_meaningful(message.text) and not settler.quote_is_completed:
                 await core.update_quote(settler, settlement, session, 1)
                 return
         except Exception as e:

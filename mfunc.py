@@ -1,11 +1,17 @@
 import logging
 import time
 import asyncio
+import pytz
+import re
+from wordfreq import zipf_frequency
 from typing import Dict, Union
 from datetime import datetime, timedelta
+from aiogram import types
 
 from config import setup_logging
 from gamer import Harvesting, Hitting, Workflow
+from exceptions import GroupOwnerError
+from main import bot
 import models
 
 
@@ -21,6 +27,70 @@ user_last_click_time: Dict[str, float] = {}  # Последнее нажатие
 work_start_time: Dict[int, float] = {}  # Время начала работы по чатам
 work_timeout_tasks: Dict[int, asyncio.Task] = {}  # Задачи таймаута работы по чатам
 
+
+
+async def get_group_owner(chat_id: int) -> types.User:
+    try:
+        chat_admins = await bot.get_chat_administrators(chat_id)
+        for admin in chat_admins:
+            if admin.status == "creator":
+                return admin.user
+        if chat_admins:
+            return chat_admins[0].user
+        raise GroupOwnerError(f"Не удалось найти владельца группы {chat_id}", chat_id=chat_id)
+    except GroupOwnerError:
+        raise
+    except Exception as e:
+        raise GroupOwnerError(f"Ошибка API Telegram при получении владельца группы {chat_id}: {str(e)}", chat_id=chat_id)
+
+def get_daily_reset_countdown() -> str:
+    now = datetime.now(pytz.timezone('Europe/Kiev'))
+    
+    next_midnight = (now + timedelta(days=1)).replace(hour=0, minute=0, second=0, microsecond=0)
+    
+    time_diff = next_midnight - now
+    
+    hours = int(time_diff.total_seconds() // 3600)
+    minutes = int((time_diff.total_seconds() % 3600) // 60)
+    
+    return f"{hours}ч. {minutes}м." if hours > 0 else f"{minutes}м."
+
+async def is_meaningful(text: str, length: int = 3, words_amount: int = 1, lang: str = "ru") -> bool:
+    if not text:
+        return False
+
+    text = text.strip().lower()
+
+    if len(text) < length: # слишком короткие (меньше 3 символов)
+        return False
+    if re.fullmatch(r"[\W\d_]+", text): # только смайлы/спецсимволы/цифры
+        return False
+    if re.fullmatch(r"(.)\1{3,}", text): # повтор одинаковых букв (ааааа, лоллллл, хахахах)
+        return False
+    words = text.split()
+    if len(set(words)) == 1 and len(words) > words_amount: # повтор слов (привет привет привет)
+        return False
+    
+    # --- Проверка частоты слов ---
+    meaningful = 0
+    total = 0
+    for w in words:
+        w = re.sub(r"[^\wа-яё]", "", w)
+        if not w:
+            continue
+        total += 1
+        freq = zipf_frequency(w, lang)
+        if freq >= 1.5:  # нормальное слово
+            meaningful += 1
+
+    if total == 0:
+        return False
+
+    ratio = meaningful / total
+    if ratio < 0.4:  # меньше 40% нормальных слов
+        return False
+
+    return True
 
 def format_reward_text(earned: dict, exp_gained: int = 0) -> str:
     if not earned and exp_gained == 0:

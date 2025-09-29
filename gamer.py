@@ -223,6 +223,7 @@ class TimerStep:
         )
 
 class Catch :
+    #* Catch - шаг с целью попадания в 1 движущуюся цель
     def __init__(self, target="🎯", empty=" ", size=5,
                  rounds=3, status_text_func=None, hit_text="🎯 Попадание!",
                  miss_text="💥 Промах!", win_text="🏆 Победа!"):
@@ -292,6 +293,71 @@ class Catch :
             hit_text=self.hit_text,
             miss_text=self.miss_text,
             win_text=self.win_text
+        )
+
+class Milking:
+    #* Milking - шаг с для поочередного нажатия на 2 кнопки
+    def __init__(self, target_presses=10, 
+                 status_text_func=None, lose_text="🐮 Корова вас лягнула!", 
+                 win_text="🪣 Ведро наполнено молоком!", continue_text="💧 Продолжайте доить..."):
+        self.target_presses = target_presses
+        self.status_text_func = status_text_func
+        self.lose_text = lose_text
+        self.win_text = win_text
+        self.continue_text = continue_text
+        self.game_over = False
+        self.won = False
+        self._reset()
+
+    def _reset(self):
+        self.current_presses = 0
+        self.last_pressed_side = -1  # -1 - не определено, 0 - лево, 1 - право
+        self.game_over = False
+        self.won = False
+
+    def render_keyboard(self):
+        kb = InlineKeyboardBuilder()
+        kb.row(
+            types.InlineKeyboardButton(text="💧", callback_data="milking:0"),
+            types.InlineKeyboardButton(text="💧", callback_data="milking:1"),
+            width=2
+        )
+        return kb.as_markup()
+
+    def click(self, side: int):
+        if self.game_over:
+            return "game_over"
+
+        if side == self.last_pressed_side:
+            self.game_over = True
+            self.won = False
+            return "lose"
+
+        self.last_pressed_side = side
+        self.current_presses += 1
+
+        if self.current_presses >= self.target_presses:
+            self.game_over = True
+            self.won = True
+            return "win"
+
+        return "continue"
+    
+    def get_status_text(self):
+        if self.status_text_func:
+            return self.status_text_func(self)
+        
+        progress = int((self.current_presses / self.target_presses) * 10)
+        progress_bar = f"[{'█' * progress}{'_' * (10 - progress)}]"
+        return f"🐮 Дойка коровы...\nНаполнено: {self.current_presses}/{self.target_presses}\n{progress_bar}"
+
+    def copy(self):
+        return Milking(
+            target_presses=self.target_presses,
+            status_text_func=self.status_text_func,
+            lose_text=self.lose_text,
+            win_text=self.win_text,
+            continue_text=self.continue_text
         )
 
 

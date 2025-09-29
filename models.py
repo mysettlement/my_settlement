@@ -7,7 +7,7 @@ from enum import Enum
 from typing import ClassVar
 
 from database import Base
-from gamer import Hitting, TimerStep, Workflow, Harvesting, Catch
+from gamer import Hitting, TimerStep, Workflow, Harvesting, Catch, Milking
 
 
 
@@ -167,7 +167,7 @@ class WorkflowWork():
             win_text="🌾 Поле очищено!",
             continue_text="✅ Собрано!"
         )
-    
+
     @classmethod
     def get_tea_brewing_workflow(cls):
         if cls.tea_brewing_workflow is None:
@@ -194,7 +194,7 @@ class WorkflowWork():
                 complete_text="🍵 Отвар готов!"
             )
             
-            # Создаем workflow
+            # Workflow
             cls.tea_brewing_workflow = Workflow(
                 steps=[step1, step2],
                 name="🍵 Приготовление отвара",
@@ -240,6 +240,45 @@ class WorkflowWork():
             win_text="🐟 Рыба уловлена!"
         )
 
+    @classmethod
+    def get_catcher_milking(cls):
+        if cls.milking_workflow is None:
+            # Шаг 1: Подготовка (Harvesting)
+            step1 = Harvesting(
+                objects=["🐄", "💢", "💢", " "],
+                rules={
+                    "click": {"🐄": " "},
+                    "win_check": lambda field: not any(cell == "🐄" for row in field for cell in row)
+                },
+                size=3,
+                status_text_func=lambda game: "🪣 <b>Подготовка к доению:</b>\nПогладьте корову 🐄, чтобы она расслабилась!" if not game.game_over else ("✅ <b>Корова готова!</b>" if game.won else "💀 <b>Корову не разозлилась!</b>"),
+                lose_text="💀 Корова разозлилась!",
+                win_text="✅ Корова готова!",
+                continue_text="✅ Продолжайте гладить..."
+            )
+
+            # Шаг 2: Доение (Milking)
+            step2 = Milking(
+            target_presses=10,
+            status_text_func=lambda game: (
+                f"🐮 <b>Дойка коровы:</b>\n💧 <b>{game.current_presses}/{game.target_presses}</b>"
+                if not game.game_over else (
+                    "🥛 <b>Ведро наполнено!</b>" if game.won else "💀 <b>Корова вас лягнула!</b>"
+                )
+            ),
+            lose_text="💀 Корова вас лягнула!",
+            win_text="🥛 Ведро наполнено!",
+            continue_text="✅ Продолжайте доить..."
+            )
+
+            # Workflow
+            cls.milking_workflow = Workflow(
+                steps=[step1, step2],
+                name="🪣 Доение коровы",
+                status_text_func=lambda workflow: (workflow.get_current_step().get_status_text() if not workflow.completed else "🥛 <b>Ведро наполнено!</b>"),
+                complete_text="🥛 Ведро наполнено!"
+            )
+        return cls.milking_workflow
 
 # === PYDANTIC СХЕМЫ ===
 class SettlementBase(BaseModel):

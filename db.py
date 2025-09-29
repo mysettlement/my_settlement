@@ -33,7 +33,8 @@ async def init_db():
                 {"name": "Ягоды", "emoji": "🫐", "description": "Разнообразные собранные в лесу ягоды", "category": "Еда", "rarity": models.RarityLevel.UNCOMMON}, # 4
                 {"name": "Рыба", "emoji": "🐟", "description": "Пойманная в реке рыба", "category": "Еда", "rarity": models.RarityLevel.COMMON}, # 5
                 {"name": "Шерсть", "emoji": "☁️", "description": "Шерсть овец для создания ткани (🧺)", "category": "Материалы", "rarity": models.RarityLevel.COMMON}, # 6
-                {"name": "Ткань", "emoji": "🧺", "description": "Ткань из шерсти (☁️) для создания бинтов (🩹) и одежды", "category": "Материалы", "rarity": models.RarityLevel.COMMON}, # 7
+                {"name": "Молоко", "emoji": "🥛", "description": "Молоко полученное из коровы", "category": "Еда", "rarity": models.RarityLevel.COMMON}, # 6
+                {"name": "Ткань", "emoji": "🧺", "description": "Ткань из шерсти (☁️) для создания бинтов (🩹) и одежды", "category": "Материалы", "rarity": models.RarityLevel.UNCOMMON}, # 7
                 {"name": "Лён", "emoji": "🪴", "description": '<a href="https://ru.wikipedia.org/wiki/Лён">Лён</a> для создания <a href="https://ru.wikipedia.org/wiki/Льняное_масло">лечебных масел</a> и пропитывания ими ткани (🧺) для создания бинтов (🩹)', "category": "Материалы", "rarity": models.RarityLevel.COMMON}, # 8
                 {"name": "Кора", "emoji": "🎋", "description": 'Кора <a href="https://ru.wikipedia.org/wiki/Осина">осиного дерева</a> для создания лечебных отваров (🍵)', "category": "Материалы", "rarity": models.RarityLevel.UNCOMMON}, # 9
                 {"name": "Отвар", "emoji": "🍵", "description": "Целебный отвар из коры осины (🎋) для лечения болезней", "category": "Лекарства", "rarity": models.RarityLevel.UNCOMMON}, # 10 - 3 отвара для лечения болезни

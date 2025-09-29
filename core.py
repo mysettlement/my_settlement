@@ -170,7 +170,8 @@ def can_work_now(settler: models.Settler) -> tuple[bool, str]:
             remaining_time = cooldown - time_since_work
             hours = int(remaining_time.total_seconds() // 3600)
             minutes = int((remaining_time.total_seconds() % 3600) // 60)
-            return False, f"{hours}ч. {minutes}м." if hours > 0 else f"{minutes}м."
+            seconds = int(remaining_time.total_seconds() % 60)
+            return False, f"{hours}ч. {minutes}м. {seconds}с." if hours > 0 else f"{minutes}м. {seconds}с." if minutes > 0 else f"{seconds}с."
     
     return True, ""
 

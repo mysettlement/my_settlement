@@ -44,7 +44,7 @@ async def init_db():
                 resource_data = resource.copy()
                 resource_data['rarity'] = resource['rarity'].value
                 await session.execute(text("INSERT INTO resources (name, emoji, description, category, rarity) VALUES (:name, :emoji, :description, :category, :rarity) ON CONFLICT (name) DO NOTHING"), resource_data)
-
+ 
             professions_to_add = [
                 {"name": "Землепашец", "emoji": "🌻", "description": "Жнёт 🌾/🥔/🍄‍🟫/🫐 упорно трудясь в поле али лесу.", "required_level": 0}, # 1
                 {"name": "Ловчий", "emoji": "🐾", "description": "В лесу силки ставит, зверя бьёт да рыбу сетью тянет, скотину пасёт, чтоб 🐟/🍖/🥛/☁️ в общину нести.", "required_level": 0}, # 2

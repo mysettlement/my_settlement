@@ -157,12 +157,12 @@ async def get_resource_by_emoji(emoji: str, session: AsyncSession) -> models.Res
     return resource
 
 def can_work_now(settler: models.Settler) -> tuple[bool, str]:
-    #* Проверка доступности работы (через 5 часов после последней)
+    #* Проверка доступности работы
 
     
     current_time = datetime.now()
     last_work_time = datetime.fromtimestamp(settler.last_work_time) if settler.last_work_time else datetime.min
-    cooldown = timedelta(hours=5)
+    cooldown = timedelta(hours=settings.WORK_COOLDOWN_HOURS)
     
     if settler.work_is_completed:
         time_since_work = current_time - last_work_time

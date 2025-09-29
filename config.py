@@ -125,6 +125,7 @@ class Settings(BaseSettings):
     DB_PASS: str
     DB_NAME: str
     ADMIN_IDS: list[int]
+    WORK_COOLDOWN_HOURS: float = 0.03
 
     @property
     def DB_URL(self) -> str:

@@ -526,7 +526,13 @@ async def work_selection_callback(callback: types.CallbackQuery):
             await callback.answer("❌ Не тронь чужой снасти!", True)
             return
 
-    if not settler.profession_id or settler.profession_id != 2:
+    profession_emoji_by_key = {
+        "healer": "📔",
+        "catcher": "🐾",
+        "ploughman": "🌻",
+    }
+
+    if not settler.profession_id or settler.profession.emoji != profession_emoji_by_key.get(profession_key):
         await callback.answer("Сие дело твоему ремеслу не по плечу.", True)
         return
     
@@ -929,7 +935,6 @@ async def settings_callback(callback: types.CallbackQuery):
         
         await callback.message.edit_text(text=text, reply_markup=kb)
         log.debug(f"{callback.message.chat.id} | Функция settings_callback() выполнена")
-
 
 @router.message(or_f(Command("help"), F.text.lower() == "Помощь", F.text.lower() == "@mysettlementbot помощь"))
 async def help_command(message: types.Message):

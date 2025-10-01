@@ -146,6 +146,7 @@ class UserSettings(Base):
 class WorkflowWork():
     #* Многошаговая работа
     tea_brewing_workflow = None
+    milking_workflow = None
     
     @classmethod
     def get_ploughman_harvesting(cls):
@@ -199,7 +200,8 @@ class WorkflowWork():
                 steps=[step1, step2],
                 name="🍵 Приготовление отвара",
                 status_text_func=lambda workflow: (workflow.get_current_step().get_status_text() if not workflow.completed else "🍵 <b>Отвар готов!</b>"),
-                complete_text="🍵 Отвар готов!"
+                complete_text="🍵 Отвар готов!",
+                cooldown_on_fail=False
             )
         
         return cls.tea_brewing_workflow
@@ -247,36 +249,39 @@ class WorkflowWork():
             step1 = Harvesting(
                 objects=["🐄", "💢", "💢", " "],
                 rules={
+                    "forbidden": ["💢"],
                     "click": {"🐄": " "},
                     "win_check": lambda field: not any(cell == "🐄" for row in field for cell in row)
                 },
                 size=3,
-                status_text_func=lambda game: "🪣 <b>Подготовка к доению:</b>\nПогладьте корову 🐄, чтобы она расслабилась!" if not game.game_over else ("✅ <b>Корова готова!</b>" if game.won else "💀 <b>Корову не разозлилась!</b>"),
+                status_text_func=lambda game: "🪣 <b>Успокоение коровы:</b>\nПогладь корову 🐄" if not game.game_over else ("✅ <b>Корова успокоилась!</b>" if game.won else "💀 <b>Корова разозлилась!</b>"),
                 lose_text="💀 Корова разозлилась!",
-                win_text="✅ Корова готова!",
-                continue_text="✅ Продолжайте гладить..."
+                win_text="✅ Корова успокоилась!",
+                continue_text="✅ Продолжайте гладить...",
+                required_at_least_one="🐄"
             )
 
             # Шаг 2: Доение (Milking)
             step2 = Milking(
-            target_presses=10,
-            status_text_func=lambda game: (
-                f"🐮 <b>Дойка коровы:</b>\n💧 <b>{game.current_presses}/{game.target_presses}</b>"
-                if not game.game_over else (
-                    "🥛 <b>Ведро наполнено!</b>" if game.won else "💀 <b>Корова вас лягнула!</b>"
-                )
-            ),
-            lose_text="💀 Корова вас лягнула!",
-            win_text="🥛 Ведро наполнено!",
-            continue_text="✅ Продолжайте доить..."
+                target_presses=10,
+                status_text_func=lambda game: (
+                    f"🐮 <b>Доение коровы:</b>\nЧередуй нажим на ручки: 💧💧\n<b>{game.current_presses}/{game.target_presses}</b>"
+                    if not game.game_over else (
+                        "🥛 <b>Ведро наполнено!</b>" if game.won else "💀 <b>Корова вас лягнула!</b>"
+                    )
+                ),
+                lose_text="💀 Корова вас лягнула!",
+                win_text="🥛 Ведро наполнено!",
+                continue_text="✅ Продолжайте доить..."
             )
 
             # Workflow
             cls.milking_workflow = Workflow(
                 steps=[step1, step2],
                 name="🪣 Доение коровы",
-                status_text_func=lambda workflow: (workflow.get_current_step().get_status_text() if not workflow.completed else "🥛 <b>Ведро наполнено!</b>"),
-                complete_text="🥛 Ведро наполнено!"
+                status_text_func=lambda workflow: (workflow.get_current_step().get_status_text() if not workflow.completed else "🥛 <b>Молоко собрано!</b>"),
+                complete_text="🥛 Молоко собрано!",
+                cooldown_on_fail=True
             )
         return cls.milking_workflow
 

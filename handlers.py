@@ -493,8 +493,10 @@ async def craft_command(message: types.Message):
         
     elif settler.profession.emoji == "📔":  # 📔 Знахарь
         kb = InlineKeyboardBuilder()
-        kb.row(InlineKeyboardButton(text="🪴 Сбор трав", callback_data="select_work:healer:herbs"), InlineKeyboardButton(text="🍵 Приготовление отвара", callback_data="select_work:healer:tea"), width=2)
-        kb.adjust(1)
+        crafts = []
+        crafts.append(InlineKeyboardButton(text="🪴 Сбор трав", callback_data="select_work:healer:herbs"))
+        crafts.append(InlineKeyboardButton(text="🍵 Приготовление отвара", callback_data="select_work:healer:tea"))
+        kb.row(*crafts, width=2)
         await message.reply("Избери труд 📔 <b>Знахаря:</b>", reply_markup=kb.as_markup(), disable_notification=True)
         return
     
@@ -505,7 +507,6 @@ async def craft_command(message: types.Message):
         crafts.append(InlineKeyboardButton(text="🪣 Доение", callback_data="select_work:catcher:milking"))
         kb.row(*crafts, width=2)
 
-        kb.adjust(1)
         await message.reply("Избери труд 🐾 <b>Ловчего:</b>", reply_markup=kb.as_markup(), disable_notification=True)
         return
     
@@ -613,7 +614,7 @@ async def work_selection_callback(callback: types.CallbackQuery):
             start_work(callback.message.chat.id)
             step = models.WorkflowWork.get_catcher_milking().copy()
             active_games[user_key] = step
-            text = f"🪣 <b>Доение:</b>\nНажимайте поочередно на 💧!\n⏰ Пора тебе осталась <b>3 мин</b>."
+            text = f"🪣 <b>Доение:</b>\nСначала успокойте корову!\n⏰ Пора тебе осталась <b>3 мин</b>."
             kb = step.render_keyboard()
             await callback.message.edit_text(text, reply_markup=kb)
             await callback.answer("Начинаем доение! 🪣")
@@ -642,70 +643,115 @@ async def harvest_callback(callback: types.CallbackQuery):
         await callback.message.edit_text("⏰ Долго ты без дела стоял! Труд отложен.")
         return
     
-    game = active_games.get(user_key)
+    workflow_or_step = active_games.get(user_key)
     
-    if not game:
+    if not workflow_or_step:
         await callback.answer("❌ Дело не сыскано. Может, ты уж его свершил, али вовсе не твоё то дело?")
         return
     
-    result = game.click(int(i), int(j))
+    # Поддержка как одиночного шага, так и шага внутри Workflow
+    if hasattr(workflow_or_step, 'get_current_step'):
+        workflow = workflow_or_step
+        current_step = workflow.get_current_step()
+        if not current_step or not hasattr(current_step, 'click'):
+            await callback.answer("Неверный ход!")
+            return
+        result = current_step.click(int(i), int(j))
 
-    if result == "lose":
-        text = f"{game.get_status_text()}"
-        await callback.message.edit_text(text)
-        await callback.answer(game.lose_text)
-        async with SessionLocal() as session:
-            await core.end_work(settler, callback.message.chat.id, session, settler.profession, rewards={}, mark_work_completed=True)
-        active_games.pop(user_key, None)
-        end_work(callback.message.chat.id)
-        log.debug(f"{callback.message.chat.id} | {settler.user_id} | 💀 Собирательство испорчено!")
-        
-    elif result == "win":
-        text = f"{game.get_status_text()}"
-        await callback.message.edit_text(text)
-        await callback.answer(game.win_text)
-        async with SessionLocal() as session:
-            # Определяем награду в зависимости от профессии
-            rewards = {}
-            if settler.profession.emoji == "🌻":  # Землепашец
-                resources = {
-                    "🌾": (1, 3),  # Пшеница
-                    "🥔": (1, 2),  # Картофель
-                    "🍄": (1, 2),  # Грибы
-                    "🫐": (1, 2)   # Ягоды
-                }
-                resource_emoji = random.choice(list(resources.keys()))
-                amount = random.randint(*resources[resource_emoji])
-                resource = await core.get_resource_by_emoji(resource_emoji, session)
-                rewards = {resource.id: amount}
-            elif settler.profession.emoji == "📔":  # Знахарь
-                # Сбор трав
-                herb_resource = await core.get_resource_by_emoji("🪴", session)
-                bark_resource = await core.get_resource_by_emoji("🎋", session)
-                rewards = {
-                    herb_resource.id: random.randint(1, 2),
-                    bark_resource.id: random.randint(1, 2)
-                }
+        if result == "lose":
+            text = f"{workflow.get_status_text()}"
+            await callback.message.edit_text(text)
+            await callback.answer(getattr(current_step, 'lose_text', "💀 Проигрыш!"))
+            workflow.fail_workflow()
+            if getattr(workflow, 'cooldown_on_fail', False):
+                async with SessionLocal() as session:
+                    await core.end_work(settler, callback.message.chat.id, session, settler.profession, rewards={}, mark_work_completed=True)
+            active_games.pop(user_key, None)
+            end_work(callback.message.chat.id)
+            log.debug(f"{callback.message.chat.id} | {settler.user_id} | 💀 Сбор в workflow испорчен!")
+        elif result == "win":
+            if workflow.next_step():
+                text = f"{workflow.get_status_text()}"
+                await callback.message.edit_text(text)
+                await callback.answer(workflow.complete_text)
+                
+                active_games.pop(user_key, None)
+                end_work(callback.message.chat.id)
+                log.debug(f"{callback.message.chat.id} | {settler.user_id} | 💼 Труд завершён!")
+            else:
+                text = f"{workflow.get_status_text()}"
+                kb = workflow.render_keyboard()
+                await callback.message.edit_text(text, reply_markup=kb)
+                await callback.answer(getattr(current_step, 'win_text', "✅ Успех!"))
+                log.debug(f"{callback.message.chat.id} | {settler.user_id} | ➡️ Переход к следующему шагу")
+        elif result == "continue":
+            text = f"{workflow.get_status_text()}"
+            kb = workflow.render_keyboard()
+            await callback.message.edit_text(text, reply_markup=kb)
+            await callback.answer(getattr(current_step, 'continue_text', "✅ Продолжайте!"))
+            log.debug(f"{callback.message.chat.id} | {settler.user_id} | 🌾 Сбор продолжается...")
+        elif result == "game_over":
+            await callback.answer("Ход уже завершён!")
+            return
+    else:
+        game = workflow_or_step
+        result = game.click(int(i), int(j))
 
-            earned, exp_gained = await core.end_work(settler, callback.message.chat.id, session, settler.profession, 
-                                        rewards=rewards, mark_work_completed=True)
-            if earned or exp_gained > 0:
-                await callback.message.edit_text(text + format_reward_text(earned, exp_gained))
-        
-        active_games.pop(user_key, None)
-        end_work(callback.message.chat.id)
-        log.debug(f"{callback.message.chat.id} | {settler.user_id} | 💼 Труд завершён!")
-        
-    elif result == "continue":
-        text = f"{game.get_status_text()}"
-        kb = game.render_keyboard()
-        await callback.message.edit_text(text, reply_markup=kb)
-        await callback.answer(game.continue_text)
-        log.debug(f"{callback.message.chat.id} | {settler.user_id} | 🌾 Собрано...")
-        
-    elif result == "game_over":
-        await callback.answer("Ход уже завершён!")
-        return
+        if result == "lose":
+            text = f"{game.get_status_text()}"
+            await callback.message.edit_text(text)
+            await callback.answer(game.lose_text)
+            async with SessionLocal() as session:
+                await core.end_work(settler, callback.message.chat.id, session, settler.profession, rewards={}, mark_work_completed=True)
+            active_games.pop(user_key, None)
+            end_work(callback.message.chat.id)
+            log.debug(f"{callback.message.chat.id} | {settler.user_id} | 💀 Собирательство испорчено!")
+            
+        elif result == "win":
+            text = f"{game.get_status_text()}"
+            await callback.message.edit_text(text)
+            await callback.answer(game.win_text)
+            async with SessionLocal() as session:
+                # Определяем награду в зависимости от профессии
+                rewards = {}
+                if settler.profession.emoji == "🌻":  # Землепашец
+                    resources = {
+                        "🌾": (1, 3),
+                        "🥔": (1, 2),
+                        "🍄": (1, 2),
+                        "🫐": (1, 2)
+                    }
+                    resource_emoji = random.choice(list(resources.keys()))
+                    amount = random.randint(*resources[resource_emoji])
+                    resource = await core.get_resource_by_emoji(resource_emoji, session)
+                    rewards = {resource.id: amount}
+                elif settler.profession.emoji == "📔":  # Знахарь
+                    herb_resource = await core.get_resource_by_emoji("🪴", session)
+                    bark_resource = await core.get_resource_by_emoji("🎋", session)
+                    rewards = {
+                        herb_resource.id: random.randint(1, 2),
+                        bark_resource.id: random.randint(1, 2)
+                    }
+
+                earned, exp_gained = await core.end_work(settler, callback.message.chat.id, session, settler.profession, 
+                                            rewards=rewards, mark_work_completed=True)
+                if earned or exp_gained > 0:
+                    await callback.message.edit_text(text + format_reward_text(earned, exp_gained))
+            
+            active_games.pop(user_key, None)
+            end_work(callback.message.chat.id)
+            log.debug(f"{callback.message.chat.id} | {settler.user_id} | 💼 Труд завершён!")
+            
+        elif result == "continue":
+            text = f"{game.get_status_text()}"
+            kb = game.render_keyboard()
+            await callback.message.edit_text(text, reply_markup=kb)
+            await callback.answer(game.continue_text)
+            log.debug(f"{callback.message.chat.id} | {settler.user_id} | 🌾 Собрано...")
+            
+        elif result == "game_over":
+            await callback.answer("Ход уже завершён!")
+            return
 
     await callback.answer()
     log.debug(f"{callback.message.chat.id} | Функция harvest_callback() выполнена")
@@ -766,6 +812,9 @@ async def hitter_callback(callback: types.CallbackQuery):
             await callback.message.edit_text(text)
             await callback.answer(current_step.miss_text)
             workflow.fail_workflow()
+            if getattr(workflow, 'cooldown_on_fail', False):
+                async with SessionLocal() as session:
+                    await core.end_work(settler, callback.message.chat.id, session, settler.profession, rewards={}, mark_work_completed=True)
             active_games.pop(user_key, None)
             end_work(callback.message.chat.id)
             log.debug(f"{callback.message.chat.id} | {settler.user_id} | 💀 Промах! Труд провален!")
@@ -943,48 +992,105 @@ async def milking_callback(callback: types.CallbackQuery):
         await callback.message.edit_text("⏰ <b>Долго ты без дела стоял!</b> Труд отложен.")
         return
     
-    game = active_games.get(user_key)
+    workflow_or_step = active_games.get(user_key)
     
-    if not game:
+    if not workflow_or_step:
         await callback.answer("❌ Дело не сыскано. Может, ты его свершил, али вовсе не твоё то дело?")
         return
-    
-    result = game.click(chosen)
-
-    if result == "lose":
-        text = f"{game.get_status_text()}"
-        await callback.message.edit_text(text)
-        await callback.answer(game.fail_text)
-        async with SessionLocal() as session:
-            await core.end_work(settler, callback.message.chat.id, session, settler.profession, rewards={}, mark_work_completed=True)
-        active_games.pop(user_key, None)
-        end_work(callback.message.chat.id)
-        log.debug(f"{callback.message.chat.id} | {settler.user_id} | 💀 Доение испорчено!")
-        
-    elif result == "win":
-        text = f"{game.get_status_text()}"
-        await callback.message.edit_text(text)
-        await callback.answer(game.win_text)
-        async with SessionLocal() as session:
-            milk_resource = await core.get_resource_by_emoji("🥛", session)
-            earned, exp_gained = await core.end_work(settler, callback.message.chat.id, session, settler.profession, 
-                                        rewards={milk_resource.id: random.randint(1, 3)}, mark_work_completed=True)
-            if earned or exp_gained > 0:
-                await callback.message.edit_text(text + format_reward_text(earned, exp_gained))
-        active_games.pop(user_key, None)
-        end_work(callback.message.chat.id)
-        log.debug(f"{callback.message.chat.id} | {settler.user_id} | 🪣  Доение завершено!")
-        
-    elif result == "continue":
-        text = f"{game.get_status_text()}"
-        kb = game.render_keyboard()
-        await callback.message.edit_text(text, reply_markup=kb)
-        await callback.answer(game.continue_text)
-        log.debug(f"{callback.message.chat.id} | {settler.user_id} | 🐄 Подоено...")
-        
-    elif result == "game_over":
-        await callback.answer("Ход уже завершён!")
+    try:
+        chosen_int = int(chosen)
+    except ValueError:
+        await callback.answer("Неверный ход!", True)
         return
+    
+    # Поддержка как одиночного шага, так и шага внутри Workflow
+    if hasattr(workflow_or_step, 'get_current_step'):
+        workflow = workflow_or_step
+        current_step = workflow.get_current_step()
+        if not current_step or not hasattr(current_step, 'click'):
+            await callback.answer("Неверный ход!")
+            return
+        result = current_step.click(chosen_int)
+
+        if result == "lose":
+            text = f"{workflow.get_status_text()}"
+            await callback.message.edit_text(text)
+            await callback.answer(getattr(current_step, 'lose_text', "💀 Проигрыш!"))
+            workflow.fail_workflow()
+            if getattr(workflow, 'cooldown_on_fail', False):
+                async with SessionLocal() as session:
+                    await core.end_work(settler, callback.message.chat.id, session, settler.profession, rewards={}, mark_work_completed=True)
+            active_games.pop(user_key, None)
+            end_work(callback.message.chat.id)
+            log.debug(f"{callback.message.chat.id} | {settler.user_id} | 💀 Доение в workflow испорчено!")
+        elif result == "win":
+            if workflow.next_step():
+                text = f"{workflow.get_status_text()}"
+                await callback.message.edit_text(text)
+                await callback.answer(workflow.complete_text)
+                async with SessionLocal() as session:
+                    milk_resource = await core.get_resource_by_emoji("🥛", session)
+                    earned, exp_gained = await core.end_work(settler, callback.message.chat.id, session, settler.profession, 
+                                                rewards={milk_resource.id: random.randint(1, 3)}, mark_work_completed=True)
+                    if earned or exp_gained > 0:
+                        await callback.message.edit_text(text + format_reward_text(earned, exp_gained))
+                active_games.pop(user_key, None)
+                end_work(callback.message.chat.id)
+                log.debug(f"{callback.message.chat.id} | {settler.user_id} | 🪣 Доение завершено!")
+            else:
+                text = f"{workflow.get_status_text()}"
+                kb = workflow.render_keyboard()
+                await callback.message.edit_text(text, reply_markup=kb)
+                await callback.answer(getattr(current_step, 'win_text', "✅ Успех!"))
+                log.debug(f"{callback.message.chat.id} | {settler.user_id} | ➡️ Переход к следующему шагу")
+        elif result == "continue":
+            text = f"{workflow.get_status_text()}"
+            kb = workflow.render_keyboard()
+            await callback.message.edit_text(text, reply_markup=kb)
+            await callback.answer(getattr(current_step, 'continue_text', "✅ Продолжайте!"))
+            log.debug(f"{callback.message.chat.id} | {settler.user_id} | 🐄 Доение продолжается...")
+        elif result == "game_over":
+            await callback.answer("Ход уже завершён!")
+            return
+    else:
+        game = workflow_or_step
+        result = game.click(chosen_int)
+
+        if result == "lose":
+            text = f"{game.get_status_text()}"
+            await callback.message.edit_text(text)
+            await callback.answer(getattr(game, 'lose_text', "💀 Проигрыш!"))
+            async with SessionLocal() as session:
+                await core.end_work(settler, callback.message.chat.id, session, settler.profession, rewards={}, mark_work_completed=True)
+            active_games.pop(user_key, None)
+            end_work(callback.message.chat.id)
+            log.debug(f"{callback.message.chat.id} | {settler.user_id} | 💀 Доение испорчено!")
+            
+        elif result == "win":
+            text = f"{game.get_status_text()}"
+            await callback.message.edit_text(text)
+            await callback.answer(game.win_text)
+            async with SessionLocal() as session:
+                milk_resource = await core.get_resource_by_emoji("🥛", session)
+                earned, exp_gained = await core.end_work(settler, callback.message.chat.id, session, settler.profession, 
+                                            rewards={milk_resource.id: random.randint(1, 3)}, mark_work_completed=True)
+                if earned or exp_gained > 0:
+                    await callback.message.edit_text(text + format_reward_text(earned, exp_gained))
+        
+            active_games.pop(user_key, None)
+            end_work(callback.message.chat.id)
+            log.debug(f"{callback.message.chat.id} | {settler.user_id} | 🪣  Доение завершено!")
+            
+        elif result == "continue":
+            text = f"{game.get_status_text()}"
+            kb = game.render_keyboard()
+            await callback.message.edit_text(text, reply_markup=kb)
+            await callback.answer(game.continue_text)
+            log.debug(f"{callback.message.chat.id} | {settler.user_id} | 🐄 Подоено...")
+            
+        elif result == "game_over":
+            await callback.answer("Ход уже завершён!")
+            return
     
     log.debug(f"{callback.message.chat.id} | Функция milking_callback() выполнена")
 

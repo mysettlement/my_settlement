@@ -10,7 +10,8 @@ class Harvesting:
     #* Harvesting - шаг со сбором
     def __init__(self, objects, rules, size=5, 
                  status_text_func=None, lose_text="❌ Проигрыш!", 
-                 win_text="🏆 Победа!", continue_text="✅ Продолжайте!"):
+                 win_text="🏆 Победа!", continue_text="✅ Продолжайте!",
+                 required_at_least_one=None):
         self.size = size
         self.objects = objects
         self.rules = rules
@@ -18,12 +19,22 @@ class Harvesting:
         self.lose_text = lose_text
         self.win_text = win_text
         self.continue_text = continue_text
+        self.required_at_least_one = required_at_least_one
         self.game_over = False
         self.won = False
         self._reset_field()
 
     def _reset_field(self):
         self.field = [[random.choice(self.objects) for _ in range(self.size)] for _ in range(self.size)]
+        if self.required_at_least_one:
+            required = self.required_at_least_one
+            if isinstance(required, str):
+                required = [required]
+            has_required = any(cell in required for row in self.field for cell in row)
+            if not has_required:
+                i = random.randint(0, self.size - 1)
+                j = random.randint(0, self.size - 1)
+                self.field[i][j] = random.choice(required)
         self.game_over = False
         self.won = False
 
@@ -73,7 +84,8 @@ class Harvesting:
             status_text_func=self.status_text_func,
             lose_text=self.lose_text,
             win_text=self.win_text,
-            continue_text=self.continue_text
+            continue_text=self.continue_text,
+            required_at_least_one=copy.deepcopy(self.required_at_least_one)
         )
 
 class Hitting:
@@ -346,10 +358,7 @@ class Milking:
     def get_status_text(self):
         if self.status_text_func:
             return self.status_text_func(self)
-        
-        progress = int((self.current_presses / self.target_presses) * 10)
-        progress_bar = f"[{'█' * progress}{'_' * (10 - progress)}]"
-        return f"🐮 Дойка коровы...\nНаполнено: {self.current_presses}/{self.target_presses}\n{progress_bar}"
+        return f"🐮 Дойка коровы...\nНаполнено: {self.current_presses}/{self.target_presses}"
 
     def copy(self):
         return Milking(
@@ -364,7 +373,8 @@ class Milking:
 class Workflow:
     #* Workflow - система многошаговых работ
     def __init__(self, steps, name="Работа", 
-                 status_text_func=None, complete_text="🏆 Работа завершена!"):
+                 status_text_func=None, complete_text="🏆 Работа завершена!",
+                 cooldown_on_fail=False):
         self.steps = steps  # Список шагов
         self.name = name
         self.status_text_func = status_text_func
@@ -372,6 +382,7 @@ class Workflow:
         self.current_step = 0
         self.completed = False
         self.failed = False
+        self.cooldown_on_fail = cooldown_on_fail
     
     def get_current_step(self):
         if self.current_step < len(self.steps):
@@ -428,5 +439,6 @@ class Workflow:
             steps=copied_steps,
             name=self.name,
             status_text_func=self.status_text_func,
-            complete_text=self.complete_text
+            complete_text=self.complete_text,
+            cooldown_on_fail=self.cooldown_on_fail
         )

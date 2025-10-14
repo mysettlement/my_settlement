@@ -47,7 +47,7 @@ async def init_db():
             for resource in resources_to_add:
                 resource_data = resource.copy()
                 resource_data['rarity'] = resource['rarity'].value
-                await session.execute(text("INSERT INTO resources (name, emoji, description, category, rarity) VALUES (:name, :emoji, :description, :category, :rarity) ON CONFLICT (name) DO NOTHING"), resource_data)
+                await session.execute(text("INSERT INTO resources (name, emoji, description, category, from, for, rarity) VALUES (:name, :emoji, :description, :category, :from, :for, :rarity) ON CONFLICT (name) DO NOTHING"), resource_data)
  
             professions_to_add = [
                 {"name": "Землепашец", "emoji": "🌻", "description": "Жнёт 🌾/🥔/🍄‍🟫/🫐 упорно трудясь в поле али лесу.", "collects": "🌾/🥔/🍄‍🟫/🫐", "required_level": 0}, # 1
@@ -57,7 +57,7 @@ async def init_db():
                 {"name": "Мастеровой", "emoji": "🧰", "description": "", "crafts": "🥾/🧥/🪑/🗡", "required_level": 0} # 5
             ]
             for profession in professions_to_add:
-                await session.execute(text("INSERT INTO professions (name, emoji, description, required_level) VALUES (:name, :emoji, :description, :required_level) ON CONFLICT (name) DO NOTHING"), profession)
+                await session.execute(text("INSERT INTO professions (name, emoji, description, crafts, collects, required_level) VALUES (:name, :emoji, :description, :crafts, :collects, :required_level) ON CONFLICT (name) DO NOTHING"), profession)
 
             await session.commit()
         log.info("База данных инициализирована.")

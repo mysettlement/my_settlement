@@ -1100,22 +1100,17 @@ async def milking_callback(callback: types.CallbackQuery):
 async def settings_command(message: types.Message):
     #* Обработка команды /settings
     user = await core.user_getOrCreate(message.from_user)
-    settlement = await core.settlement_getOrCreate(message.chat, user)
-    settler = await core.settler_getOrCreate(user, settlement)
 
-    async with SessionLocal() as session:
-        user_settings = await core.settings_getOrCreate(user, session)
-
-        kb = InlineKeyboardMarkup(inline_keyboard=[
-            [InlineKeyboardButton(text=f"🎩 Стиль: {'🤏' if user_settings.compact_style else '🤲'}", callback_data="settings:messages_style")],
-        ])
-        
-        text = f"⚙️ <b>Настройки</b>"
-        text += f"\n🎩 Стиль сообщений: <b>{'🤏 Компактный' if user_settings.compact_style else '🤲 Развёрнутый'}</b>"
-        text += "\n\nℹ️ Настройки сохраняются для каждого пользователя отдельно."
-        
-        await message.reply(text=text, reply_markup=kb, disable_notification=True)
-        log.debug(f"{message.chat.id} | Функция settings_command() выполнена")
+    kb = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text=f"🎩 Стиль: {'🤏' if user.compact_style else '🤲'}", callback_data="settings:messages_style")],
+    ])
+    
+    text = f"⚙️ <b>Настройки</b>"
+    text += f"\n🎩 Стиль сообщений: <b>{'🤏 Компактный' if user.compact_style else '🤲 Развёрнутый'}</b>"
+    text += "\n\nℹ️ Настройки сохраняются для каждого пользователя отдельно."
+    
+    await message.reply(text=text, reply_markup=kb, disable_notification=True)
+    log.debug(f"{message.chat.id} | Функция settings_command() выполнена")
 
 @router.callback_query(F.data.startswith("settings:"))
 async def settings_callback(callback: types.CallbackQuery):

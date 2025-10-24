@@ -19,9 +19,6 @@ log = setup_logging(logging.getLogger(__name__))
 async def reset_database():
     """Полностью перезагружает базу данных - удаляет все и пересоздает"""
     
-    log.warning("🚨 НАЧИНАЕМ ПОЛНУЮ ПЕРЕЗАГРУЗКУ БАЗЫ ДАННЫХ!")
-    log.warning("⚠️  ВСЕ ДАННЫЕ БУДУТ УДАЛЕНЫ!")
-    
     engine = create_async_engine(
         url=settings.DB_URL,
         pool_size=20
@@ -29,17 +26,27 @@ async def reset_database():
     
     try:
         async with engine.begin() as conn:
-            # Удаляем все таблицы
-            log.info("🗑️  Удаление всех таблиц...")
-            await conn.run_sync(Base.metadata.drop_all)
-            log.info("✅ Все таблицы удалены")
+            result = await conn.execute(text("""
+                SELECT table_name 
+                FROM information_schema.tables 
+                WHERE table_schema = 'public' 
+                AND table_type = 'BASE TABLE'
+            """))
             
-            # Создаем таблицы заново
-            log.info("🏗️  Создание новых таблиц...")
+            tables = [row[0] for row in result.fetchall()]
+            log.info(f"🔍 Найдено таблиц: {', '.join(tables)}")
+            
+            if tables:
+                for table in tables:
+                    try:
+                        await conn.execute(text(f'DROP TABLE IF EXISTS "{table}" CASCADE'))
+                    except Exception as e:
+                        log.warning(f"⚠️  Не удалось удалить таблицу {table}: {e}")
+                log.info("✅ Все таблицы удалены")
+            else:
+                log.info("ℹ️  Таблицы для удаления не найдены")
             await conn.run_sync(Base.metadata.create_all)
-            log.info("✅ Таблицы пересозданы")
             
-            # Проверяем, что таблицы созданы
             result = await conn.execute(text("""
                 SELECT table_name 
                 FROM information_schema.tables 
@@ -49,9 +56,6 @@ async def reset_database():
             
             tables = [row[0] for row in result.fetchall()]
             log.info(f"📋 Созданные таблицы: {', '.join(tables)}")
-            
-        log.info("🎉 База данных успешно перезагружена!")
-        log.info("✨ Все данные очищены, схема пересоздана")
         
     except Exception as e:
         log.error(f"❌ Ошибка при перезагрузке базы данных: {e}")
@@ -60,17 +64,11 @@ async def reset_database():
         await engine.dispose()
 
 if __name__ == "__main__":
-    print("=" * 60)
-    print("🔄 СКРИПТ ПЕРЕЗАГРУЗКИ БАЗЫ ДАННЫХ")
-    print("=" * 60)
-    print("⚠️  ВНИМАНИЕ: Все данные будут удалены!")
-    print()
     
     # Запрашиваем подтверждение
     confirm = input("Вы уверены, что хотите продолжить? (yes/no): ").lower().strip()
     
     if confirm in ["no", "n", "нет", "н"]:
-        print("❌ Операция отменена пользователем")
+        log.info("❌ Операция отменена пользователем")
     else:
-        print("🚀 Запуск перезагрузки...")
         asyncio.run(reset_database())

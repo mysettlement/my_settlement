@@ -62,9 +62,9 @@ class User(Base):
     id = Column(BigInteger, primary_key=True, index=True) # внутренний id
     user_id = Column(BigInteger, unique=True, index=True) # id пользователя в телеграме
     name = Column(String)
+    compact_style = Column(Boolean, server_default="False")
     owned_settlements = relationship("Settlement", back_populates="owner")
     memberships = relationship("Settler", back_populates="user")
-    settings = relationship("UserSettings", back_populates="user", uselist=False, cascade="all, delete-orphan")
 
 class Settlement(Base):
     __tablename__ = "settlements"
@@ -130,15 +130,6 @@ class Profession(Base):
     emoji = Column(String, nullable=True)
     description = Column(String, nullable=True)
     required_level = Column(Integer)
-
-class UserSettings(Base):
-    __tablename__ = "user_settings"
-
-    id = Column(BigInteger, primary_key=True, index=True)
-    user_id = Column(BigInteger, ForeignKey("users.id"), unique=True)
-    compact_style = Column(Boolean, server_default="False")
-    
-    user = relationship("User", back_populates="settings")
 
 
 # === РАБОТЫ ===

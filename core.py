@@ -21,7 +21,6 @@ log = setup_logging(logging.getLogger(__name__))
 
 
 
-
 async def user_getOrCreate(telegram_user: types.User):
     #* Получение или создание пользователя
     try:
@@ -145,50 +144,6 @@ async def settler_getOrCreate(user: models.User, settlement: models.Settlement):
                 return settler
     except Exception as e:
         raise SettlerCreationError(f"Ошибка при создании/получении поселенца {user.id} в поселении {settlement.id}: {str(e)}", user_id=user.id)
-
-async def get_resource_by_emoji(emoji: str, session: AsyncSession) -> models.Resource:
-    #* Получение ресурса по эмодзи
-    result = await session.execute(
-        select(models.Resource).where(models.Resource.emoji == emoji)
-    )
-    resource = result.scalars().first()
-    if not resource:
-        raise ValueError(f"Ресурс с эмодзи '{emoji}' не найден")
-    return resource
-
-def can_work_now(settler: models.Settler) -> tuple[bool, str]:
-    #* Проверка доступности работы
-
-    
-    current_time = datetime.now()
-    last_work_time = datetime.fromtimestamp(settler.last_work_time) if settler.last_work_time else datetime.min
-    cooldown = timedelta(hours=settings.WORK_COOLDOWN_HOURS)
-    
-    if settler.work_is_completed:
-        time_since_work = current_time - last_work_time
-        if time_since_work < cooldown:
-            remaining_time = cooldown - time_since_work
-            hours = int(remaining_time.total_seconds() // 3600)
-            minutes = int((remaining_time.total_seconds() % 3600) // 60)
-            seconds = int(remaining_time.total_seconds() % 60)
-            return False, f"{hours}ч. {minutes}м. {seconds}с." if hours > 0 else f"{minutes}м. {seconds}с." if minutes > 0 else f"{seconds}с."
-    
-    return True, ""
-
-async def settings_getOrCreate(user: models.User, session: AsyncSession) -> models.UserSettings:
-    #* Получение или создание настроек пользователя
-    result = await session.execute(
-        select(models.UserSettings).where(models.UserSettings.user_id == user.id)
-    )
-    user_settings = result.scalars().first()
-    
-    if not user_settings:
-        user_settings = models.UserSettings(user_id=user.id)
-        session.add(user_settings)
-        await session.commit()
-        log.debug(f"Созданы настройки для пользователя {user.user_id}")
-    
-    return user_settings
 
 async def settler_addExp(settler: models.Settler, settlement: models.Settlement, session: AsyncSession, exp: int):
     result = await session.execute(
@@ -332,6 +287,35 @@ async def update_quote(settler: models.Settler, settlement: models.Settlement, s
     log.debug(f"{settlement.chat_id} | {current_settler.user_id} | 🔄 Мера обновлена: {current_settler.quote}/{current_settler.target_quote}")
     await session.commit()
     await session.refresh(current_settler, ["user", "settlement"])
+
+async def get_resource_by_emoji(emoji: str, session: AsyncSession) -> models.Resource:
+    #* Получение ресурса по эмодзи
+    result = await session.execute(
+        select(models.Resource).where(models.Resource.emoji == emoji)
+    )
+    resource = result.scalars().first()
+    if not resource:
+        raise ValueError(f"Ресурс с эмодзи '{emoji}' не найден")
+    return resource
+
+def can_work_now(settler: models.Settler) -> tuple[bool, str]:
+    #* Проверка доступности работы
+
+    
+    current_time = datetime.now()
+    last_work_time = datetime.fromtimestamp(settler.last_work_time) if settler.last_work_time else datetime.min
+    cooldown = timedelta(hours=settings.WORK_COOLDOWN_HOURS)
+    
+    if settler.work_is_completed:
+        time_since_work = current_time - last_work_time
+        if time_since_work < cooldown:
+            remaining_time = cooldown - time_since_work
+            hours = int(remaining_time.total_seconds() // 3600)
+            minutes = int((remaining_time.total_seconds() % 3600) // 60)
+            seconds = int(remaining_time.total_seconds() % 60)
+            return False, f"{hours}ч. {minutes}м. {seconds}с." if hours > 0 else f"{minutes}м. {seconds}с." if minutes > 0 else f"{seconds}с."
+    
+    return True, ""
 
 
 async def end_work(settler: models.Settler, chat_id: int, session: AsyncSession, profession: models.Profession, 

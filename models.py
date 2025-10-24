@@ -120,6 +120,8 @@ class Resource(Base):
     emoji = Column(String, nullable=True)
     description = Column(String, nullable=True)
     category = Column(String)
+    from_resource = Column(String, nullable=True, default=None)
+    for_resource = Column(String, nullable=True, default=None)
     rarity = Column(SAEnum(RarityLevel), default=RarityLevel.COMMON, nullable=False)
 
 class Profession(Base):
@@ -129,6 +131,8 @@ class Profession(Base):
     name = Column(String, unique=True)
     emoji = Column(String, nullable=True)
     description = Column(String, nullable=True)
+    crafts = Column(String, nullable=True, default=None)
+    collects = Column(String, nullable=True, default=None)
     required_level = Column(Integer)
 
 

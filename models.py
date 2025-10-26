@@ -1,7 +1,6 @@
-from sqlalchemy import Table, Column, Integer, BigInteger, String, ForeignKey, PickleType, Boolean, Enum as SAEnum
-from sqlalchemy.orm import relationship, Mapped, mapped_column, declarative_base
+from sqlalchemy import Table, Column, Integer, BigInteger, String, ForeignKey, PickleType, Boolean, Enum as SAEnum, DateTime, Float
+from sqlalchemy.orm import relationship
 from sqlalchemy.ext.mutable import MutableList
-from sqlalchemy.ext.hybrid import hybrid_property
 from pydantic import BaseModel, Field, computed_field
 from enum import Enum
 from typing import ClassVar
@@ -11,7 +10,7 @@ from gamer import Hitting, TimerStep, Workflow, Harvesting, Catch, Milking
 
 
 
-# === ПЕРЕЧИСЛЕНИЯ ===
+#* === ПЕРЕЧИСЛЕНИЯ ===
 class RarityLevel(str, Enum):
     COMMON = "COMMON"
     UNCOMMON = "UNCOMMON"
@@ -37,7 +36,7 @@ RARITY_QUANTITY_RANGES = {
 
 
 
-# === СВЯЗУЮЩИЕ ТАБЛИЦЫ ===
+#* === СВЯЗУЮЩИЕ ТАБЛИЦЫ ===
 user_settlements = Table(
     "user_settlements",
     Base.metadata,
@@ -55,13 +54,14 @@ settler_resources = Table(
 
 
 
-# === МОДЕЛИ ===
+#* === МОДЕЛИ ===
 class User(Base):
     __tablename__ = "users"
 
     id = Column(BigInteger, primary_key=True, index=True) # внутренний id
     user_id = Column(BigInteger, unique=True, index=True) # id пользователя в телеграме
     name = Column(String)
+    locale = Column(String, server_default="ru")
     compact_style = Column(Boolean, server_default="False")
     owned_settlements = relationship("Settlement", back_populates="owner")
     memberships = relationship("Settler", back_populates="user")
@@ -111,7 +111,6 @@ class Settler(Base):
     resources = relationship("Resource", secondary=settler_resources, backref="settlers")
     profession = relationship("Profession", backref="settlers")
 
-
 class Resource(Base):
     __tablename__ = "resources"
 
@@ -136,7 +135,8 @@ class Profession(Base):
     required_level = Column(Integer)
 
 
-# === РАБОТЫ ===
+
+#* === РАБОТЫ ===
 
 class WorkflowWork():
     #* Многошаговая работа
@@ -280,7 +280,7 @@ class WorkflowWork():
             )
         return cls.milking_workflow
 
-# === PYDANTIC СХЕМЫ ===
+#* === PYDANTIC СХЕМЫ ===
 class SettlementBase(BaseModel):
     name: str = Field(..., min_length=1, max_length=30, example="Моё поселение")
 

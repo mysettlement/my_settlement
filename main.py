@@ -5,6 +5,7 @@ import os
 from aiogram import Bot, Dispatcher
 from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ParseMode
+from aiogram.methods.set_my_name import SetMyName
 
 import config
 import handlers
@@ -67,10 +68,14 @@ async def main():
     tasks.scheduler.add_job(tasks.day_reset, "cron", hour=0, minute=0)
 
     try:
-        log.info("Бот запущен!")
         tasks.scheduler.start()
+        await bot(SetMyName(name="🛖 Моё Поселение! 🔵", language_code="ru"))
+        await bot(SetMyName(name="🛖 My Settlement! 🔵", language_code="en"))
+        log.info("🟢 Бот запущен!")
         await dp.start_polling(bot)
     finally:
+        await bot(SetMyName(name="🛖 Моё Поселение! 🔴", language_code="ru"))
+        await bot(SetMyName(name="🛖 My Settlement! 🔴", language_code="en"))
         for task in handlers.work_timeout_tasks.values():
             task.cancel()
         handlers.work_timeout_tasks.clear()
@@ -82,6 +87,6 @@ if __name__ == "__main__":
     try:
         asyncio.run(main())
     except KeyboardInterrupt:
-        log.info("Бот остановлен пользователем")
+        log.info("🔴 Бот остановлен пользователем")
     except Exception as e:
         log.critical(f"Критическая ошибка: {e}")

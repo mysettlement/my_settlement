@@ -4,6 +4,7 @@ from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 from aiogram.enums import ParseMode, parse_mode
 from aiogram.client.default import DefaultBotProperties
 from aiogram.utils.keyboard import InlineKeyboardBuilder
+
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, update, insert
 from sqlalchemy.orm import selectinload
@@ -45,15 +46,12 @@ async def private_handler(message: types.Message):
     #* Обработка личных сообщений
     user = await core.user_getOrCreate(message.from_user)
     if message.chat.type == "private":
-        kb = InlineKeyboardMarkup(
-            inline_keyboard=[
-                [
-                    InlineKeyboardButton(text="➕ Добавить", url=f"https://t.me/{settings.BOT_USERNAME}?startgroup=new")
-                ]
-            ]
-        )
+        kb = InlineKeyboardBuilder
+        buttons = []
+        buttons.append(InlineKeyboardButton(text="➕ Добавить", url=f"https://t.me/{settings.BOT_USERNAME}?startgroup=new"))
+        kb.row(*buttons)
         
-        await message.answer(text="<b>Здрав будь!</b> Я вестник для игры в 🛖 <b>Поселения</b>.\nЧтоб в сходку свою меня позвать, <b>на знак ниже ткни:</b>", reply_markup=kb)
+        await message.answer(text="<b>Здрав будь!</b> Я вестник для игры в 🛖 <b>Поселения</b>.\nЧтоб в сходку свою меня позвать, <b>на знак ниже ткни:</b>", reply_markup=kb.as_markup())
         log.debug(f"{message.chat.id} | Функция private_handler() выполнена")
         return
 
@@ -69,37 +67,28 @@ async def bot_added_to_chat_event(event: types.ChatMemberUpdated):
         
         
         welcome_text = (
-                f'🏰 <b>Добро пожаловать в игру "Поселения"!</b>\n\n'
-                f"🛖 Для начала игры используйте команду /start\n"
+                '🏰 <b>Добро пожаловать в игру "Поселения"!</b>\n\n',
+                "🛖 Для начала игры используйте команду /start"
             )
         
         if event.new_chat_member.status == "member":
             welcome_text += (
-                "\n⚠️ Пожалуйста, <b>назначьте меня администратором</b> с правами на закрепление и удаление сообщений, <b>чтобы я мог полноценно функционировать!</b>\n"
+                "\n\n⚠️ Пожалуйста, <b>назначьте меня администратором</b> с правами на закрепление и удаление сообщений, <b>чтобы я мог полноценно функционировать!</b>\n"
             )
         
         
-        kb = InlineKeyboardMarkup(
-            inline_keyboard=[
-                [
-                    InlineKeyboardButton(
-                        text="❓ Помощь",
-                        switch_inline_query_current_chat="Помощь"
-                    ),
-                    InlineKeyboardButton(
-                        text="🚶‍➡️ Осмотреть поселение",
-                        switch_inline_query_current_chat="Этот город"
-                    )
-                ]
-            ]
-        )
+        kb = InlineKeyboardBuilder()
+        buttons = []
+        buttons.append(InlineKeyboardButton(text="❓ Помощь", switch_inline_query_current_chat="Помощь"))
+        buttons.append(InlineKeyboardButton(text="🚶‍➡️ Осмотреть поселение", switch_inline_query_current_chat="Осмотреть город"))
+        kb.row(*buttons)
 
-        await event.answer(welcome_text, reply_markup=kb)
+        await event.answer(welcome_text, reply_markup=kb.as_markup())
         log.debug(f"{event.chat.id} | Функция bot_added_to_chat_event() выполнена")
     if event.new_chat_member.status in ["left", "kicked"]:
         log.debug(f"{chat.id} | Бот удален из группы {chat.title}")
 
-@router.message(or_f(CommandStart(), Command("town"), F.text.lower() == "осмотреть город", F.text.lower() == "@mysettlementbot осмотреть город"))
+@router.message(or_f(CommandStart(), Command("town"), F.text.lower() == "осмотреть город", F.text.lower() == "@mysettlementbot осмотреть город", F.text.lower() == "town", F.text.lower() == "@mysettlementbot town"))
 async def start_command(message: types.Message):
     #* Обработка команды /start
     user = await core.user_getOrCreate(message.from_user)
@@ -135,7 +124,7 @@ async def start_command(message: types.Message):
     await message.answer(text, reply_markup=kb.as_markup())
     log.debug(f"{message.chat.id} | Функция start_command() выполнена")
 
-@router.message(or_f(Command("me"), F.text.lower() == "профиль", F.text.lower() == "@mysettlementbot профиль", F.text.lower() == "мой профиль", F.text.lower() == "@mysettlementbot мой профиль"))
+@router.message(or_f(Command("me"), F.text.lower() == "профиль", F.text.lower() == "@mysettlementbot профиль", F.text.lower() == "my profile", F.text.lower() == "@mysettlementbot my profile"))
 async def me_command(message: types.Message):
     #* Обработка команды /me
     user = await core.user_getOrCreate(message.from_user)
@@ -157,7 +146,7 @@ async def me_command(message: types.Message):
             f"🗂 <b>{round(settler.exp)}/{round(settler.target_exp)}</b> | "
             f"📄 {f'<b>{settler.quote}/{settler.target_quote}</b>' if not settler.quote_is_completed else f'{settler.target_quote}/{settler.target_quote}'} {'(⏳) ' if settler.overtime_is_toggled else ''}| "
             f"💰 <b>{round(settler.balance)}</b> ({'<b>' if settler.income != 0 else ''}{round(settler.income)}/день{'</b>' if settler.income != 0 else ''})\n"
-            f"\n {(settler.profession.emoji + ' Трудиться можно через <b>' + work_countdown + '</b> ⚠️') if (settler.profession and not can_work) else ((settler.profession.emoji + ' <b>Можно трудиться</b> ✅') if settler.profession else '')} "
+            f"\n{(settler.profession.emoji + ' Трудиться можно через <b>' + work_countdown + '</b> ⚠️') if (settler.profession and not can_work) else ((settler.profession.emoji + ' <b>Можно трудиться</b> ✅') if settler.profession else '')}"
         )
 
         buttons.append(InlineKeyboardButton(text="🪭", switch_inline_query_current_chat="Косметика"))
@@ -173,7 +162,7 @@ async def me_command(message: types.Message):
             f"💡 <b>Уровень:</b> {settler.level}\n"
             f"🗂 <b>Опыт:</b> {round(settler.exp)}/{round(settler.target_exp)}\n"
             f"🏷 <b>Ранг:</b> {settler.emoji} {settler.rank}\n"
-            f"📄 <b>Мера:</b> {f'<b>{settler.quote}/{settler.target_quote}</b>' if not settler.quote_is_completed else f'{settler.target_quote}/{settler.target_quote}'} {'(⏳ Мера лишняя взята)' if settler.overtime_is_toggled else ''}\n"
+            f"📄 <b>Мера:</b> {f'<b>{settler.quote}/{settler.target_quote}</b>' if not settler.quote_is_completed else f'{settler.target_quote}/{settler.target_quote}'} {'(⏳ Лишняя мера взята)' if settler.overtime_is_toggled else ''}\n"
             f"💰 <b>Баланс:</b> {round(settler.balance)} ({'<b>' if settler.income != 0 else ''}{round(settler.income)}/день{'</b>' if settler.income != 0 else ''})\n"
             f"\n {(settler.profession.emoji + ' Трудиться можно через <b>' + work_countdown + '</b> ⚠️') if (settler.profession and not can_work) else ((settler.profession.emoji + ' <b>Можно трудиться</b> ✅') if settler.profession else '')} "
         )
@@ -189,7 +178,7 @@ async def me_command(message: types.Message):
     await message.answer(text, reply_markup=kb.as_markup())
     log.debug(f"{message.chat.id} | Функция me_command() выполнена")
 
-@router.message(or_f(Command("cosmetics"), F.text.lower() == "косметика", F.text.lower() == "@mysettlementbot косметика"))
+@router.message(or_f(Command("cosmetics"), F.text.lower() == "косметика", F.text.lower() == "@mysettlementbot косметика", F.text.lower() == "cosmetics", F.text.lower() == "@mysettlementbot cosmetics"))
 async def cosmetics_command(message: types.Message):
     #* Обработка команды /cosmetics
     user = await core.user_getOrCreate(message.from_user)
@@ -201,8 +190,7 @@ async def cosmetics_command(message: types.Message):
         await message.answer("❌ Беда приключилась, вести о тебе не сысканы. Погоди малость, опосля пытай снова.")
         return
 
-    text = f"🪭 <b>Доступная косметика</b>\n\n"
-    text += f"🎭 <b>Текущий эмодзи:</b> {settler.emoji}\n"
+    text = f"🪭 <b>Доступная косметика</b>\n\n🎭 <b>Текущий эмодзи</b>: {settler.emoji}"
     
     all_emojis = []
     if settler.rank_emoji_available:
@@ -278,38 +266,41 @@ async def cosmetics_select(callback: types.CallbackQuery):
         kb_buttons.append(row)
     
     kb = InlineKeyboardMarkup(inline_keyboard=kb_buttons)
-    await callback.message.edit_text(text=f"🪭 <b>Доступная косметика</b>\n\n🎭 <b>Текущий эмодзи:</b> {emoji}", reply_markup=kb)
+    await callback.message.edit_text(text=f"🪭 <b>Доступная косметика</b>\n\n🎭 <b>Текущий эмодзи</b>: {emoji}", reply_markup=kb)
     log.debug(f"{callback.message.chat.id} | Функция cosmetics_select() выполнена")
 
-@router.message(or_f(Command("overtime"), F.text.lower() == "лишняя мера", F.text.lower() == "@mysettlementbot лишняя мера"))
+@router.message(or_f(Command("overtime"), F.text.lower() == "лишняя мера", F.text.lower() == "@mysettlementbot лишняя мера", F.text.lower() == "overtime", F.text.lower() == "@mysettlementbot overtime"))
 async def overtime_command(message: types.Message):
     #* Обработка команды /overtime
     user = await core.user_getOrCreate(message.from_user)
     settlement = await core.settlement_getOrCreate(message.chat, user)
     settler = await core.settler_getOrCreate(user, settlement)
     
-    reset_countdown = get_daily_reset_countdown()
-    text = f"🕒 <b>Лишняя мера</b>\n\n"
-    text += f"ℹ️ Коль добра тебе мало, можешь <b>лишнюю меру</b> взять. С каждой лишней мерой работа тяжелеет, мудрости меньше наберёшь, но грошей столько же получишь. Коль <b>не поспеешь труд свершить</b> до нового дня (🕒 {reset_countdown}), на тебя <b>виру</b> наложат в 💰 <b>20</b>.\n\n" if settler.level < 2 else ""
-    async with SessionLocal() as session:
-        compact_style = user.compact_style
-        
-        kb = InlineKeyboardMarkup(inline_keyboard=[])
-        if settler.overtime_is_toggled and not settler.quote_is_completed:
-            if compact_style:
-                text += f"🔘 {settler.overtime_count} (🕒 {get_daily_reset_countdown()}) | 📄 <b>{settler.quote}/{settler.target_quote}</b>"
-            else:
-                text += f"Состояние лишней меры: ⚪️ <b>Деятельно</b>\nСколько лишней меры взято: {settler.overtime_count} (🕒 <b>{get_daily_reset_countdown()}</b>осталось до новой меры)\n📄 Мера: <b>{settler.quote}/{settler.target_quote}</b>"
-        elif not settler.overtime_is_toggled and not settler.quote_is_completed:
-            text += f"⚠️ Лишнюю меру брать можно, токмо основную 📄 меру свершив!"
-        else:
-            if compact_style:
-                text += f"🔘 {settler.overtime_count}"
-            else:
-                text += f"Состояние лишней меры: 🔘 <b>Неактивный</b>\nСколько лишней меры взято: {settler.overtime_count}"
-            kb.inline_keyboard.append([InlineKeyboardButton(text="🕒 Взять лишнюю меру", callback_data="overtime_take")])
+    daily_reset_countdown = get_daily_reset_countdown()
+    compact_style = user.compact_style
+    overtime_count=settler.overtime_count
+    quote = settler.quote
+    target_quote = settler.target_quote
+    buttons = []
+    kb = InlineKeyboardBuilder
 
-    
+    text = f"🕒 <b>Лишняя мера</b>\n\n"
+    text += f"ℹ️ Коль добра тебе мало, можешь <b>лишнюю меру</b> взять. С каждой лишней мерой работа тяжелеет, мудрости меньше наберёшь, но грошей столько же получишь. Коль <b>не поспеешь труд свершить</b> до нового дня (🕒 {daily_reset_countdown}), на тебя <b>виру</b> наложат в 💰 <b>20</b>.\n\n" if settler.level < 2 else ""
+    if settler.overtime_is_toggled and not settler.quote_is_completed:
+        if compact_style:
+            text += f"🔘 {overtime_count} (🕒 {daily_reset_countdown}) | 📄 <b>{quote}/{target_quote}</b>"
+        else:
+            text += f"Состояние лишней меры: ⚪️ <b>Активна</b>\nСколько лишней меры взято: {overtime_count} (🕒 <b>{daily_reset_countdown}</b>осталось до новой меры)\n📄 Мера: <b>{quote}/{target_quote}</b>"
+    elif not settler.overtime_is_toggled and not settler.quote_is_completed:
+        text += "⚠️ Лишнюю меру брать можно, токмо основную 📄 меру свершив!"
+    else:
+        if compact_style:
+            text += f"🔘 {overtime_count}"
+        else:
+            text += f"Состояние лишней меры: 🔘 <b>Неактивна</b>\nСколько лишней меры взято: {overtime_count}"
+        buttons.append(InlineKeyboardButton(text="🕒 Взять лишнюю меру", callback_data="overtime_take"))
+
+    kb.row(*buttons)
     await message.answer(text, reply_markup=kb)
     log.debug(f"{message.chat.id} | Функция overtime_command() выполнена")
 
@@ -340,7 +331,7 @@ async def overtime_take(callback: types.CallbackQuery):
         await callback.message.edit_text(f"⏳ <b>Мера лишняя взялась!</b>\nПора тебе осталась 🕒 <b>{reset_countdown}</b> чтоб новую меру исполнить!")
         log.debug(f"{callback.message.chat.id} | Функция overtime_take() выполнена")
 
-@router.message(or_f(Command("inventory"), F.text.lower() == "инвентарь", F.text.lower() == "@mysettlementbot инвентарь"))
+@router.message(or_f(Command("inventory"), F.text.lower() == "инвентарь", F.text.lower() == "@mysettlementbot инвентарь", F.text.lower() == "inventory", F.text.lower() == "@mysettlementbot inventory"))
 async def inventory_command(message: types.Message):
     #* Обработка команды /inventory
     user = await core.user_getOrCreate(message.from_user)
@@ -381,18 +372,7 @@ async def inventory_command(message: types.Message):
     await message.answer(text=text)
     log.debug(f"{message.chat.id} | Функция inventory_command() выполнена")
 
-# @router.message(or_f(Command("income"), F.text.lower() == "доход", F.text.lower() == "@mysettlementbot доход"))
-# async def income_command(message: types.Message):
-#     #* Обработка команды /income
-#     user = await core.user_getOrCreate(message.from_user)
-#     settlement = await core.settlement_getOrCreate(message.chat, user)
-#     settler = await core.settler_getOrCreate(user, settlement)
-
-#     #TODO: Перечисление источников дохода
-#     log.debug(f"{message.chat.id} | Функция income_command() выполнена")
-
-
-@router.message(or_f(Command("choose_craft"), F.text.lower() == "выбрать ремесло", F.text.lower() == "@mysettlementbot выбрать ремесло"))
+@router.message(or_f(Command("choose_craft"), F.text.lower() == "выбрать ремесло", F.text.lower() == "@mysettlementbot выбрать ремесло", F.text.lower() == "choose craft", F.text.lower() == "@mysettlementbot choose craft"))
 async def choose_craft_command(message: types.Message):
     #* Обработка команды /craft
     user = await core.user_getOrCreate(message.from_user)
@@ -474,7 +454,7 @@ async def select_craft_callback(callback: types.CallbackQuery):
         log.debug(f"{callback.message.chat.id} | {settler.user_id} | 💼 Выбрано ремесло: {profession.name}")
     log.debug(f"{callback.message.chat.id} | Функция select_craft_callback() выполнена")
 
-@router.message(or_f(Command("craft"), F.text.lower() == "трудиться", F.text.lower() == "@mysettlementbot трудиться"))
+@router.message(or_f(Command("craft"), F.text.lower() == "трудиться", F.text.lower() == "@mysettlementbot трудиться", F.text.lower() == "craft", F.text.lower() == "@mysettlementbot craft"))
 async def craft_command(message: types.Message):
     #* Обработка команды /craft
     user = await core.user_getOrCreate(message.from_user)
@@ -1112,7 +1092,7 @@ async def milking_callback(callback: types.CallbackQuery):
 
 
 
-@router.message(or_f(Command("settings"), F.text.lower() == "настройки", F.text.lower() == "@mysettlementbot настройки"))
+@router.message(or_f(Command("settings"), F.text.lower() == "настройки", F.text.lower() == "@mysettlementbot настройки", F.text.lower() == "settings", F.text.lower() == "@mysettlementbot settings"))
 async def settings_command(message: types.Message):
     #* Обработка команды /settings
     user = await core.user_getOrCreate(message.from_user)
@@ -1166,7 +1146,7 @@ async def settings_callback(callback: types.CallbackQuery):
         await callback.message.edit_text(text=text, reply_markup=kb)
         log.debug(f"{callback.message.chat.id} | Функция settings_callback() выполнена")
 
-@router.message(or_f(Command("help"), F.text.lower() == "Помощь", F.text.lower() == "@mysettlementbot помощь"))
+@router.message(or_f(Command("help"), F.text.lower() == "помощь", F.text.lower() == "@mysettlementbot помощь", F.text.lower() == "help", F.text.lower() == "@mysettlementbot help"))
 async def help_command(message: types.Message):
     help_text = (
         "🛖 <b>Моё поселение</b> — текстовая MMORPG о жизни общины.\n"

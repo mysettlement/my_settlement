@@ -732,7 +732,7 @@ async def harvest_callback(callback: types.CallbackQuery):
             workflow.fail_workflow()
             if getattr(workflow, 'cooldown_on_fail', False):
                 async with SessionLocal() as session:
-                    await core.end_work(settler, callback.message.chat.id, session, settler.profession, rewards={}, mark_work_completed=True)
+                    await core.end_work(settler, callback.message.chat.id, session, mark_work_completed=True)
             active_games.pop(user_key, None)
             end_work(callback.message.chat.id)
             log.debug(f"{callback.message.chat.id} | {settler.user_id} | 💀 Сбор в workflow испорчен!")
@@ -769,7 +769,7 @@ async def harvest_callback(callback: types.CallbackQuery):
             await callback.message.edit_text(text)
             await callback.answer(game.lose_text)
             async with SessionLocal() as session:
-                await core.end_work(settler, callback.message.chat.id, session, settler.profession, rewards={}, mark_work_completed=True)
+                await core.end_work(settler, callback.message.chat.id, session, mark_work_completed=True)
             active_games.pop(user_key, None)
             end_work(callback.message.chat.id)
             log.debug(f"{callback.message.chat.id} | {settler.user_id} | 💀 Собирательство испорчено!")
@@ -799,10 +799,9 @@ async def harvest_callback(callback: types.CallbackQuery):
                         bark_resource.id: random.randint(1, 2)
                     }
 
-                earned, exp_gained = await core.end_work(settler, callback.message.chat.id, session, settler.profession, 
-                                            rewards=rewards, mark_work_completed=True)
-                if earned or exp_gained > 0:
-                    await callback.message.edit_text(text + format_reward_text(earned, exp_gained))
+                exp_gained = await core.end_work(settler, callback.message.chat.id, session, mark_work_completed=True)
+                if exp_gained > 0:
+                    await callback.message.edit_text(text + format_reward_text({}, exp_gained))
             
             active_games.pop(user_key, None)
             end_work(callback.message.chat.id)
@@ -879,7 +878,7 @@ async def hitter_callback(callback: types.CallbackQuery):
             workflow.fail_workflow()
             if getattr(workflow, 'cooldown_on_fail', False):
                 async with SessionLocal() as session:
-                    await core.end_work(settler, callback.message.chat.id, session, settler.profession, rewards={}, mark_work_completed=True)
+                    await core.end_work(settler, callback.message.chat.id, session, mark_work_completed=True)
             active_games.pop(user_key, None)
             end_work(callback.message.chat.id)
             log.debug(f"{callback.message.chat.id} | {settler.user_id} | 💀 Промах! Труд провален!")
@@ -892,10 +891,10 @@ async def hitter_callback(callback: types.CallbackQuery):
                 
                 async with SessionLocal() as session:
                     tea_resource = await core.get_resource_by_emoji("🍵", session)
-                    earned, exp_gained = await core.end_work(settler, callback.message.chat.id, session, settler.profession, 
-                                                rewards={tea_resource.id: 1}, mark_work_completed=True)
-                    if earned or exp_gained > 0:
-                        await callback.message.edit_text(text + format_reward_text(earned, exp_gained))
+                    await core.settler_addResource(settler, settlement, session, "🍵", quantity=1)
+                    exp_gained = await core.end_work(settler, callback.message.chat.id, session, mark_work_completed=True)
+                    if exp_gained > 0:
+                        await callback.message.edit_text(text + format_reward_text({}, exp_gained))
                     
                 active_games.pop(user_key, None)
                 end_work(callback.message.chat.id)
@@ -926,7 +925,7 @@ async def hitter_callback(callback: types.CallbackQuery):
                 await callback.message.edit_text(text)
                 await callback.answer(getattr(game, 'miss_text', "💥 Промах!"))
                 async with SessionLocal() as session:
-                    await core.end_work(settler, callback.message.chat.id, session, settler.profession, rewards={}, mark_work_completed=True)
+                    await core.end_work(settler, callback.message.chat.id, session, mark_work_completed=True)
                 active_games.pop(user_key, None)
                 end_work(callback.message.chat.id)
                 log.debug(f"{callback.message.chat.id} | {settler.user_id} | 💀 Игра проиграна!")
@@ -935,9 +934,9 @@ async def hitter_callback(callback: types.CallbackQuery):
                 await callback.message.edit_text(text)
                 await callback.answer(getattr(game, 'win_text', "🏆 Победа!"))
                 async with SessionLocal() as session:
-                    earned, exp_gained = await core.end_work(settler, callback.message.chat.id, session, settler.profession, mark_work_completed=True)
-                    if earned or exp_gained > 0:
-                        await callback.message.edit_text(text + format_reward_text(earned, exp_gained))
+                    exp_gained = await core.end_work(settler, callback.message.chat.id, session, mark_work_completed=True)
+                    if exp_gained > 0:
+                        await callback.message.edit_text(text + format_reward_text({}, exp_gained))
                 active_games.pop(user_key, None)
                 end_work(callback.message.chat.id)
                 log.debug(f"{callback.message.chat.id} | {settler.user_id} | 🐟 Ловля завершена!")
@@ -1003,11 +1002,10 @@ async def timer_callback(callback: types.CallbackQuery):
                     tea_resource = await core.get_resource_by_emoji("🍵", session)
                     rewards = {tea_resource.id: 1}
                 else:
-                    rewards = {}
-                earned, exp_gained = await core.end_work(settler, callback.message.chat.id, session, settler.profession, 
-                                            rewards={tea_resource.id: 1}, mark_work_completed=True)
-                if earned or exp_gained > 0:
-                    await callback.message.edit_text(text + format_reward_text(earned, exp_gained))
+                    await core.settler_addResource(settler, settlement, session, "🍵", quantity=1)
+                    exp_gained = await core.end_work(settler, callback.message.chat.id, session, mark_work_completed=True)
+                    if exp_gained > 0:
+                        await callback.message.edit_text(text + format_reward_text({}, exp_gained))
                 
             active_games.pop(user_key, None)
             end_work(callback.message.chat.id)
@@ -1074,7 +1072,7 @@ async def milking_callback(callback: types.CallbackQuery):
             workflow.fail_workflow()
             if getattr(workflow, 'cooldown_on_fail', False):
                 async with SessionLocal() as session:
-                    await core.end_work(settler, callback.message.chat.id, session, settler.profession, rewards={}, mark_work_completed=True)
+                    await core.end_work(settler, callback.message.chat.id, session, mark_work_completed=True)
             active_games.pop(user_key, None)
             end_work(callback.message.chat.id)
             log.debug(f"{callback.message.chat.id} | {settler.user_id} | 💀 Доение в workflow испорчено!")
@@ -1085,10 +1083,11 @@ async def milking_callback(callback: types.CallbackQuery):
                 await callback.answer(workflow.complete_text)
                 async with SessionLocal() as session:
                     milk_resource = await core.get_resource_by_emoji("🥛", session)
-                    earned, exp_gained = await core.end_work(settler, callback.message.chat.id, session, settler.profession, 
-                                                rewards={milk_resource.id: random.randint(1, 3)}, mark_work_completed=True)
-                    if earned or exp_gained > 0:
-                        await callback.message.edit_text(text + format_reward_text(earned, exp_gained))
+                    milk_qty = random.randint(1, 3)
+                    await core.settler_addResource(settler, settlement, session, "🥛", quantity=milk_qty)
+                    exp_gained = await core.end_work(settler, callback.message.chat.id, session, mark_work_completed=True)
+                    if exp_gained > 0:
+                        await callback.message.edit_text(text + format_reward_text({}, exp_gained))
                 active_games.pop(user_key, None)
                 end_work(callback.message.chat.id)
                 log.debug(f"{callback.message.chat.id} | {settler.user_id} | 🪣 Доение завершено!")
@@ -1116,7 +1115,7 @@ async def milking_callback(callback: types.CallbackQuery):
             await callback.message.edit_text(text)
             await callback.answer(getattr(game, 'lose_text', "💀 Проигрыш!"))
             async with SessionLocal() as session:
-                await core.end_work(settler, callback.message.chat.id, session, settler.profession, rewards={}, mark_work_completed=True)
+                await core.end_work(settler, callback.message.chat.id, session, mark_work_completed=True)
             active_games.pop(user_key, None)
             end_work(callback.message.chat.id)
             log.debug(f"{callback.message.chat.id} | {settler.user_id} | 💀 Доение испорчено!")
@@ -1126,11 +1125,11 @@ async def milking_callback(callback: types.CallbackQuery):
             await callback.message.edit_text(text)
             await callback.answer(game.win_text)
             async with SessionLocal() as session:
-                milk_resource = await core.get_resource_by_emoji("🥛", session)
-                earned, exp_gained = await core.end_work(settler, callback.message.chat.id, session, settler.profession, 
-                                            rewards={milk_resource.id: random.randint(1, 3)}, mark_work_completed=True)
-                if earned or exp_gained > 0:
-                    await callback.message.edit_text(text + format_reward_text(earned, exp_gained))
+                milk_qty = random.randint(1, 3)
+                await core.settler_addResource(settler, settlement, session, "🥛", quantity=milk_qty)
+                exp_gained = await core.end_work(settler, callback.message.chat.id, session, mark_work_completed=True)
+                if exp_gained > 0:
+                    await callback.message.edit_text(text + format_reward_text({}, exp_gained))
         
             active_games.pop(user_key, None)
             end_work(callback.message.chat.id)

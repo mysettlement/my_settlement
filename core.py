@@ -298,6 +298,41 @@ async def get_resource_by_emoji(emoji: str, session: AsyncSession) -> models.Res
         raise ValueError(f"Ресурс с эмодзи '{emoji}' не найден")
     return resource
 
+async def settler_addResource(settler: models.Settler, settlement: models.Settlement, session: AsyncSession, emoji: str, quantity: int = None):
+    #* Добавление ресурса поселенцу
+    resource = await get_resource_by_emoji(emoji, session)
+    
+    if quantity is None:
+        min_qty, max_qty = models.RARITY_QUANTITY_RANGES.get(resource.rarity, (1, 1))
+        quantity = random.randint(min_qty, max_qty)
+    
+    existing_result = await session.execute(
+        select(models.settler_resources).where(
+            models.settler_resources.c.settler_id == settler.id,
+            models.settler_resources.c.resource_id == resource.id
+        )
+    )
+    existing = existing_result.first()
+    
+    if existing:
+        await session.execute(
+            update(models.settler_resources).where(
+                models.settler_resources.c.settler_id == settler.id,
+                models.settler_resources.c.resource_id == resource.id
+            ).values(quantity=models.settler_resources.c.quantity + quantity)
+        )
+    else:
+        await session.execute(
+            insert(models.settler_resources).values(
+                settler_id=settler.id,
+                resource_id=resource.id,
+                quantity=quantity
+            )
+        )
+    
+    log.debug(f"{settlement.chat_id} | {settler.user_id} | 📦 Ресурс добавлен: {resource.emoji} x{quantity}")
+    return resource, quantity
+
 def can_work_now(settler: models.Settler) -> tuple[bool, str]:
     #* Проверка доступности работы
 
@@ -317,77 +352,17 @@ def can_work_now(settler: models.Settler) -> tuple[bool, str]:
     
     return True, ""
 
-async def end_work(settler: models.Settler, chat_id: int, session: AsyncSession, profession: models.Profession, 
-                   rewards: dict[int, int] = None, mark_work_completed: bool = False):
+async def end_work(settler: models.Settler, chat_id: int, session: AsyncSession, mark_work_completed: bool = False):
     """
-    Завершение игры с выдачей наград
+    Завершение работы - отмечает работу как выполненную и выдаёт опыт
     
     Args:
         settler: Поселенец
         chat_id: ID чата
         session: Сессия БД
-        profession: Профессия
-        rewards: Явные награды {resource_id: quantity} (если None - используется логика по профессии)
         mark_work_completed: Отметить работу как выполненную
     """
-    earned = {}  # {resource: quantity}
-    
-    if rewards is not None:
-        # Используем явные награды
-        result = await session.execute(
-            select(models.Resource).where(models.Resource.id.in_(rewards.keys()))
-        )
-        resources = result.scalars().all()
-        for resource in resources:
-            earned[resource] = rewards[resource.id]
-    else:
-        # Используем логику по профессии
-        if profession.emoji == "🌻": # 🌻 Землепашец
-            resource_emojis = ["🌾", "🥔", "🍄‍🟫", "🫐"]
-        elif profession.emoji == "📔": # 📔 Знахарь
-            resource_emojis = ["🪴", "🎋"]
-        elif profession.emoji == "🐾": # 🐾 Ловчий
-            resource_emojis = ["🐟"]
-        else:
-            #TODO: другие профессии
-            return {}
-            
-        result = await session.execute(
-            select(models.Resource).where(models.Resource.emoji.in_(resource_emojis))
-        )
-        resources = result.scalars().all()
-        while earned == {}: # чтобы 100% было что-то было
-            for resource in resources:
-                prob = models.RARITY_DROP_PROBABILITIES.get(resource.rarity, 0.0)
-                if random.random() < prob:
-                    min_qty, max_qty = models.RARITY_QUANTITY_RANGES.get(resource.rarity, (0, 0))
-                    quantity = random.randint(min_qty, max_qty)
-                    earned[resource] = quantity
-        
-    for resource, quantity in earned.items():
-        existing_result = await session.execute(
-            select(models.settler_resources).where(
-                models.settler_resources.c.settler_id == settler.id,
-                models.settler_resources.c.resource_id == resource.id
-            )
-        )
-        existing = existing_result.first()
-        
-        if existing:
-            await session.execute(
-                update(models.settler_resources).where(
-                    models.settler_resources.c.settler_id == settler.id,
-                    models.settler_resources.c.resource_id == resource.id
-                ).values(quantity=models.settler_resources.c.quantity + quantity)
-            )
-        else:
-            await session.execute(
-                insert(models.settler_resources).values(
-                    settler_id=settler.id,
-                    resource_id=resource.id,
-                    quantity=quantity
-                )
-            )
+    work_exp = 0
     
     if mark_work_completed:
         current_time = int(datetime.now().timestamp())
@@ -396,15 +371,13 @@ async def end_work(settler: models.Settler, chat_id: int, session: AsyncSession,
             .where(models.Settler.id == settler.id)
             .values(work_is_completed=True, last_work_time=current_time)
         )
-    
-    work_exp = 0
-    if mark_work_completed:
+        
         if settler.level <= 16:
-            work_exp = random.randint(1, 2)  # 1-2 опыта
+            work_exp = random.randint(1, 2)
         elif settler.level <= 31:
-            work_exp = random.randint(2, 3)  # 2-3 опыта
+            work_exp = random.randint(2, 3)
         else:
-            work_exp = random.randint(3, 4)  # 4-7 опыта
+            work_exp = random.randint(3, 4)
         
         settlement_result = await session.execute(
             select(models.Settlement).where(models.Settlement.chat_id == chat_id)
@@ -415,7 +388,6 @@ async def end_work(settler: models.Settler, chat_id: int, session: AsyncSession,
             await settler_addExp(settler, settlement, session, work_exp)
     
     await session.commit()
-    log.debug(f"{chat_id} | {settler.user_id} | Добыто ресурсов: {', '.join(f'{res.name} x{qty}' for res, qty in earned.items())}")
+    log.debug(f"{chat_id} | {settler.user_id} | 💼 Работа завершена, опыт: +{work_exp}")
     
-    # Возвращаем earned и опыт для использования в сообщении
-    return earned, work_exp
+    return work_exp

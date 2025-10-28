@@ -23,7 +23,7 @@ logger = logging.getLogger(__name__)
 log = config.setup_logging(logger)
 
 def setup_aiogram_logging():
-    """Настраивает логирование aiogram для подавления ненужных сообщений"""
+    #* Настраивает логирование aiogram для подавления ненужных сообщений
     aiogram_logger = logging.getLogger("aiogram")
     
     aiogram_logger.setLevel(logging.WARNING)
@@ -70,7 +70,7 @@ async def main():
 
     try:
         tasks.scheduler.start()
-        
+
         #! Flood control
         # smile = random.choice(["🔷", "🔵", "🌀", "🫐", "🐬"])
         # await bot(SetMyName(name=f"🛖 Моё Поселение! {smile}", language_code="ru"))

@@ -33,27 +33,177 @@ log = setup_logging(logging.getLogger(__name__))
 async def my_id_command(message: types.Message):
     #* Обработка команды /my_id
     user = await core.user_getOrCreate(message.from_user)
-    text = (
-        f"👤 <b>{user.name}</b>\n"
-        f"🆔 <code>{user.id}</code>\n"
-        f"💬 <code>{user.user_id}</code>\n"
-    )
+    compact_style = user.compact_style
+    if compact_style:
+        text = (
+            f"👤 <b>{user.name}</b>\n"
+            f"🆔 <code>{user.id}</code>\n"
+            f"💬 <code>{user.user_id}</code>\n"
+        )
+    else:
+        text = (
+            f"👤 <b>{user.name}</b>\n"
+            f"🆔 Internal: <code>{user.id}</code>\n"
+            f"💬 Telegram: <code>{user.user_id}</code>\n"
+        )
     await message.answer(text)
     log.debug(f"{message.chat.id} | Функция my_id_command() выполнена")
+
+@router.message(or_f(Command("me"), F.text.lower() == "профиль", F.text.lower() == "@mysettlementbot профиль", F.text.lower() == "my profile", F.text.lower() == "@mysettlementbot my profile"))
+async def me_command(message: types.Message):
+    #* Обработка команды /me
+    user = await core.user_getOrCreate(message.from_user)
+
+    compact_style = user.compact_style
+    kb = InlineKeyboardBuilder()
+    buttons = []
+
+    if message.chat.type == "supergroup" or message.chat.type == "group":
+        settlement = await core.settlement_getOrCreate(message.chat, user)
+        settler = await core.settler_getOrCreate(user, settlement)
+        craft_text = f"{settler.profession.emoji} {settler.profession.name}" if settler.profession else "❓ Без дела"
+        can_choose, when = can_choose_craft(settler.last_profession_change)
+        can_work, work_countdown = core.can_work_now(settler)
+        
+        if compact_style:
+            text = (
+                f"👤 <b>{user.name}</b> — {craft_text}\n"
+                f"💡 {settler.level} — {settler.emoji} <b>{settler.rank}</b>\n"
+                f"🗂 <b>{round(settler.exp)}/{round(settler.target_exp)}</b> | "
+                f"📄 {f'<b>{settler.quote}/{settler.target_quote}</b>' if not settler.quote_is_completed else f'{settler.target_quote}/{settler.target_quote}'} {'(⏳) ' if settler.overtime_is_toggled else ''}| "
+                f"💰 <b>{round(settler.balance)}</b> ({'<b>' if settler.income != 0 else ''}{round(settler.income)}/день{'</b>' if settler.income != 0 else ''})\n"
+                f"\n{(settler.profession.emoji + ' Трудиться можно через <b>' + work_countdown + '</b> ⚠️') if (settler.profession and not can_work) else ((settler.profession.emoji + ' <b>Можно трудиться</b> ✅') if settler.profession else '')}"
+            )
+
+            buttons.append(InlineKeyboardButton(text="🪭", switch_inline_query_current_chat="Косметика"))
+            buttons.append(InlineKeyboardButton(text="📦", switch_inline_query_current_chat="Инвентарь"))
+            buttons.append(InlineKeyboardButton(text="🕒", switch_inline_query_current_chat="Лишняя мера"))
+            buttons.append(InlineKeyboardButton(text=f"{settler.profession.emoji}", switch_inline_query_current_chat="Трудиться")) if settler.profession and can_work else None
+            buttons.append(InlineKeyboardButton(text="💼", switch_inline_query_current_chat="Выбрать ремесло")) if can_choose else None
+            
+        else:
+            text = (
+                f"👤 <b>{user.name}</b>\n"
+                f"🛠 <b>Ремесло:</b> {craft_text}\n"
+                f"💡 <b>Уровень:</b> {settler.level}\n"
+                f"🗂 <b>Опыт:</b> {round(settler.exp)}/{round(settler.target_exp)}\n"
+                f"🏷 <b>Ранг:</b> {settler.emoji} {settler.rank}\n"
+                f"📄 <b>Мера:</b> {f'<b>{settler.quote}/{settler.target_quote}</b>' if not settler.quote_is_completed else f'{settler.target_quote}/{settler.target_quote}'} {'(⏳ Лишняя мера взята)' if settler.overtime_is_toggled else ''}\n"
+                f"💰 <b>Баланс:</b> {round(settler.balance)} ({'<b>' if settler.income != 0 else ''}{round(settler.income)}/день{'</b>' if settler.income != 0 else ''})\n"
+                f"\n {(settler.profession.emoji + ' Трудиться можно через <b>' + work_countdown + '</b> ⚠️') if (settler.profession and not can_work) else ((settler.profession.emoji + ' <b>Можно трудиться</b> ✅') if settler.profession else '')} "
+            )
+
+            buttons.append(InlineKeyboardButton(text="🪭 Косметика", switch_inline_query_current_chat="Косметика"))
+            buttons.append(InlineKeyboardButton(text="📦 Инвентарь", switch_inline_query_current_chat="Инвентарь"))
+            buttons.append(InlineKeyboardButton(text="🕒 Лишняя мера", switch_inline_query_current_chat="Лишняя мера"))
+            buttons.append(InlineKeyboardButton(text=f"{settler.profession.emoji} Трудиться", switch_inline_query_current_chat="Трудиться")) if settler.profession and can_work else None
+            buttons.append(InlineKeyboardButton(text="💼 Выбрать ремесло", switch_inline_query_current_chat="Выбрать ремесло")) if can_choose else None
+        
+        kb.row(*buttons, width=2)
+        await message.answer(text, reply_markup=kb.as_markup())
+
+    elif message.chat.type == "private":
+        if compact_style:
+            text = (
+                f"👤 <b>{user.name}</b>\n"
+                f"🆔 <code>{user.id}</code>\n"
+                f"💬 <code>{user.user_id}</code>\n"
+            )
+        else:
+            text = (
+                f"👤 <b>{user.name}</b>\n"
+                f"🆔 Internal: <code>{user.id}</code>\n"
+                f"💬 Telegram: <code>{user.user_id}</code>\n"
+            )
+        await message.answer(text)
+
+    log.debug(f"{message.chat.id} | Функция me_command() выполнена")
+
+
+@router.message(or_f(Command("settings"), F.text.lower() == "настройки", F.text.lower() == "@mysettlementbot настройки", F.text.lower() == "settings", F.text.lower() == "@mysettlementbot settings"))
+async def settings_command(message: types.Message):
+    #* Обработка команды /settings
+    user = await core.user_getOrCreate(message.from_user)
+    kb = InlineKeyboardBuilder()
+    buttons = []
+
+    compact_style = user.compact_style
+    #TODO: XXX = user.XXX
+
+    buttons.append(InlineKeyboardButton(text=f"{"🎩" if compact_style else '🎩 Стиль'}: {'🤏' if compact_style else '🤲'}", callback_data="settings:messages_style"))
+    kb.row(*buttons, width=2)
+    
+    text = f"⚙️ <b>Настройки</b>"
+    text += f"\n🎩 Стиль сообщений: <b>{'🤏 Компактный' if compact_style else '🤲 Развёрнутый'}</b>"
+    #TODO: text += f"\n"
+    text += "\n\nℹ️ Настройки сохраняются для каждого пользователя отдельно."
+    
+    await message.reply(text=text, reply_markup=kb.as_markup(), disable_notification=True)
+
+@router.callback_query(F.data.startswith("settings:"))
+async def settings_callback(callback: types.CallbackQuery):
+    #* Обработка callback-кнопок настроек
+    if callback.from_user.id != callback.message.reply_to_message.from_user.id:
+        await callback.answer("❌ Не тронь чужой снасти!", True)
+        return
+    
+    action = callback.data.split(":", 1)[1]
+    kb = InlineKeyboardBuilder()
+    buttons = []
+    
+    async with SessionLocal() as session:
+        result = await session.execute(
+            select(models.User).where(models.User.user_id == callback.from_user.id)
+        )
+        user = result.scalars().first()
+        
+        if not user:
+            await callback.answer("❌ Пользователь не найден", True)
+            return
+        
+        if action == "messages_style":
+            user.compact_style = not user.compact_style
+            await session.commit()
+            compact_style = user.compact_style
+            log.debug(f"🎩 compact_style > {compact_style}")
+            await callback.answer(f"🎩 Стиль сообщений > {"🤏 Компактный" if compact_style else "🤲 Развёрнутый"}")
+        
+        #TODO: if action == "XXX":
+        
+        buttons.append(InlineKeyboardButton(text=f"{"🎩" if compact_style else '🎩 Стиль'}: {'🤏' if compact_style else '🤲'}", callback_data="settings:messages_style"))
+        
+        text = f"⚙️ <b>Настройки</b>"
+        text += f"\n🎩 Стиль сообщений: <b>{"🤏 Компактный" if compact_style else "🤲 Развёрнутый"}</b>"
+        #TODO: text += f"\n"
+        text += "\n\nℹ️ Настройки сохраняются для каждого пользователя отдельно."
+
+        kb.row(*buttons, width=2)
+        await callback.message.edit_text(text=text, reply_markup=kb.as_markup())
+
+@router.message(or_f(Command("help"), F.text.lower() == "помощь", F.text.lower() == "@mysettlementbot помощь", F.text.lower() == "help", F.text.lower() == "@mysettlementbot help"))
+async def help_command(message: types.Message):
+    help_text = (
+        "🛖 <b>Моё Поселение!</b> — текстовая MMORPG о жизни общины.\n"
+        "Ты выбираешь ремесло, трудишься в мини-играх и развиваешь поселенца.\n\n"
+        "▶️ <b>Как играть</b>\n"
+        "• /start — начать и осмотреть поселение\n"
+        "• /me — профиль и действия\n"
+        "• /choose_craft — выбрать ремесло\n"
+        "• /craft — начать работу\n\n"
+        '<a href="https://mysettlement.github.io/">📚 Полные гайды</a>'
+    )
+    await message.answer(help_text)
+
 
 @router.message(F.chat.type == "private")
 async def private_handler(message: types.Message):
     #* Обработка личных сообщений
-    user = await core.user_getOrCreate(message.from_user)
-    if message.chat.type == "private":
-        kb = InlineKeyboardBuilder
-        buttons = []
-        buttons.append(InlineKeyboardButton(text="➕ Добавить", url=f"https://t.me/{settings.BOT_USERNAME}?startgroup=new"))
-        kb.row(*buttons)
-        
-        await message.answer(text="<b>Здрав будь!</b> Я вестник для игры в 🛖 <b>Поселения</b>.\nЧтоб в сходку свою меня позвать, <b>на знак ниже ткни:</b>", reply_markup=kb.as_markup())
-        log.debug(f"{message.chat.id} | Функция private_handler() выполнена")
-        return
+    kb = InlineKeyboardBuilder()
+    buttons = []
+    buttons.append(InlineKeyboardButton(text="➕ Добавить", url=f"https://t.me/{settings.BOT_USERNAME}?startgroup=new"))
+    kb.row(*buttons)
+    
+    await message.answer(text="<b>Здрав будь!</b> Я вестник для игры в 🛖 <b>Поселения</b>.\nЧтоб в сходку свою меня позвать, <b>на знак ниже ткни:</b>", reply_markup=kb.as_markup())
 
 
 
@@ -123,60 +273,6 @@ async def start_command(message: types.Message):
     )
     await message.answer(text, reply_markup=kb.as_markup())
     log.debug(f"{message.chat.id} | Функция start_command() выполнена")
-
-@router.message(or_f(Command("me"), F.text.lower() == "профиль", F.text.lower() == "@mysettlementbot профиль", F.text.lower() == "my profile", F.text.lower() == "@mysettlementbot my profile"))
-async def me_command(message: types.Message):
-    #* Обработка команды /me
-    user = await core.user_getOrCreate(message.from_user)
-    settlement = await core.settlement_getOrCreate(message.chat, user)
-    settler = await core.settler_getOrCreate(user, settlement)
-
-    compact_style = user.compact_style
-    craft_text = f"{settler.profession.emoji} {settler.profession.name}" if settler.profession else "❓ Без дела"
-    can_choose, when = can_choose_craft(settler.last_profession_change)
-    can_work, work_countdown = core.can_work_now(settler)
-    
-    kb = InlineKeyboardBuilder()
-    buttons = []
-    
-    if compact_style:
-        text = (
-            f"👤 <b>{user.name}</b> — {craft_text}\n"
-            f"💡 {settler.level} — {settler.emoji} <b>{settler.rank}</b>\n"
-            f"🗂 <b>{round(settler.exp)}/{round(settler.target_exp)}</b> | "
-            f"📄 {f'<b>{settler.quote}/{settler.target_quote}</b>' if not settler.quote_is_completed else f'{settler.target_quote}/{settler.target_quote}'} {'(⏳) ' if settler.overtime_is_toggled else ''}| "
-            f"💰 <b>{round(settler.balance)}</b> ({'<b>' if settler.income != 0 else ''}{round(settler.income)}/день{'</b>' if settler.income != 0 else ''})\n"
-            f"\n{(settler.profession.emoji + ' Трудиться можно через <b>' + work_countdown + '</b> ⚠️') if (settler.profession and not can_work) else ((settler.profession.emoji + ' <b>Можно трудиться</b> ✅') if settler.profession else '')}"
-        )
-
-        buttons.append(InlineKeyboardButton(text="🪭", switch_inline_query_current_chat="Косметика"))
-        buttons.append(InlineKeyboardButton(text="📦", switch_inline_query_current_chat="Инвентарь"))
-        buttons.append(InlineKeyboardButton(text="🕒", switch_inline_query_current_chat="Лишняя мера"))
-        buttons.append(InlineKeyboardButton(text=f"{settler.profession.emoji}", switch_inline_query_current_chat="Трудиться")) if settler.profession and can_work else None
-        buttons.append(InlineKeyboardButton(text="💼", switch_inline_query_current_chat="Выбрать ремесло")) if can_choose else None
-        
-    else:
-        text = (
-            f"👤 <b>{user.name}</b>\n"
-            f"🛠 <b>Ремесло:</b> {craft_text}\n"
-            f"💡 <b>Уровень:</b> {settler.level}\n"
-            f"🗂 <b>Опыт:</b> {round(settler.exp)}/{round(settler.target_exp)}\n"
-            f"🏷 <b>Ранг:</b> {settler.emoji} {settler.rank}\n"
-            f"📄 <b>Мера:</b> {f'<b>{settler.quote}/{settler.target_quote}</b>' if not settler.quote_is_completed else f'{settler.target_quote}/{settler.target_quote}'} {'(⏳ Лишняя мера взята)' if settler.overtime_is_toggled else ''}\n"
-            f"💰 <b>Баланс:</b> {round(settler.balance)} ({'<b>' if settler.income != 0 else ''}{round(settler.income)}/день{'</b>' if settler.income != 0 else ''})\n"
-            f"\n {(settler.profession.emoji + ' Трудиться можно через <b>' + work_countdown + '</b> ⚠️') if (settler.profession and not can_work) else ((settler.profession.emoji + ' <b>Можно трудиться</b> ✅') if settler.profession else '')} "
-        )
-
-        buttons.append(InlineKeyboardButton(text="🪭 Косметика", switch_inline_query_current_chat="Косметика"))
-        buttons.append(InlineKeyboardButton(text="📦 Инвентарь", switch_inline_query_current_chat="Инвентарь"))
-        buttons.append(InlineKeyboardButton(text="🕒 Лишняя мера", switch_inline_query_current_chat="Лишняя мера"))
-        buttons.append(InlineKeyboardButton(text=f"{settler.profession.emoji} Трудиться", switch_inline_query_current_chat="Трудиться")) if settler.profession and can_work else None
-        buttons.append(InlineKeyboardButton(text="💼 Выбрать ремесло", switch_inline_query_current_chat="Выбрать ремесло")) if can_choose else None
-    
-    
-    kb.row(*buttons, width=2)
-    await message.answer(text, reply_markup=kb.as_markup())
-    log.debug(f"{message.chat.id} | Функция me_command() выполнена")
 
 @router.message(or_f(Command("cosmetics"), F.text.lower() == "косметика", F.text.lower() == "@mysettlementbot косметика", F.text.lower() == "cosmetics", F.text.lower() == "@mysettlementbot cosmetics"))
 async def cosmetics_command(message: types.Message):
@@ -282,7 +378,7 @@ async def overtime_command(message: types.Message):
     quote = settler.quote
     target_quote = settler.target_quote
     buttons = []
-    kb = InlineKeyboardBuilder
+    kb = InlineKeyboardBuilder()
 
     text = f"🕒 <b>Лишняя мера</b>\n\n"
     text += f"ℹ️ Коль добра тебе мало, можешь <b>лишнюю меру</b> взять. С каждой лишней мерой работа тяжелеет, мудрости меньше наберёшь, но грошей столько же получишь. Коль <b>не поспеешь труд свершить</b> до нового дня (🕒 {daily_reset_countdown}), на тебя <b>виру</b> наложат в 💰 <b>20</b>.\n\n" if settler.level < 2 else ""
@@ -301,7 +397,7 @@ async def overtime_command(message: types.Message):
         buttons.append(InlineKeyboardButton(text="🕒 Взять лишнюю меру", callback_data="overtime_take"))
 
     kb.row(*buttons)
-    await message.answer(text, reply_markup=kb)
+    await message.answer(text, reply_markup=kb.as_markup())
     log.debug(f"{message.chat.id} | Функция overtime_command() выполнена")
 
 @router.callback_query(F.data == "overtime_take")
@@ -1089,77 +1185,6 @@ async def milking_callback(callback: types.CallbackQuery):
             return
     
     log.debug(f"{callback.message.chat.id} | Функция milking_callback() выполнена")
-
-
-
-@router.message(or_f(Command("settings"), F.text.lower() == "настройки", F.text.lower() == "@mysettlementbot настройки", F.text.lower() == "settings", F.text.lower() == "@mysettlementbot settings"))
-async def settings_command(message: types.Message):
-    #* Обработка команды /settings
-    user = await core.user_getOrCreate(message.from_user)
-
-    kb = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text=f"🎩 Стиль: {'🤏' if user.compact_style else '🤲'}", callback_data="settings:messages_style")],
-    ])
-    
-    text = f"⚙️ <b>Настройки</b>"
-    text += f"\n🎩 Стиль сообщений: <b>{'🤏 Компактный' if user.compact_style else '🤲 Развёрнутый'}</b>"
-    text += "\n\nℹ️ Настройки сохраняются для каждого пользователя отдельно."
-    
-    await message.reply(text=text, reply_markup=kb, disable_notification=True)
-    log.debug(f"{message.chat.id} | Функция settings_command() выполнена")
-
-@router.callback_query(F.data.startswith("settings:"))
-async def settings_callback(callback: types.CallbackQuery):
-    #* Обработка callback-кнопок настроек
-    if callback.from_user.id != callback.message.reply_to_message.from_user.id:
-        await callback.answer("❌ Не тронь чужой снасти!", True)
-        return
-    
-    action = callback.data.split(":", 1)[1]
-    
-    async with SessionLocal() as session:
-        result = await session.execute(
-            select(models.User).where(models.User.user_id == callback.from_user.id)
-        )
-        user = result.scalars().first()
-        
-        if not user:
-            await callback.answer("❌ Пользователь не найден", True)
-            return
-        
-        if action == "messages_style":
-            user.compact_style = not user.compact_style
-            await session.commit()
-            compact_style = user.compact_style
-            
-            new_style = "🤏 Компактный" if compact_style else "🤲 Развёрнутый"
-            await callback.answer(f"🎩 Стиль сообщений изменён на {new_style}")
-        
-        kb = InlineKeyboardMarkup(inline_keyboard=[
-            [InlineKeyboardButton(text=f"🎩 Стиль: {'🤏' if compact_style else '🤲'}", callback_data="settings:messages_style")],
-        ])
-        
-        text = f"⚙️ <b>Настройки</b>"
-        text += f"\n🎩 Стиль сообщений: <b>{'🤏 Компактный' if compact_style else '🤲 Развёрнутый'}</b>"
-        text += "\n\nℹ️ Настройки сохраняются для каждого пользователя отдельно."
-        
-        await callback.message.edit_text(text=text, reply_markup=kb)
-        log.debug(f"{callback.message.chat.id} | Функция settings_callback() выполнена")
-
-@router.message(or_f(Command("help"), F.text.lower() == "помощь", F.text.lower() == "@mysettlementbot помощь", F.text.lower() == "help", F.text.lower() == "@mysettlementbot help"))
-async def help_command(message: types.Message):
-    help_text = (
-        "🛖 <b>Моё поселение</b> — текстовая MMORPG о жизни общины.\n"
-        "Ты выбираешь ремесло, трудишься в мини-играх и развиваешь поселенца.\n\n"
-        "▶️ <b>Как играть</b>\n"
-        "• /start — начать и осмотреть поселение\n"
-        "• /me — профиль и действия\n"
-        "• /choose_craft — выбрать ремесло\n"
-        "• /craft — начать работу\n\n"
-        '📚 Полные гайды <a href="https://mysettlement.github.io/">ТУТ</a>'
-    )
-    await message.answer(help_text, parse_mode=ParseMode.HTML)
-
 
 
 

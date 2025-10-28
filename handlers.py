@@ -717,7 +717,6 @@ async def harvest_callback(callback: types.CallbackQuery):
         await callback.answer("❌ Дело не сыскано. Может, ты уж его свершил, али вовсе не твоё то дело?")
         return
     
-    # Поддержка как одиночного шага, так и шага внутри Workflow
     if hasattr(workflow_or_step, 'get_current_step'):
         workflow = workflow_or_step
         current_step = workflow.get_current_step()
@@ -780,9 +779,8 @@ async def harvest_callback(callback: types.CallbackQuery):
             await callback.message.edit_text(text)
             await callback.answer(game.win_text)
             async with SessionLocal() as session:
-                # Определяем награду в зависимости от профессии
                 rewards = {}
-                if settler.profession.emoji == "🌻":  # Землепашец
+                if settler.profession.emoji == "🌻":
                     resources = {
                         "🌾": (1, 3),
                         "🥔": (1, 2),
@@ -793,7 +791,7 @@ async def harvest_callback(callback: types.CallbackQuery):
                     amount = random.randint(*resources[resource_emoji])
                     resource = await core.get_resource_by_emoji(resource_emoji, session)
                     rewards = {resource.id: amount}
-                elif settler.profession.emoji == "📔":  # Знахарь
+                elif settler.profession.emoji == "📔":
                     herb_resource = await core.get_resource_by_emoji("🪴", session)
                     bark_resource = await core.get_resource_by_emoji("🎋", session)
                     rewards = {
@@ -826,8 +824,8 @@ async def harvest_callback(callback: types.CallbackQuery):
 @router.callback_query(F.data.startswith("hit:"))
 async def hitter_callback(callback: types.CallbackQuery):
     #* Обработка callback-кнопок для шага с попаданием
-    _, position = callback.data.split(":")
-    position = int(position)
+    _, i = callback.data.split(":")
+    i = int(i)
     
     user = await core.user_getOrCreate(callback.from_user)
     settlement = await core.settlement_getOrCreate(callback.message.chat, user)
@@ -860,7 +858,7 @@ async def hitter_callback(callback: types.CallbackQuery):
             return
         
         old_field = current_step.field.copy() if hasattr(current_step, 'field') else None
-        result = current_step.click(position)
+        result = current_step.click(i)
         
         if result == "hit":
             text = f"{workflow.get_status_text()}"
@@ -886,14 +884,12 @@ async def hitter_callback(callback: types.CallbackQuery):
             end_work(callback.message.chat.id)
             log.debug(f"{callback.message.chat.id} | {settler.user_id} | 💀 Промах! Труд провален!")
             
-        elif result == "win": # Работа завершена
+        elif result == "win":
             if workflow.next_step():
-                # Workflow завершен
                 text = f"{workflow.get_status_text()}"
                 await callback.message.edit_text(text)
                 await callback.answer(workflow.complete_text)
                 
-                # Выдаем награду
                 async with SessionLocal() as session:
                     tea_resource = await core.get_resource_by_emoji("🍵", session)
                     earned, exp_gained = await core.end_work(settler, callback.message.chat.id, session, settler.profession, 
@@ -904,7 +900,7 @@ async def hitter_callback(callback: types.CallbackQuery):
                 active_games.pop(user_key, None)
                 end_work(callback.message.chat.id)
                 log.debug(f"{callback.message.chat.id} | {settler.user_id} | 💼 Труд завершён!")
-            else: # Следующий шаг
+            else:
                 text = f"{workflow.get_status_text()}"
                 kb = workflow.render_keyboard()
                 await callback.message.edit_text(text, reply_markup=kb)
@@ -916,10 +912,9 @@ async def hitter_callback(callback: types.CallbackQuery):
             return
     
     else:
-        # Поддержка одиночных шагов (например, 🎣 Catch), использующих callback "hit:idx"
         game = workflow_or_step
         if hasattr(game, 'click') and hasattr(game, 'render_keyboard'):
-            result = game.click(position)
+            result = game.click(i)
             if result == "hit":
                 text = f"{game.get_status_text()}"
                 kb = game.render_keyboard()
@@ -959,7 +954,7 @@ async def hitter_callback(callback: types.CallbackQuery):
 @router.callback_query(F.data.startswith("timer:"))
 async def timer_callback(callback: types.CallbackQuery):
     #* Обработка callback-кнопок для таймерных шагов
-    _, action = callback.data.split(":")
+    _, i = callback.data.split(":")
     
     user = await core.user_getOrCreate(callback.from_user)
     settlement = await core.settlement_getOrCreate(callback.message.chat, user)
@@ -971,7 +966,6 @@ async def timer_callback(callback: types.CallbackQuery):
         await callback.answer("⏳ Погоди миг единый меж трудами!")
         return
     
-    # Проверяем таймаут работы
     remaining_time = get_work_remaining_time(callback.message.chat.id)
     if remaining_time <= 0:
         await callback.answer("⏰ Пора труда миновала! Дело отложено.", True)
@@ -989,7 +983,7 @@ async def timer_callback(callback: types.CallbackQuery):
         await callback.answer("Неверный ход!")
         return
     
-    result = current_step.click(action)
+    result = current_step.click(i)
     
     if result == "started":
         text = f"{workflow.get_status_text()}"
@@ -999,14 +993,13 @@ async def timer_callback(callback: types.CallbackQuery):
         log.debug(f"{callback.message.chat.id} | {settler.user_id} | ⏰ Таймер запущен!")
         
     elif result == "completed":
-        if workflow.next_step(): # Работа завершена
+        if workflow.next_step():
             text = f"{workflow.get_status_text()}"
             await callback.message.edit_text(text)
             await callback.answer(workflow.complete_text)
             
             async with SessionLocal() as session:
-                # Для знахаря - создание отвара
-                if settler.profession.emoji == "📔":  # Знахарь
+                if settler.profession.emoji == "📔":
                     tea_resource = await core.get_resource_by_emoji("🍵", session)
                     rewards = {tea_resource.id: 1}
                 else:
@@ -1019,7 +1012,7 @@ async def timer_callback(callback: types.CallbackQuery):
             active_games.pop(user_key, None)
             end_work(callback.message.chat.id)
             log.debug(f"{callback.message.chat.id} | {settler.user_id} | 💼 Труд завершён!")
-        else: # Следующий шаг
+        else:
             text = f"{workflow.get_status_text()}"
             kb = workflow.render_keyboard()
             await callback.message.edit_text(text, reply_markup=kb)
@@ -1037,7 +1030,7 @@ async def timer_callback(callback: types.CallbackQuery):
 @router.callback_query(F.data.startswith("milking:"))
 async def milking_callback(callback: types.CallbackQuery):
     #* Обработка callback-кнопок для шага доения
-    _, chosen = callback.data.split(":")
+    _, i = callback.data.split(":")
     
     user = await core.user_getOrCreate(callback.from_user)
     settlement = await core.settlement_getOrCreate(callback.message.chat, user)
@@ -1061,12 +1054,11 @@ async def milking_callback(callback: types.CallbackQuery):
         await callback.answer("❌ Дело не сыскано. Может, ты его свершил, али вовсе не твоё то дело?")
         return
     try:
-        chosen_int = int(chosen)
+        chosen_int = int(i)
     except ValueError:
         await callback.answer("Неверный ход!", True)
         return
     
-    # Поддержка как одиночного шага, так и шага внутри Workflow
     if hasattr(workflow_or_step, 'get_current_step'):
         workflow = workflow_or_step
         current_step = workflow.get_current_step()

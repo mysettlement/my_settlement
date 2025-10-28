@@ -23,9 +23,9 @@ log = setup_logging(logging.getLogger(__name__))
 # Система ограничений
 work_in_progress: Dict[int, bool] = {}  # Блокировка работы по чатам
 last_work_end_time: Dict[int, float] = {}  # Время завершения последней работы по чатам
-user_last_click_time: Dict[str, float] = {}  # Последнее нажатие кнопки для каждого пользователя
 work_start_time: Dict[int, float] = {}  # Время начала работы по чатам
 work_timeout_tasks: Dict[int, asyncio.Task] = {}  # Задачи таймаута работы по чатам
+user_last_click_time: Dict[str, float] = {}  # Последнее нажатие кнопки для каждого пользователя
 
 
 
@@ -141,7 +141,6 @@ def start_work(chat_id: int):
     work_timeout_tasks[chat_id] = asyncio.create_task(timeout_work(chat_id))
 
 def end_work(chat_id: int):
-    global work_in_progress, last_work_end_time, work_start_time, work_timeout_tasks
     work_in_progress[chat_id] = False
     last_work_end_time[chat_id] = time.time()
     

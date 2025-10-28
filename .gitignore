@@ -1,6 +1,7 @@
 /wiki
 /__pycache__
 /logs
-/my_settlement.code-workspace
 /.vscode
 /.env
+.env
+my_settlement.code-workspace

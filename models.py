@@ -61,7 +61,6 @@ class User(Base):
     id = Column(BigInteger, primary_key=True, index=True) # внутренний id
     user_id = Column(BigInteger, unique=True, index=True) # id пользователя в телеграме
     name = Column(String)
-    locale = Column(String, server_default="ru")
     compact_style = Column(Boolean, server_default="False")
     owned_settlements = relationship("Settlement", back_populates="owner")
     memberships = relationship("Settler", back_populates="user")

@@ -5,7 +5,7 @@ import logging
 
 from config import settings, setup_logging
 import models
-from database import Base
+from models import Base
 
 
 log = setup_logging(logging.getLogger(__name__))

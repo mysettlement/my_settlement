@@ -1,13 +1,14 @@
 from sqlalchemy import Table, Column, Integer, BigInteger, String, ForeignKey, PickleType, Boolean, Enum as SAEnum, DateTime, Float
-from sqlalchemy.orm import relationship
+from sqlalchemy.orm import relationship, declarative_base
 from sqlalchemy.ext.mutable import MutableList
 from pydantic import BaseModel, Field, computed_field
 from enum import Enum
 from typing import ClassVar
 
-from database import Base
 from gamer import Hitting, TimerStep, Workflow, Harvesting, Catch, Milking
 
+
+Base = declarative_base()
 
 
 #* === ПЕРЕЧИСЛЕНИЯ ===

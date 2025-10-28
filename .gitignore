@@ -2,6 +2,5 @@
 /__pycache__
 /logs
 /.vscode
-/.env
 .env
 my_settlement.code-workspace

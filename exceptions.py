@@ -76,7 +76,7 @@ class ErrorMiddleware(BaseMiddleware):
                 "retry after",
                 "flood control exceeded"
             ]):
-                log.debug(f"{chat_id} | Игнорируем некритичную ошибку: {str(e)}")
+                log.debug(f"{chat_id} | Некритичная ошибка: {str(e)}")
                 return
             
             log.critical(f"{chat_id} | Неизвестная ошибка: {str(e)}")

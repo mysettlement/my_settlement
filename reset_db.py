@@ -64,8 +64,6 @@ async def reset_database():
         await engine.dispose()
 
 if __name__ == "__main__":
-    
-    # Запрашиваем подтверждение
     confirm = input("Вы уверены, что хотите продолжить? (yes/no): ").lower().strip()
     
     if confirm in ["no", "n", "нет", "н"]:

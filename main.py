@@ -1,6 +1,7 @@
 import asyncio
 import logging
 import os
+import random
 
 from aiogram import Bot, Dispatcher
 from aiogram.client.default import DefaultBotProperties
@@ -69,13 +70,17 @@ async def main():
 
     try:
         tasks.scheduler.start()
-        await bot(SetMyName(name="🛖 Моё Поселение! 🔵", language_code="ru"))
-        await bot(SetMyName(name="🛖 My Settlement! 🔵", language_code="en"))
+        
+        #! Flood control
+        # smile = random.choice(["🔷", "🔵", "🌀", "🫐", "🐬"])
+        # await bot(SetMyName(name=f"🛖 Моё Поселение! {smile}", language_code="ru"))
+        # await bot(SetMyName(name=f"🛖 My Settlement! {smile}", language_code="en"))
         log.info("🟢 Бот запущен!")
         await dp.start_polling(bot)
     finally:
-        await bot(SetMyName(name="🛖 Моё Поселение! 🔴", language_code="ru"))
-        await bot(SetMyName(name="🛖 My Settlement! 🔴", language_code="en"))
+        # cry = random.choice(["🔺", "🔴", "㊙️", "🍒", "🏮"])
+        # await bot(SetMyName(name=f"🛖 Моё Поселение! {cry}", language_code="ru"))
+        # await bot(SetMyName(name=f"🛖 My Settlement! {cry}", language_code="en"))
         for task in handlers.work_timeout_tasks.values():
             task.cancel()
         handlers.work_timeout_tasks.clear()

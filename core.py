@@ -317,7 +317,6 @@ def can_work_now(settler: models.Settler) -> tuple[bool, str]:
     
     return True, ""
 
-
 async def end_work(settler: models.Settler, chat_id: int, session: AsyncSession, profession: models.Profession, 
                    rewards: dict[int, int] = None, mark_work_completed: bool = False):
     """

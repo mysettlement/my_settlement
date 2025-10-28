@@ -47,7 +47,6 @@ async def my_id_command(message: types.Message):
             f"💬 Telegram: <code>{user.user_id}</code>\n"
         )
     await message.answer(text)
-    log.debug(f"{message.chat.id} | Функция my_id_command() выполнена")
 
 @router.message(or_f(Command("me"), F.text.lower() == "профиль", F.text.lower() == "@mysettlementbot профиль", F.text.lower() == "my profile", F.text.lower() == "@mysettlementbot my profile"))
 async def me_command(message: types.Message):
@@ -116,8 +115,6 @@ async def me_command(message: types.Message):
                 f"💬 Telegram: <code>{user.user_id}</code>\n"
             )
         await message.answer(text)
-
-    log.debug(f"{message.chat.id} | Функция me_command() выполнена")
 
 
 @router.message(or_f(Command("settings"), F.text.lower() == "настройки", F.text.lower() == "@mysettlementbot настройки", F.text.lower() == "settings", F.text.lower() == "@mysettlementbot settings"))
@@ -207,7 +204,6 @@ async def private_handler(message: types.Message):
 
 
 
-
 @router.my_chat_member()
 async def bot_added_to_chat_event(event: types.ChatMemberUpdated):
     #* Приветствие при добавлении бота в группу
@@ -234,7 +230,6 @@ async def bot_added_to_chat_event(event: types.ChatMemberUpdated):
         kb.row(*buttons)
 
         await event.answer(welcome_text, reply_markup=kb.as_markup())
-        log.debug(f"{event.chat.id} | Функция bot_added_to_chat_event() выполнена")
     if event.new_chat_member.status in ["left", "kicked"]:
         log.debug(f"{chat.id} | Бот удален из группы {chat.title}")
 
@@ -272,7 +267,6 @@ async def start_command(message: types.Message):
         f"👥{len(settlement.members)} 👑 <b>{settlement.owner.name or (f"User {settlement.owner.user_id}" if settlement.owner else "Отсутствует")}</b>"
     )
     await message.answer(text, reply_markup=kb.as_markup())
-    log.debug(f"{message.chat.id} | Функция start_command() выполнена")
 
 @router.message(or_f(Command("cosmetics"), F.text.lower() == "косметика", F.text.lower() == "@mysettlementbot косметика", F.text.lower() == "cosmetics", F.text.lower() == "@mysettlementbot cosmetics"))
 async def cosmetics_command(message: types.Message):
@@ -301,22 +295,15 @@ async def cosmetics_command(message: types.Message):
         await message.answer(text=text)
         return
     
-    # Кнопки для каждого эмодзи
-    kb_buttons = []
+    buttons = []
     for i in range(0, len(all_emojis), 3):
-        row = []
         for j in range(3):
             if i + j < len(all_emojis):
                 emoji = all_emojis[i + j]
-                row.append(InlineKeyboardButton(
-                    text=f"{emoji} {'✅' if emoji == settler.emoji else ''}", 
-                    callback_data=f"cosmetics_select_{emoji}"
-                ))
-        kb_buttons.append(row)
+                buttons.append(InlineKeyboardButton(text=f"{emoji}{' ✅' if emoji == settler.emoji else ''}", callback_data=f"cosmetics_select_{emoji}"))
     
-    kb = InlineKeyboardMarkup(inline_keyboard=kb_buttons)
-    await message.answer(text=text, reply_markup=kb)
-    log.debug(f"{message.chat.id} | Функция cosmetics_command() выполнена")
+    kb = InlineKeyboardBuilder().row(*buttons)
+    await message.answer(text=text, reply_markup=kb.as_markup())
 
 @router.callback_query(F.data.startswith("cosmetics_select_"))
 async def cosmetics_select(callback: types.CallbackQuery):
@@ -342,28 +329,24 @@ async def cosmetics_select(callback: types.CallbackQuery):
     
     
     all_emojis = []
-    if settler.rank_emoji_available:
-        all_emojis.extend(settler.rank_emoji_available)
-    if settler.special_emoji_available:
-        all_emojis.extend(settler.special_emoji_available)
+    if db_settler.rank_emoji_available:
+        all_emojis.extend(db_settler.rank_emoji_available)
+    if db_settler.special_emoji_available:
+        all_emojis.extend(db_settler.special_emoji_available)
     
     all_emojis = list(dict.fromkeys(all_emojis))
-    kb_buttons = []
-    
+    buttons = []
     for i in range(0, len(all_emojis), 3):
-        row = []
         for j in range(3):
             if i + j < len(all_emojis):
-                emoji = all_emojis[i + j]
-                row.append(InlineKeyboardButton(
-                    text=f"{emoji} {'✅' if emoji == db_settler.emoji else ''}", 
-                    callback_data=f"cosmetics_select_{emoji}"
+                emoji_btn = all_emojis[i + j]
+                buttons.append(InlineKeyboardButton(
+                    text=f"{emoji_btn}{' ✅' if emoji_btn == db_settler.emoji else ''}", 
+                    callback_data=f"cosmetics_select_{emoji_btn}"
                 ))
-        kb_buttons.append(row)
     
-    kb = InlineKeyboardMarkup(inline_keyboard=kb_buttons)
-    await callback.message.edit_text(text=f"🪭 <b>Доступная косметика</b>\n\n🎭 <b>Текущий эмодзи</b>: {emoji}", reply_markup=kb)
-    log.debug(f"{callback.message.chat.id} | Функция cosmetics_select() выполнена")
+    kb = InlineKeyboardBuilder().row(*buttons)
+    await callback.message.edit_text(text=f"🪭 <b>Доступная косметика</b>\n\n🎭 <b>Текущий эмодзи</b>: {db_settler.emoji}", reply_markup=kb.as_markup())
 
 @router.message(or_f(Command("overtime"), F.text.lower() == "лишняя мера", F.text.lower() == "@mysettlementbot лишняя мера", F.text.lower() == "overtime", F.text.lower() == "@mysettlementbot overtime"))
 async def overtime_command(message: types.Message):
@@ -398,7 +381,6 @@ async def overtime_command(message: types.Message):
 
     kb.row(*buttons)
     await message.answer(text, reply_markup=kb.as_markup())
-    log.debug(f"{message.chat.id} | Функция overtime_command() выполнена")
 
 @router.callback_query(F.data == "overtime_take")
 async def overtime_take(callback: types.CallbackQuery):
@@ -425,7 +407,6 @@ async def overtime_take(callback: types.CallbackQuery):
         
         reset_countdown = get_daily_reset_countdown()
         await callback.message.edit_text(f"⏳ <b>Мера лишняя взялась!</b>\nПора тебе осталась 🕒 <b>{reset_countdown}</b> чтоб новую меру исполнить!")
-        log.debug(f"{callback.message.chat.id} | Функция overtime_take() выполнена")
 
 @router.message(or_f(Command("inventory"), F.text.lower() == "инвентарь", F.text.lower() == "@mysettlementbot инвентарь", F.text.lower() == "inventory", F.text.lower() == "@mysettlementbot inventory"))
 async def inventory_command(message: types.Message):
@@ -466,7 +447,6 @@ async def inventory_command(message: types.Message):
             text += f"<b>{category}:</b>\n{' '.join(items)}\n\n"
     
     await message.answer(text=text)
-    log.debug(f"{message.chat.id} | Функция inventory_command() выполнена")
 
 @router.message(or_f(Command("choose_craft"), F.text.lower() == "выбрать ремесло", F.text.lower() == "@mysettlementbot выбрать ремесло", F.text.lower() == "choose craft", F.text.lower() == "@mysettlementbot choose craft"))
 async def choose_craft_command(message: types.Message):
@@ -508,7 +488,6 @@ async def choose_craft_command(message: types.Message):
     
     kb.row(*buttons, width=2)
     await message.reply(text=text, reply_markup=kb.as_markup(), disable_notification=True)
-    log.debug(f"{message.chat.id} | Функция choose_craft_command() выполнена")
 
 @router.callback_query(F.data.startswith("select_craft:"))
 async def select_craft_callback(callback: types.CallbackQuery):
@@ -545,10 +524,9 @@ async def select_craft_callback(callback: types.CallbackQuery):
         )
         await session.commit()
         
-        kb = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text=f"{profession.emoji} Трудиться", switch_inline_query_current_chat="Трудиться")]])
-        await callback.message.edit_text(f"✅ <b>{callback.from_user.full_name}</b> ремесло себе избрал: {profession.emoji} <b>{profession.name}!</b>", reply_markup=kb)
+        kb = InlineKeyboardBuilder().row(InlineKeyboardButton(text=f"{profession.emoji} Трудиться", switch_inline_query_current_chat="Трудиться"))
+        await callback.message.edit_text(f"✅ <b>{callback.from_user.full_name}</b> ремесло себе избрал: {profession.emoji} <b>{profession.name}!</b>", reply_markup=kb.as_markup())
         log.debug(f"{callback.message.chat.id} | {settler.user_id} | 💼 Выбрано ремесло: {profession.name}")
-    log.debug(f"{callback.message.chat.id} | Функция select_craft_callback() выполнена")
 
 @router.message(or_f(Command("craft"), F.text.lower() == "трудиться", F.text.lower() == "@mysettlementbot трудиться", F.text.lower() == "craft", F.text.lower() == "@mysettlementbot craft"))
 async def craft_command(message: types.Message):
@@ -558,7 +536,7 @@ async def craft_command(message: types.Message):
     settler = await core.settler_getOrCreate(user, settlement)
     
     if not settler.profession_id:
-        await message.answer("❌ Ты ещё ремесла не избрал.", reply_markup=InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="💼 Выбрать ремесло", switch_inline_query_current_chat="Выбрать ремесло")]]))
+        await message.answer("❌ Ты ещё ремесла не избрал.", reply_markup=InlineKeyboardBuilder().row(InlineKeyboardButton(text="💼 Выбрать ремесло", switch_inline_query_current_chat="Выбрать ремесло")).as_markup())
         return
     
     can_work, work_countdown = core.can_work_now(settler)
@@ -609,8 +587,6 @@ async def craft_command(message: types.Message):
     
     kb = workflow_or_step.render_keyboard()
     await message.answer(text, reply_markup=kb)
-
-    log.debug(f"{message.chat.id} | Функция craft_command() выполнена")
 
 @router.callback_query(F.data.startswith("select_work:"))
 async def work_selection_callback(callback: types.CallbackQuery):
@@ -846,7 +822,6 @@ async def harvest_callback(callback: types.CallbackQuery):
             return
 
     await callback.answer()
-    log.debug(f"{callback.message.chat.id} | Функция harvest_callback() выполнена")
 
 @router.callback_query(F.data.startswith("hit:"))
 async def hitter_callback(callback: types.CallbackQuery):
@@ -980,8 +955,6 @@ async def hitter_callback(callback: types.CallbackQuery):
         else:
             await callback.answer("Неверный ход!")
             return
-    
-    log.debug(f"{callback.message.chat.id} | Функция hitter_callback() выполнена")
 
 @router.callback_query(F.data.startswith("timer:"))
 async def timer_callback(callback: types.CallbackQuery):
@@ -1060,8 +1033,6 @@ async def timer_callback(callback: types.CallbackQuery):
     elif result == "invalid":
         await callback.answer("Неверное действие!")
         return
-    
-    log.debug(f"{callback.message.chat.id} | Функция timer_callback() выполнена")
 
 @router.callback_query(F.data.startswith("milking:"))
 async def milking_callback(callback: types.CallbackQuery):
@@ -1183,8 +1154,6 @@ async def milking_callback(callback: types.CallbackQuery):
         elif result == "game_over":
             await callback.answer("Ход уже завершён!")
             return
-    
-    log.debug(f"{callback.message.chat.id} | Функция milking_callback() выполнена")
 
 
 

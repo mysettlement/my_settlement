@@ -38,13 +38,13 @@ async def my_id_command(message: types.Message):
         text = (
             f"👤 <b>{user.name}</b>\n"
             f"🆔 <code>{user.id}</code>\n"
-            f"💬 <code>{user.user_id}</code>\n"
+            f"💬 <code>{user.telegram_id}</code>\n"
         )
     else:
         text = (
             f"👤 <b>{user.name}</b>\n"
             f"🆔 Internal: <code>{user.id}</code>\n"
-            f"💬 Telegram: <code>{user.user_id}</code>\n"
+            f"💬 Telegram: <code>{user.telegram_id}</code>\n"
         )
     await message.answer(text)
 
@@ -106,13 +106,13 @@ async def me_command(message: types.Message):
             text = (
                 f"👤 <b>{user.name}</b>\n"
                 f"🆔 <code>{user.id}</code>\n"
-                f"💬 <code>{user.user_id}</code>\n"
+                f"💬 <code>{user.telegram_id}</code>\n"
             )
         else:
             text = (
                 f"👤 <b>{user.name}</b>\n"
                 f"🆔 Internal: <code>{user.id}</code>\n"
-                f"💬 Telegram: <code>{user.user_id}</code>\n"
+                f"💬 Telegram: <code>{user.telegram_id}</code>\n"
             )
         await message.answer(text)
 
@@ -150,7 +150,7 @@ async def settings_callback(callback: types.CallbackQuery):
     
     async with SessionLocal() as session:
         result = await session.execute(
-            select(models.User).where(models.User.user_id == callback.from_user.id)
+            select(models.User).where(models.User.telegram_id == callback.from_user.id)
         )
         user = result.scalars().first()
         
@@ -264,7 +264,7 @@ async def start_command(message: types.Message):
 
     text = (
         f"<b>{settlement.name}</b>\n"
-        f"👥{len(settlement.members)} 👑 <b>{settlement.owner.name or (f"User {settlement.owner.user_id}" if settlement.owner else "Отсутствует")}</b>"
+        f"👥{len(settlement.members)} 👑 <b>{settlement.owner.name or (f"User {settlement.owner.telegram_id}" if settlement.owner else "Отсутствует")}</b>"
     )
     await message.answer(text, reply_markup=kb.as_markup())
 
@@ -554,7 +554,7 @@ async def craft_command(message: types.Message):
         start_work(message.chat.id)
         workflow_or_step = models.WorkflowWork.get_ploughman_harvesting().copy()
         
-        user_key = f"{message.chat.id}_{user.user_id}"
+        user_key = f"{message.chat.id}_{user.telegram_id}"
         active_games[user_key] = workflow_or_step
         remaining_time = get_work_remaining_time(message.chat.id)
         text = f"🌻 <b>Поле для пахоты:</b>\nЖните 🌾/🥔/🍄‍🟫/🫐. Токмо не троньте саженцы 🌱 — они ещё сил набирают!\n\n⏰ <b>Пора вам осталась:</b> {remaining_time}с"
@@ -620,7 +620,7 @@ async def work_selection_callback(callback: types.CallbackQuery):
         await callback.answer(f"{error_msg}")
         return
 
-    user_key = f"{callback.message.chat.id}_{user.user_id}"
+    user_key = f"{callback.message.chat.id}_{user.telegram_id}"
 
     if profession_key == "healer": # 📔 Знахарь
         if work_key == "herbs":
@@ -699,7 +699,7 @@ async def harvest_callback(callback: types.CallbackQuery):
     settlement = await core.settlement_getOrCreate(callback.message.chat, user)
     settler = await core.settler_getOrCreate(user, settlement)
     
-    user_key = f"{callback.message.chat.id}_{user.user_id}"
+    user_key = f"{callback.message.chat.id}_{user.telegram_id}"
     
     if not can_click_button(user_key):
         await callback.answer("⏳ Погоди миг единый меж трудами!")
@@ -830,7 +830,7 @@ async def hitter_callback(callback: types.CallbackQuery):
     settlement = await core.settlement_getOrCreate(callback.message.chat, user)
     settler = await core.settler_getOrCreate(user, settlement)
     
-    user_key = f"{callback.message.chat.id}_{user.user_id}"
+    user_key = f"{callback.message.chat.id}_{user.telegram_id}"
     
     if not can_click_button(user_key):
         await callback.answer("⏳ Погоди миг единый меж трудами!")
@@ -959,7 +959,7 @@ async def timer_callback(callback: types.CallbackQuery):
     settlement = await core.settlement_getOrCreate(callback.message.chat, user)
     settler = await core.settler_getOrCreate(user, settlement)
     
-    user_key = f"{callback.message.chat.id}_{user.user_id}"
+    user_key = f"{callback.message.chat.id}_{user.telegram_id}"
     
     if not can_click_button(user_key):
         await callback.answer("⏳ Погоди миг единый меж трудами!")
@@ -1034,7 +1034,7 @@ async def milking_callback(callback: types.CallbackQuery):
     settlement = await core.settlement_getOrCreate(callback.message.chat, user)
     settler = await core.settler_getOrCreate(user, settlement)
     
-    user_key = f"{callback.message.chat.id}_{user.user_id}"
+    user_key = f"{callback.message.chat.id}_{user.telegram_id}"
     
     if not can_click_button(user_key):
         await callback.answer("⏳ Погоди миг единый меж трудами!")

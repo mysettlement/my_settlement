@@ -60,7 +60,7 @@ class User(Base):
     __tablename__ = "users"
 
     id = Column(BigInteger, primary_key=True, index=True) # внутренний id
-    user_id = Column(BigInteger, unique=True, index=True) # id пользователя в телеграме
+    telegram_id = Column(BigInteger, unique=True, index=True) # id пользователя в телеграме
     name = Column(String)
     compact_style = Column(Boolean, server_default="False")
     owned_settlements = relationship("Settlement", back_populates="owner")

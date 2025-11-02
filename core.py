@@ -26,7 +26,7 @@ async def user_getOrCreate(telegram_user: types.User):
     try:
         async with SessionLocal() as session:
             result = await session.execute(
-                select(models.User).where(models.User.user_id == telegram_user.id)
+                select(models.User).where(models.User.telegram_id == telegram_user.id)
             )
             db_user = result.scalars().first()
             if db_user:
@@ -45,7 +45,7 @@ async def user_getOrCreate(telegram_user: types.User):
                 session.add(user)
                 await session.commit()
                 await session.refresh(user)
-                log.debug(f"✅ Создан пользователь: {user.user_id}")
+                log.debug(f"✅ Создан пользователь: {user.telegram_id}")
                 return user
     except Exception as e:
         raise UserCreationError(f"Ошибка при создании/получении пользователя {telegram_user.id}: {str(e)}", telegram_user_id=telegram_user.id)

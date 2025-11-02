@@ -42,7 +42,7 @@ async def day_reset():
                 )
                 user = user_result.scalars().first()
                 if user:
-                    mention = f"<a href='tg://user?id={user.user_id}'>{user.name}</a>"
+                    mention = f"<a href='tg://user?id={user.telegram_id}'>{user.name}</a>"
                     settlement_result = await session.execute(
                         select(Settlement).where(Settlement.id == settler.settlement_id)
                     )

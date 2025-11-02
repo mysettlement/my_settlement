@@ -39,7 +39,7 @@ async def user_getOrCreate(telegram_user: types.User):
                 return db_user
             else:
                 user = models.User(
-                    user_id=telegram_user.id,
+                    telegram_id=telegram_user.id,
                     name=getattr(telegram_user, 'full_name', None) or f"User {telegram_user.id}"
                 )
                 session.add(user)

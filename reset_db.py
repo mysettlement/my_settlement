@@ -10,7 +10,7 @@ from sqlalchemy import text
 
 from config import settings, setup_logging
 import models
-from database import Base
+from db import Base
 
 import logging
 

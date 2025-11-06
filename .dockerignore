@@ -1,0 +1,13 @@
+*.log
+*.png
+*.svg
+
+__pycache__/
+.venv/
+wiki/
+logs/
+.git/
+.vscode/
+
+example.env
+

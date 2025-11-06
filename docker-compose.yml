@@ -1,0 +1,49 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: my-settlement:latest
+    command: python main.py
+    env_file:
+      - .env 
+    environment:
+      - DB_HOST=db
+      - DB_PORT=5432
+    volumes:
+      - .:/app
+      - ./logs:/app/logs
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - app-net
+    restart: unless-stopped
+
+  db:
+    image: postgres:16
+    env_file:
+      - .env
+    environment:
+      - POSTGRES_USER=${DB_USER}
+      - POSTGRES_PASSWORD=${DB_PASS}
+      - POSTGRES_DB=${DB_NAME}
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    ports:
+      - "1488:5432" 
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER} -d ${DB_NAME}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - app-net
+    restart: unless-stopped
+
+volumes:
+  db-data:
+
+networks:
+  app-net:
+    driver: bridge

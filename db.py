@@ -24,8 +24,35 @@ SessionLocal = async_sessionmaker(
 
 async def init_db():
     async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
         async with SessionLocal() as session:
+            try:
+                async with engine.begin() as conn:
+                    result = await conn.execute(text("""
+                        SELECT table_name 
+                        FROM information_schema.tables 
+                        WHERE table_schema = 'public' 
+                        AND table_type = 'BASE TABLE'
+                    """))
+                    
+                    tables = [row[0] for row in result.fetchall()]
+                    log.info(f"🔍 Найдено таблиц: {', '.join(tables)}")
+                    if not tables:
+                        await conn.run_sync(Base.metadata.create_all)
+                        
+                        result = await conn.execute(text("""
+                            SELECT table_name 
+                            FROM information_schema.tables 
+                            WHERE table_schema = 'public' 
+                            AND table_type = 'BASE TABLE'
+                        """))
+                        
+                        tables = [row[0] for row in result.fetchall()]
+                        log.info(f"📋 Созданные таблицы: {', '.join(tables)}")
+                
+            except Exception as e:
+                log.error(f"❌ Ошибка при перезагрузке базы данных: {e}")
+                raise
+
             resources_to_add = [
                 {"name": "Зерно", "emoji": "🌾", "description": "Основной продукт земледелия", "category": "Еда", "rarity": models.RarityLevel.COMMON}, # 
                 {"name": "Картофель", "emoji": "🥔", "description": "Корнеплод для питания", "category": "Еда", "rarity": models.RarityLevel.COMMON}, # 
@@ -59,6 +86,7 @@ async def init_db():
                 {"name": "Ремесленник", "emoji": "⚒️", "description": "", "crafts": "🧺/🧵/🔩", "required_level": 0}, # 4
                 {"name": "Мастеровой", "emoji": "🧰", "description": "", "crafts": "🥾/🧥/🪑/🗡", "required_level": 0} # 5
             ]
+
             for profession in professions_to_add:
                 profession_data = profession.copy()
                 if 'crafts' not in profession_data:

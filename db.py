@@ -35,8 +35,8 @@ async def init_db():
                     """))
                     
                     tables = [row[0] for row in result.fetchall()]
-                    log.info(f"🔍 Найдено таблиц: {', '.join(tables)}")
                     if not tables:
+                        log.info("🛠️ Таблицы не найдены. Пересоздание...")
                         await conn.run_sync(Base.metadata.create_all)
                         
                         result = await conn.execute(text("""
@@ -48,6 +48,8 @@ async def init_db():
                         
                         tables = [row[0] for row in result.fetchall()]
                         log.info(f"📋 Созданные таблицы: {', '.join(tables)}")
+                    else:
+                        log.info(f"🔍 Найдено таблиц: {', '.join(tables)}")
                 
             except Exception as e:
                 log.error(f"❌ Ошибка при перезагрузке базы данных: {e}")

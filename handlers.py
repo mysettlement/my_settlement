@@ -129,12 +129,12 @@ async def settings_command(message: types.Message):
     #TODO: XXX = user.XXX
 
     buttons.append(InlineKeyboardButton(text=f"{"🎩" if compact_style else '🎩 Стиль'}: {'🤏' if compact_style else '🤲'}", callback_data="settings:compact_style"))
-    buttons.append(InlineKeyboardButton(text=f"{"🎭" if compact_style else '🎭 Подсказки'}: {'✅' if show_hints else '❌'}", callback_data="settings:show_hints"))
+    buttons.append(InlineKeyboardButton(text=f"{"ℹ️" if compact_style else 'ℹ️ Подсказки'}: {'✅' if show_hints else '❌'}", callback_data="settings:show_hints"))
     kb.row(*buttons, width=2)
     
     text = f"⚙️ <b>Настройки</b>"
     text += f"\n🎩 Стиль сообщений: <b>{'🤏 Компактный' if compact_style else '🤲 Развёрнутый'}</b>"
-    text += f"\n🎭 Подсказки: <b>{'✅ Включены' if show_hints else '❌ Выключены'}</b>"
+    text += f"\nℹ️ Подсказки: <b>{'✅ Включены' if show_hints else '❌ Выключены'}</b>"
     #TODO: text += f"\n"
     text += "\n\nℹ️ Настройки сохраняются для каждого пользователя отдельно." if user.show_hints else ""
     
@@ -175,17 +175,17 @@ async def settings_callback(callback: types.CallbackQuery):
             user.show_hints = not user.show_hints
             await session.commit()
             show_hints = user.show_hints
-            log.debug(f"{user.telegram_id} | 🎭 show_hints > {show_hints}")
-            await callback.answer(f"🎭 Подсказки > {'✅ Включены' if show_hints else '❌ Выключены'}")
+            log.debug(f"{user.telegram_id} | ℹ️ show_hints > {show_hints}")
+            await callback.answer(f"ℹ️ Подсказки > {'✅ Включены' if show_hints else '❌ Выключены'}")
         
         #TODO: if action == "XXX":
         
     buttons.append(InlineKeyboardButton(text=f"{"🎩" if compact_style else '🎩 Стиль'}: {'🤏' if compact_style else '🤲'}", callback_data="settings:compact_style"))
-    buttons.append(InlineKeyboardButton(text=f"{"🎭" if compact_style else '🎭 Подсказки'}: {'✅' if show_hints else '❌'}", callback_data="settings:show_hints"))
+    buttons.append(InlineKeyboardButton(text=f"{"ℹ️" if compact_style else 'ℹ️ Подсказки'}: {'✅' if show_hints else '❌'}", callback_data="settings:show_hints"))
     
     text = f"⚙️ <b>Настройки</b>"
     text += f"\n🎩 Стиль сообщений: <b>{"🤏 Компактный" if compact_style else "🤲 Развёрнутый"}</b>"
-    text += f"\n🎭 Подсказки: <b>{'✅ Включены' if show_hints else '❌ Выключены'}</b>"
+    text += f"\nℹ️ Подсказки: <b>{'✅ Включены' if show_hints else '❌ Выключены'}</b>"
     #TODO: text += f"\n"
     text += "\n\nℹ️ Настройки сохраняются для каждого пользователя отдельно." if user.show_hints else ""
 

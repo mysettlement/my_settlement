@@ -72,15 +72,15 @@ async def main():
         tasks.scheduler.start()
 
         #! Flood control
-        # smile = random.choice(["🔷", "🔵", "🌀", "🫐", "🐬"])
-        # await bot(SetMyName(name=f"🛖 Моё Поселение! {smile}", language_code="ru"))
-        # await bot(SetMyName(name=f"🛖 My Settlement! {smile}", language_code="en"))
+        smile = random.choice(["🔷", "🔵", "🌀", "🫐", "🐬"])
+        await bot(SetMyName(name=f"🛖 Моё Поселение! {smile}", language_code="ru"))
+        await bot(SetMyName(name=f"🛖 My Settlement! {smile}", language_code="en"))
         log.info("🟢 Бот запущен!")
         await dp.start_polling(bot)
     finally:
-        # cry = random.choice(["🔺", "🔴", "㊙️", "🍒", "🏮"])
-        # await bot(SetMyName(name=f"🛖 Моё Поселение! {cry}", language_code="ru"))
-        # await bot(SetMyName(name=f"🛖 My Settlement! {cry}", language_code="en"))
+        cry = random.choice(["🔺", "🔴", "㊙️", "🍒", "🏮"])
+        await bot(SetMyName(name=f"🛖 Моё Поселение! {cry}", language_code="ru"))
+        await bot(SetMyName(name=f"🛖 My Settlement! {cry}", language_code="en"))
         for task in handlers.work_timeout_tasks.values():
             task.cancel()
         handlers.work_timeout_tasks.clear()

@@ -4,31 +4,36 @@
 Использует библиотеку sqlalchemy-data-model-visualizer для создания SVG диаграмм
 """
 
-import logging
-import os
 import sys
 from pathlib import Path
+import os
+import logging
 
-# Добавляем родительскую директорию в путь для импорта модулей
+# Add parent directory to Python path before imports
 sys.path.append(str(Path(__file__).parent.parent))
+os.environ["PATH"] += os.pathsep + 'C:/Users/pcs/programs/Graphviz/bin'
+
+import config
+from models import User, Settlement, Settler, Resource, Profession
 
 try:
     from sqlalchemy_data_model_visualizer import generate_data_model_diagram, add_web_font_and_interactivity
-except ImportError:
-    print("Ошибка: библиотека sqlalchemy-data-model-visualizer не установлена.")
-    print("Установите её командой: pip install sqlalchemy-data-model-visualizer")
+    import cairosvg
+except ImportError as e:
+    if "sqlalchemy-data-model-visualizer" in str(e):
+        print("Ошибка: библиотека sqlalchemy-data-model-visualizer не установлена.")
+        print("Установите её командой: pip install sqlalchemy-data-model-visualizer")
+    elif "cairosvg" in str(e):
+        print("Ошибка: библиотека cairosvg не установлена.")
+        print("Установите её командой: pip install cairosvg")
     sys.exit(1)
 
 try:
-    import config
-    from models import User, Settlement, Settler
     
     # Настройка логирования
     logger = logging.getLogger(__name__)
     log = config.setup_logging(logger)
 except Exception as e:
-    # Fallback настройка логирования если config недоступен
-    from models import User, Settlement, Settler
     
     logging.basicConfig(
         level=logging.INFO,
@@ -48,11 +53,14 @@ def create_diagram():
         models = [
             User,
             Settlement, 
-            Settler
+            Settler,
+            Resource,
+            Profession
         ]
         
-        # Имя выходного файла
-        output_file = "settlement_data_model_diagram"
+        # Путь для сохранения файлов
+        current_dir = Path(__file__).parent
+        output_file = str(current_dir / "settlement_data_model_diagram")
         
         log.info("Начинаем создание диаграммы моделей...")
         
@@ -63,30 +71,24 @@ def create_diagram():
             add_labels=True
         )
         
-        log.info(f"Базовая диаграмма создана: {output_file}.svg")
-        
-        # Создаем интерактивную версию с веб-шрифтами
-        interactive_file = f"{output_file}_interactive.svg"
-        add_web_font_and_interactivity(
-            f"{output_file}.svg", 
-            interactive_file
-        )
-        
-        log.info(f"Интерактивная диаграмма создана: {interactive_file}")
-        
-        # Проверяем, что файлы созданы
-        base_file = Path(f"{output_file}.svg")
-        interactive_file_path = Path(interactive_file)
+        # Проверяем, что файл создан
+        base_file = Path(str(output_file) + ".svg")
         
         if base_file.exists():
             log.info(f"✅ Базовая диаграмма сохранена: {base_file.absolute()}")
+            
+            # Конвертируем SVG в PNG
+            png_file = base_file.with_suffix('.png')
+            try:
+                cairosvg.svg2png(url=str(base_file), write_to=str(png_file))
+                log.info(f"✅ PNG версия сохранена: {png_file.absolute()}")
+            except Exception as e:
+                log.error(f"❌ Ошибка при конвертации в PNG: {e}")
+            
+            # Открываем базовую диаграмму
+            os.startfile(str(base_file.absolute()))
         else:
             log.error(f"❌ Не удалось создать базовую диаграмму: {base_file}")
-            
-        if interactive_file_path.exists():
-            log.info(f"✅ Интерактивная диаграмма сохранена: {interactive_file_path.absolute()}")
-        else:
-            log.error(f"❌ Не удалось создать интерактивную диаграмму: {interactive_file_path}")
             
         return True
         
@@ -101,7 +103,6 @@ def main():
     """
     log.info("🚀 Запуск визуализатора SQLAlchemy моделей")
     
-    # Проверяем наличие моделей
     try:
         from models import User, Settlement, Settler
         log.info("✅ Модели успешно импортированы")
@@ -111,12 +112,6 @@ def main():
     
     # Создаем диаграмму
     success = create_diagram()
-    
-    if success:
-        log.info("🎉 Визуализация завершена успешно!")
-    else:
-        log.error("❌ Визуализация завершилась с ошибками")
-        
     return success
 
 
@@ -128,5 +123,5 @@ if __name__ == "__main__":
         log.info("⏹️  Визуализация прервана пользователем")
         sys.exit(1)
     except Exception as e:
-        log.critical(f"💥 Критическая ошибка: {e}")
+        log.critical(f"Критическая ошибка: {e}")
         sys.exit(1)

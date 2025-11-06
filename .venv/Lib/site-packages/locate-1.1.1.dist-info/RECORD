@@ -1,0 +1,13 @@
+locate-1.1.1.dist-info/INSTALLER,sha256=zuuue4knoyJ-UwPPXg8fezS7VCrXJQrAP7zeNuwvFQg,4
+locate-1.1.1.dist-info/LICENSE,sha256=wGz9UJr-TP2jNrwz3f3P6ZFJBEUVgEtWS7wVkM0aoRQ,1063
+locate-1.1.1.dist-info/METADATA,sha256=n154H9BtEHRf1dJXAcbxX4QM3V4jTFXAynxrxm7RxQM,3871
+locate-1.1.1.dist-info/RECORD,,
+locate-1.1.1.dist-info/WHEEL,sha256=2wepM1nk4DS4eFpYrW1TTqPcoGNfHhhO_i5m4cOimbo,92
+locate-1.1.1.dist-info/top_level.txt,sha256=RRS3BeG9VqKD2oCGcPNpbios9o3rr_KL5CquX_fPu28,7
+locate/__init__.py,sha256=0uwZt0g10ULaSM0iCyEPRE-MglKbLO6_AN6vAmInZnc,156
+locate/__pycache__/__init__.cpython-312.pyc,,
+locate/__pycache__/_locate.cpython-312.pyc,,
+locate/__pycache__/version.cpython-312.pyc,,
+locate/_locate.py,sha256=4U5Z8l7bJHzbNvaHioDifzRmxrBRXqwSCmoxsn7Q19I,4546
+locate/py.typed,sha256=47DEQpj8HBSa-_TImW-5JCeuQeRkm5NMpJWZG3hSuFU,0
+locate/version.py,sha256=REhpSn4mdQTBCSg7u1HqQsjU6xHu3ukrB607xL8jhLw,176

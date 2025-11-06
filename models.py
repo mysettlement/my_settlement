@@ -65,7 +65,7 @@ class User(Base):
     compact_style = Column(Boolean, server_default="False")
     show_hints = Column(Boolean, server_default="True")
 
-    owned_settlements = relationship("Settlement", back_populates="owner")
+    owned = relationship("Settlement", back_populates="owner")
     memberships = relationship("Settler", back_populates="user")
 
 class Settlement(Base):
@@ -75,7 +75,7 @@ class Settlement(Base):
     chat_id = Column(BigInteger, unique=True, index=True)
     name = Column(String)
     owner_id = Column(BigInteger, ForeignKey("users.id"))
-    owner = relationship("User", back_populates="owned_settlements")
+    owner = relationship("User", back_populates="owned")
     members = relationship("Settler", back_populates="settlement")
 
 class Settler(Base):

@@ -8,10 +8,19 @@ digraph {
         <TR><TD COLSPAN="2" BGCOLOR="#3F51B5"><FONT COLOR="white">User</FONT></TD></TR>
         <TR>
                          <TD BGCOLOR="#BBDEFB">id</TD>
-                         <TD BGCOLOR="#BBDEFB">INTEGER (PK,Index)</TD>
+                         <TD BGCOLOR="#BBDEFB">BIGINT (PK,Index)</TD>
                          </TR><TR>
-                         <TD BGCOLOR="#BBDEFB">user_id</TD>
-                         <TD BGCOLOR="#BBDEFB">INTEGER (Unique,Index)</TD>
+                         <TD BGCOLOR="#BBDEFB">telegram_id</TD>
+                         <TD BGCOLOR="#BBDEFB">BIGINT (Unique,Index)</TD>
+                         </TR><TR>
+                         <TD BGCOLOR="#BBDEFB">name</TD>
+                         <TD BGCOLOR="#BBDEFB">VARCHAR ()</TD>
+                         </TR><TR>
+                         <TD BGCOLOR="#BBDEFB">compact_style</TD>
+                         <TD BGCOLOR="#BBDEFB">BOOLEAN ()</TD>
+                         </TR><TR>
+                         <TD BGCOLOR="#BBDEFB">show_hints</TD>
+                         <TD BGCOLOR="#BBDEFB">BOOLEAN ()</TD>
                          </TR></TABLE>> URL="http://User_details.html"]
 	User -> Settlement [label=owned_settlements color="#1E88E5" style=dashed tooltip="Relation between User and Settlement"]
 	User -> Settler [label=memberships color="#1E88E5" style=dashed tooltip="Relation between User and Settler"]
@@ -20,16 +29,16 @@ digraph {
         <TR><TD COLSPAN="2" BGCOLOR="#3F51B5"><FONT COLOR="white">Settlement</FONT></TD></TR>
         <TR>
                          <TD BGCOLOR="#BBDEFB">id</TD>
-                         <TD BGCOLOR="#BBDEFB">INTEGER (PK,Index)</TD>
+                         <TD BGCOLOR="#BBDEFB">BIGINT (PK,Index)</TD>
                          </TR><TR>
                          <TD BGCOLOR="#BBDEFB">chat_id</TD>
-                         <TD BGCOLOR="#BBDEFB">INTEGER (Unique,Index)</TD>
+                         <TD BGCOLOR="#BBDEFB">BIGINT (Unique,Index)</TD>
                          </TR><TR>
                          <TD BGCOLOR="#BBDEFB">name</TD>
                          <TD BGCOLOR="#BBDEFB">VARCHAR ()</TD>
                          </TR><TR>
                          <TD BGCOLOR="#BBDEFB">owner_id</TD>
-                         <TD BGCOLOR="#BBDEFB">INTEGER ()</TD>
+                         <TD BGCOLOR="#BBDEFB">BIGINT ()</TD>
                          </TR></TABLE>> URL="http://Settlement_details.html"]
 	Settlement -> User [label=owner color="#1E88E5" style=dashed tooltip="Relation between Settlement and User"]
 	Settlement -> Settler [label=members color="#1E88E5" style=dashed tooltip="Relation between Settlement and Settler"]
@@ -38,14 +47,125 @@ digraph {
         <TR><TD COLSPAN="2" BGCOLOR="#3F51B5"><FONT COLOR="white">Settler</FONT></TD></TR>
         <TR>
                          <TD BGCOLOR="#BBDEFB">id</TD>
-                         <TD BGCOLOR="#BBDEFB">INTEGER (PK,Index)</TD>
+                         <TD BGCOLOR="#BBDEFB">BIGINT (PK,Index)</TD>
                          </TR><TR>
                          <TD BGCOLOR="#BBDEFB">user_id</TD>
-                         <TD BGCOLOR="#BBDEFB">INTEGER ()</TD>
+                         <TD BGCOLOR="#BBDEFB">BIGINT ()</TD>
                          </TR><TR>
                          <TD BGCOLOR="#BBDEFB">settlement_id</TD>
+                         <TD BGCOLOR="#BBDEFB">BIGINT ()</TD>
+                         </TR><TR>
+                         <TD BGCOLOR="#BBDEFB">level</TD>
+                         <TD BGCOLOR="#BBDEFB">INTEGER ()</TD>
+                         </TR><TR>
+                         <TD BGCOLOR="#BBDEFB">exp</TD>
+                         <TD BGCOLOR="#BBDEFB">INTEGER ()</TD>
+                         </TR><TR>
+                         <TD BGCOLOR="#BBDEFB">target_exp</TD>
+                         <TD BGCOLOR="#BBDEFB">INTEGER ()</TD>
+                         </TR><TR>
+                         <TD BGCOLOR="#BBDEFB">rank</TD>
+                         <TD BGCOLOR="#BBDEFB">VARCHAR ()</TD>
+                         </TR><TR>
+                         <TD BGCOLOR="#BBDEFB">emoji</TD>
+                         <TD BGCOLOR="#BBDEFB">VARCHAR ()</TD>
+                         </TR><TR>
+                         <TD BGCOLOR="#BBDEFB">rank_emoji_available</TD>
+                         <TD BGCOLOR="#BBDEFB">BLOB ()</TD>
+                         </TR><TR>
+                         <TD BGCOLOR="#BBDEFB">special_emoji_available</TD>
+                         <TD BGCOLOR="#BBDEFB">BLOB ()</TD>
+                         </TR><TR>
+                         <TD BGCOLOR="#BBDEFB">profession_id</TD>
+                         <TD BGCOLOR="#BBDEFB">BIGINT ()</TD>
+                         </TR><TR>
+                         <TD BGCOLOR="#BBDEFB">work_is_completed</TD>
+                         <TD BGCOLOR="#BBDEFB">BOOLEAN ()</TD>
+                         </TR><TR>
+                         <TD BGCOLOR="#BBDEFB">last_work_time</TD>
+                         <TD BGCOLOR="#BBDEFB">BIGINT ()</TD>
+                         </TR><TR>
+                         <TD BGCOLOR="#BBDEFB">last_profession_change</TD>
+                         <TD BGCOLOR="#BBDEFB">BIGINT ()</TD>
+                         </TR><TR>
+                         <TD BGCOLOR="#BBDEFB">quote</TD>
+                         <TD BGCOLOR="#BBDEFB">INTEGER ()</TD>
+                         </TR><TR>
+                         <TD BGCOLOR="#BBDEFB">target_quote</TD>
+                         <TD BGCOLOR="#BBDEFB">INTEGER ()</TD>
+                         </TR><TR>
+                         <TD BGCOLOR="#BBDEFB">quote_is_completed</TD>
+                         <TD BGCOLOR="#BBDEFB">BOOLEAN ()</TD>
+                         </TR><TR>
+                         <TD BGCOLOR="#BBDEFB">overtime_count</TD>
+                         <TD BGCOLOR="#BBDEFB">INTEGER ()</TD>
+                         </TR><TR>
+                         <TD BGCOLOR="#BBDEFB">overtime_is_toggled</TD>
+                         <TD BGCOLOR="#BBDEFB">BOOLEAN ()</TD>
+                         </TR><TR>
+                         <TD BGCOLOR="#BBDEFB">balance</TD>
+                         <TD BGCOLOR="#BBDEFB">INTEGER ()</TD>
+                         </TR><TR>
+                         <TD BGCOLOR="#BBDEFB">income</TD>
                          <TD BGCOLOR="#BBDEFB">INTEGER ()</TD>
                          </TR></TABLE>> URL="http://Settler_details.html"]
 	Settler -> User [label=user color="#1E88E5" style=dashed tooltip="Relation between Settler and User"]
 	Settler -> Settlement [label=settlement color="#1E88E5" style=dashed tooltip="Relation between Settler and Settlement"]
+	Settler -> Resource [label=resources color="#1E88E5" style=dashed tooltip="Relation between Settler and Resource"]
+	Settler -> Profession [label=profession color="#1E88E5" style=dashed tooltip="Relation between Settler and Profession"]
+	Resource [label=<
+        <TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0">
+        <TR><TD COLSPAN="2" BGCOLOR="#3F51B5"><FONT COLOR="white">Resource</FONT></TD></TR>
+        <TR>
+                         <TD BGCOLOR="#BBDEFB">id</TD>
+                         <TD BGCOLOR="#BBDEFB">BIGINT (PK,Index)</TD>
+                         </TR><TR>
+                         <TD BGCOLOR="#BBDEFB">name</TD>
+                         <TD BGCOLOR="#BBDEFB">VARCHAR (Unique)</TD>
+                         </TR><TR>
+                         <TD BGCOLOR="#BBDEFB">emoji</TD>
+                         <TD BGCOLOR="#BBDEFB">VARCHAR ()</TD>
+                         </TR><TR>
+                         <TD BGCOLOR="#BBDEFB">description</TD>
+                         <TD BGCOLOR="#BBDEFB">VARCHAR ()</TD>
+                         </TR><TR>
+                         <TD BGCOLOR="#BBDEFB">category</TD>
+                         <TD BGCOLOR="#BBDEFB">VARCHAR ()</TD>
+                         </TR><TR>
+                         <TD BGCOLOR="#BBDEFB">from_resource</TD>
+                         <TD BGCOLOR="#BBDEFB">VARCHAR ()</TD>
+                         </TR><TR>
+                         <TD BGCOLOR="#BBDEFB">for_resource</TD>
+                         <TD BGCOLOR="#BBDEFB">VARCHAR ()</TD>
+                         </TR><TR>
+                         <TD BGCOLOR="#BBDEFB">rarity</TD>
+                         <TD BGCOLOR="#BBDEFB">VARCHAR(9) ()</TD>
+                         </TR></TABLE>> URL="http://Resource_details.html"]
+	Resource -> Settler [label=settlers color="#1E88E5" style=dashed tooltip="Relation between Resource and Settler"]
+	Profession [label=<
+        <TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0">
+        <TR><TD COLSPAN="2" BGCOLOR="#3F51B5"><FONT COLOR="white">Profession</FONT></TD></TR>
+        <TR>
+                         <TD BGCOLOR="#BBDEFB">id</TD>
+                         <TD BGCOLOR="#BBDEFB">BIGINT (PK,Index)</TD>
+                         </TR><TR>
+                         <TD BGCOLOR="#BBDEFB">name</TD>
+                         <TD BGCOLOR="#BBDEFB">VARCHAR (Unique)</TD>
+                         </TR><TR>
+                         <TD BGCOLOR="#BBDEFB">emoji</TD>
+                         <TD BGCOLOR="#BBDEFB">VARCHAR ()</TD>
+                         </TR><TR>
+                         <TD BGCOLOR="#BBDEFB">description</TD>
+                         <TD BGCOLOR="#BBDEFB">VARCHAR ()</TD>
+                         </TR><TR>
+                         <TD BGCOLOR="#BBDEFB">crafts</TD>
+                         <TD BGCOLOR="#BBDEFB">VARCHAR ()</TD>
+                         </TR><TR>
+                         <TD BGCOLOR="#BBDEFB">collects</TD>
+                         <TD BGCOLOR="#BBDEFB">VARCHAR ()</TD>
+                         </TR><TR>
+                         <TD BGCOLOR="#BBDEFB">required_level</TD>
+                         <TD BGCOLOR="#BBDEFB">INTEGER ()</TD>
+                         </TR></TABLE>> URL="http://Profession_details.html"]
+	Profession -> Settler [label=settlers color="#1E88E5" style=dashed tooltip="Relation between Profession and Settler"]
 }

@@ -42,7 +42,6 @@ async def init_db():
                 {"name": "Кора", "emoji": "🎋", "description": 'Кора <a href="https://ru.wikipedia.org/wiki/Осина">осиного дерева</a> для создания лечебных отваров (🍵)', "category": "Материалы", "for_resource": "🍵", "rarity": models.RarityLevel.UNCOMMON}, # 
                 {"name": "Отвар", "emoji": "🍵", "description": "Целебный отвар из коры осины (🎋) для лечения болезней", "category": "Лекарства", "from_resource": "🎋", "rarity": models.RarityLevel.UNCOMMON}, #  - 3 отвара для лечения болезни
                 {"name": "Бинт", "emoji": "🩹", "description": "Пропитанная лечебными маслами из льна (🪴) ткань (🧺) для перевязки ран", "category": "Лекарства", "from_resource": "🪴+🧺", "rarity": models.RarityLevel.RARE}, #  - 1 бинт для лечения раны
-                {"name": "Сигара", "emoji": "🚬", "description": "ток для админов", "category": "прочитал лох", "rarity": models.RarityLevel.COMMON} # 
             ]
             for resource in resources_to_add:
                 resource_data = resource.copy()

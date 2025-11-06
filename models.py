@@ -63,6 +63,8 @@ class User(Base):
     telegram_id = Column(BigInteger, unique=True, index=True) # id пользователя в телеграме
     name = Column(String)
     compact_style = Column(Boolean, server_default="False")
+    show_hints = Column(Boolean, server_default="True")
+
     owned_settlements = relationship("Settlement", back_populates="owner")
     memberships = relationship("Settler", back_populates="user")
 

@@ -278,7 +278,7 @@ async def update_quote(settler: models.Settler, settlement: models.Settlement, s
             text = (
                 f"🎉 <b>{user.name if user else f'User {current_settler.user_id}'}</b> исполнил меру <b>{current_settler.target_quote}/{current_settler.target_quote}</b>!"
                 f"\n🗂: +{round(earned_xp)} | 💰: +{round(earned_money)}" if earned_xp > 0 else f"\n💰: +{round(earned_money)}"
-                f"\nℹ️ Чтоб в мудрости возрасти, доведётся каталог 🗂 до конца довести; каталог 🗂 опыт заменяет" if updated_settler.level <= 2 else ""
+                f"\nℹ️ Чтоб в мудрости возрасти, доведётся каталог 🗂 до конца довести; каталог 🗂 опыт заменяет" if updated_settler.level <= 2 and user.show_hints else ""
             )
             
             await bot.send_message(settlement.chat_id, text)

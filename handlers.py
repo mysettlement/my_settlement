@@ -125,15 +125,18 @@ async def settings_command(message: types.Message):
     buttons = []
 
     compact_style = user.compact_style
+    show_hints = user.show_hints
     #TODO: XXX = user.XXX
 
-    buttons.append(InlineKeyboardButton(text=f"{"🎩" if compact_style else '🎩 Стиль'}: {'🤏' if compact_style else '🤲'}", callback_data="settings:messages_style"))
+    buttons.append(InlineKeyboardButton(text=f"{"🎩" if compact_style else '🎩 Стиль'}: {'🤏' if compact_style else '🤲'}", callback_data="settings:compact_style"))
+    buttons.append(InlineKeyboardButton(text=f"{"🎭" if compact_style else '🎭 Подсказки'}: {'✅' if show_hints else '❌'}", callback_data="settings:show_hints"))
     kb.row(*buttons, width=2)
     
     text = f"⚙️ <b>Настройки</b>"
     text += f"\n🎩 Стиль сообщений: <b>{'🤏 Компактный' if compact_style else '🤲 Развёрнутый'}</b>"
+    text += f"\n🎭 Подсказки: <b>{'✅ Включены' if show_hints else '❌ Выключены'}</b>"
     #TODO: text += f"\n"
-    text += "\n\nℹ️ Настройки сохраняются для каждого пользователя отдельно."
+    text += "\n\nℹ️ Настройки сохраняются для каждого пользователя отдельно." if user.show_hints else ""
     
     await message.reply(text=text, reply_markup=kb.as_markup(), disable_notification=True)
 
@@ -158,24 +161,39 @@ async def settings_callback(callback: types.CallbackQuery):
             await callback.answer("❌ Пользователь не найден", True)
             return
         
-        if action == "messages_style":
+        compact_style = user.compact_style
+        show_hints = user.show_hints
+        
+        if action == "compact_style":
             user.compact_style = not user.compact_style
             await session.commit()
             compact_style = user.compact_style
-            log.debug(f"🎩 compact_style > {compact_style}")
+            log.debug(f"{user.telegram_id} | 🎩 compact_style > {compact_style}")
             await callback.answer(f"🎩 Стиль сообщений > {"🤏 Компактный" if compact_style else "🤲 Развёрнутый"}")
+
+        elif action == "show_hints":
+            user.show_hints = not user.show_hints
+            await session.commit()
+            show_hints = user.show_hints
+            log.debug(f"{user.telegram_id} | 🎭 show_hints > {show_hints}")
+            await callback.answer(f"🎭 Подсказки > {'✅ Включены' if show_hints else '❌ Выключены'}")
         
         #TODO: if action == "XXX":
         
-        buttons.append(InlineKeyboardButton(text=f"{"🎩" if compact_style else '🎩 Стиль'}: {'🤏' if compact_style else '🤲'}", callback_data="settings:messages_style"))
-        
-        text = f"⚙️ <b>Настройки</b>"
-        text += f"\n🎩 Стиль сообщений: <b>{"🤏 Компактный" if compact_style else "🤲 Развёрнутый"}</b>"
-        #TODO: text += f"\n"
-        text += "\n\nℹ️ Настройки сохраняются для каждого пользователя отдельно."
+    buttons.append(InlineKeyboardButton(text=f"{"🎩" if compact_style else '🎩 Стиль'}: {'🤏' if compact_style else '🤲'}", callback_data="settings:compact_style"))
+    buttons.append(InlineKeyboardButton(text=f"{"🎭" if compact_style else '🎭 Подсказки'}: {'✅' if show_hints else '❌'}", callback_data="settings:show_hints"))
+    
+    text = f"⚙️ <b>Настройки</b>"
+    text += f"\n🎩 Стиль сообщений: <b>{"🤏 Компактный" if compact_style else "🤲 Развёрнутый"}</b>"
+    text += f"\n🎭 Подсказки: <b>{'✅ Включены' if show_hints else '❌ Выключены'}</b>"
+    #TODO: text += f"\n"
+    text += "\n\nℹ️ Настройки сохраняются для каждого пользователя отдельно." if user.show_hints else ""
 
-        kb.row(*buttons, width=2)
+    kb.row(*buttons, width=2)
+    try:
         await callback.message.edit_text(text=text, reply_markup=kb.as_markup())
+    except Exception as e:
+        await callback.message.edit_reply_markup(reply_markup=kb.as_markup())
 
 @router.message(or_f(Command("help"), F.text.lower() == "помощь", F.text.lower() == "@mysettlementbot помощь", F.text.lower() == "help", F.text.lower() == "@mysettlementbot help"))
 async def help_command(message: types.Message):
@@ -363,8 +381,8 @@ async def overtime_command(message: types.Message):
     buttons = []
     kb = InlineKeyboardBuilder()
 
-    text = f"🕒 <b>Лишняя мера</b>\n\n"
-    text += f"ℹ️ Коль добра тебе мало, можешь <b>лишнюю меру</b> взять. С каждой лишней мерой работа тяжелеет, мудрости меньше наберёшь, но грошей столько же получишь. Коль <b>не поспеешь труд свершить</b> до нового дня (🕒 {daily_reset_countdown}), на тебя <b>виру</b> наложат в 💰 <b>20</b>.\n\n" if settler.level < 2 else ""
+    text = f"🕒 <b>Лишняя мера</b>\n"
+    text += f"ℹ️ Коль добра тебе мало, можешь <b>лишнюю меру</b> взять. С каждой лишней мерой работа тяжелеет, мудрости меньше наберёшь, но грошей столько же получишь. Коль <b>не поспеешь труд свершить</b> до нового дня (🕒 {daily_reset_countdown}), на тебя <b>виру</b> наложат в 💰 <b>20</b>.\n\n" if settler.level < 2 and user.show_hints == True else ""
     if settler.overtime_is_toggled and not settler.quote_is_completed:
         if compact_style:
             text += f"🔘 {overtime_count} (🕒 {daily_reset_countdown}) | 📄 <b>{quote}/{target_quote}</b>"
@@ -428,7 +446,7 @@ async def inventory_command(message: types.Message):
         
         if not resources_data:
             text += "❌ Пусто"
-            if settler.level < 2:
+            if settler.level < 2 and user.show_hints == True:
                 text += "\n\nℹ️ Ресурсы могут добывать разные специалисты, а также их можно получить в награду за выполнение событий."
             await message.answer(text=text)
             return

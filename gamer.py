@@ -1,29 +1,58 @@
+import logging
 from aiogram import types
 from aiogram.utils.keyboard import InlineKeyboardBuilder
+from typing import Any, Callable, Optional, List, Dict
+from abc import ABC, abstractmethod
 import asyncio
 import random
 import copy
 
+from config import setup_logging
 
 
-class Harvesting:
-    #* Harvesting - шаг со сбором
-    def __init__(self, objects, rules, size=5, 
-                 status_text_func=None, lose_text="❌ Проигрыш!", 
-                 win_text="🏆 Победа!", continue_text="✅ Продолжайте!",
-                 required_at_least_one=None):
+logger = logging.getLogger(__name__)
+log = setup_logging(logger)
+
+
+
+class Step(ABC):
+    def __init__(self):
+        self.game_over = False
+        self.won = False
+        self.on_complete: Optional[Callable[[], None]] = None
+        self.work_id: Optional[str] = None
+        self.step_idx: Optional[int] = None
+    
+    def set_context(self, work_id: str, step_idx: int):
+        self.work_id = work_id
+        self.step_idx = step_idx
+
+    def _make_callback_data(self, *parts: str) -> str:
+        if self.work_id is None or self.step_idx is None:
+            raise ValueError("Установите контекст работы и шага перед созданием callback data.\nset_context(work_id, step_idx)")
+        return f"work:{self.work_id}:{self.step_idx}:" + ":".join(parts)
+
+    def get_status_text(self) -> str:
+        """Возвращает текст статуса шага. По умолчанию пустой — переопределяется в Work.build()"""
+        return ""
+
+    @abstractmethod
+    def click(self, action: Any) -> str:
+        pass
+
+    @abstractmethod
+    def copy(self) -> 'Step':
+        pass
+
+class Harvesting(Step):
+    def __init__(self, objects, rules, size=5, required_at_least_one=None):
+        super().__init__()
         self.size = size
         self.objects = objects
         self.rules = rules
-        self.status_text_func = status_text_func
-        self.lose_text = lose_text
-        self.win_text = win_text
-        self.continue_text = continue_text
         self.required_at_least_one = required_at_least_one
-        self.game_over = False
-        self.won = False
         self._reset_field()
-
+    
     def _reset_field(self):
         self.field = [[random.choice(self.objects) for _ in range(self.size)] for _ in range(self.size)]
         if self.required_at_least_one:
@@ -37,7 +66,7 @@ class Harvesting:
                 self.field[i][j] = random.choice(required)
         self.game_over = False
         self.won = False
-
+    
     def render_keyboard(self):
         kb = InlineKeyboardBuilder()
         for i in range(self.size):
@@ -46,15 +75,16 @@ class Harvesting:
                 cell = self.field[i][j]
                 row.append(types.InlineKeyboardButton(
                     text=cell,
-                    callback_data=f"harvest:{i}:{j}"
+                    callback_data=self._make_callback_data(str(i), str(j))
                 ))
             kb.row(*row, width=self.size)
         return kb.as_markup()
-
-    def click(self, i, j):
+    
+    def click(self, position: str):
         if self.game_over:
             return "game_over"
-            
+        
+        i, j = map(int, position.split(":"))
         cell = self.field[i][j]
         
         if cell in self.rules.get("forbidden", []):
@@ -72,45 +102,23 @@ class Harvesting:
 
         return "continue"
     
-    def get_status_text(self):
-        if self.status_text_func:
-            return self.status_text_func(self)
-    
     def copy(self):
-        return Harvesting(
-            objects=copy.deepcopy(self.objects),
-            rules=copy.deepcopy(self.rules),
-            size=self.size,
-            status_text_func=self.status_text_func,
-            lose_text=self.lose_text,
-            win_text=self.win_text,
-            continue_text=self.continue_text,
-            required_at_least_one=copy.deepcopy(self.required_at_least_one)
-        )
-
-class Hitting:
-    #* Hitting - шаг с целью
-    def __init__(self, target="🐰", empty="🕳️", size=3, rounds=5, 
-                 status_text_func=None, hit_text="🎯 Попадание!", 
-                 miss_text="💥 Промах!", win_text="🏆 Победа!"):
-        self.size = size
+        return copy.deepcopy(self)
+    
+class Hitting(Step):
+    def __init__(self, target, empty=" ", size=3, rounds=8):
+        super().__init__()
         self.target = target
         self.empty = empty
+        self.size = size
         self.rounds = rounds
         self.current_round = 1
         self.score = 0
         self.target_position = None
         self.field = [empty] * size
-        self.game_over = False
-        self.won = False
-        self.status_text_func = status_text_func
-        self.hit_text = hit_text
-        self.miss_text = miss_text
-        self.win_text = win_text
         self._place_target()
     
     def _place_target(self):
-        # Избегаем размещения цели в той же позиции, если размер поля больше 1
         if self.size > 1:
             new_position = random.randint(0, self.size - 1)
             while new_position == self.target_position:
@@ -127,12 +135,12 @@ class Hitting:
         for i in range(self.size):
             kb.add(types.InlineKeyboardButton(
                 text=self.field[i],
-                callback_data=f"hit:{i}"
+                callback_data=self._make_callback_data(str(i))
             ))
         kb.adjust(self.size)
         return kb.as_markup()
     
-    def click(self, position):
+    def click(self, position: int):
         if self.game_over:
             return "game_over"
         
@@ -150,113 +158,61 @@ class Hitting:
         else:
             self.game_over = True
             self.won = False
-            return "miss"
-    
-    def get_status_text(self):
-        if self.status_text_func:
-            return self.status_text_func(self)
-    
+            return "lose"
+        
     def copy(self):
-        return Hitting(
-            target=self.target,
-            empty=self.empty,
-            size=self.size,
-            rounds=self.rounds,
-            status_text_func=self.status_text_func,
-            hit_text=self.hit_text,
-            miss_text=self.miss_text,
-            win_text=self.win_text
-        )
+        return copy.deepcopy(self)
 
-class TimerStep:
-    #* TimerStep - шаг с таймером
-    def __init__(self, button_text="⏰ Начать", button2_text="⏳ Ожидание...", duration=30, 
-                 status_text_func=None, start_text="⏰ Начато!", 
-                 complete_text="✅ Завершено!"):
+class Timer(Step):
+    def __init__(self, button_text, button2_text, duration=30):
+        super().__init__()
         self.button_text = button_text
         self.button2_text = button2_text
         self.duration = duration
-        self.status_text_func = status_text_func
-        self.start_text = start_text
-        self.complete_text = complete_text
         self.started = False
         self.completed = False
         self.start_time = None
     
     def render_keyboard(self):
         kb = InlineKeyboardBuilder()
-        if not self.started:
-            kb.add(types.InlineKeyboardButton(
-                text=self.button_text,
-                callback_data="timer:start"
-            ))
-        elif self.started and not self.completed:
-            kb.add(types.InlineKeyboardButton(
-                text=self.button2_text,
-                callback_data="timer:wait"
-            ))
+        action = "start" if not self.started else "wait"
+        kb.add(types.InlineKeyboardButton(
+            text=self.button_text if not self.started else self.button2_text,
+            callback_data=self._make_callback_data(action)
+        ))
         return kb.as_markup()
     
-    def click(self, action):
+    def click(self, action: str):
         if action == "start" and not self.started:
             self.started = True
             self.start_time = asyncio.get_running_loop().time()
-            return "started"
-        elif action == "wait":
-            if self.started and not self.completed:
-                current_time = asyncio.get_running_loop().time()
-                if current_time - self.start_time >= self.duration:
-                    self.completed = True
-                    return "completed"
-                else:
-                    return "waiting"
-        return "invalid"
-    
-    def get_status_text(self):
-        if self.status_text_func:
-            return self.status_text_func(self)
-        return "Таймер не настроен"
-    
-    def get_remaining_time(self):
-        if self.started and not self.completed:
-            current_time = asyncio.get_running_loop().time()
-            remaining = self.duration - (current_time - self.start_time)
-            return max(0, int(remaining))
-        return 0
-    
+            return "continue"
+        elif action == "wait" and self.started and not self.completed:
+            if asyncio.get_running_loop().time() - self.start_time >= self.duration:
+                self.completed = True
+                return "win"
+        return "game_over"
+        
     def copy(self):
-        return TimerStep(
-            button_text=self.button_text,
-            button2_text=self.button2_text,
-            duration=self.duration,
-            status_text_func=self.status_text_func,
-            start_text=self.start_text,
-            complete_text=self.complete_text
-        )
+        return copy.deepcopy(self)
 
-class Catch :
-    #* Catch - шаг с целью попадания в 1 движущуюся цель
-    def __init__(self, target="🎯", empty=" ", size=5,
-                 rounds=3, status_text_func=None, hit_text="🎯 Попадание!",
-                 miss_text="💥 Промах!", win_text="🏆 Победа!"):
-        self.size = size
+class Catch(Step):
+    def __init__(self, target, empty="", size=5, rounds=8):
+        super().__init__()
         self.target = target
         self.empty = empty
+        self.size = size
         self.rounds = rounds
         self.current_round = 1
         self.score = 0
-        self.status_text_func = status_text_func
-        self.hit_text = hit_text
-        self.miss_text = miss_text
-        self.win_text = win_text
-        self.game_over = False
-        self.won = False
         self.target_position = None
-        self.field = [empty] * (size * size)
         self._place_target()
 
     def _place_target(self):
-        self.target_position = random.randint(0, self.size * self.size - 1)
+        new_position = random.randint(0, self.size * self.size - 1)
+        while new_position == self.target_position:
+            new_position = random.randint(0, self.size * self.size - 1)
+        self.target_position = new_position
         self.field = [self.empty] * (self.size * self.size)
         self.field[self.target_position] = self.target
 
@@ -268,7 +224,7 @@ class Catch :
                 idx = i * self.size + j
                 row.append(types.InlineKeyboardButton(
                     text=self.field[idx],
-                    callback_data=f"hit:{idx}"
+                    callback_data=self._make_callback_data(str(idx))
                 ))
             kb.row(*row, width=self.size)
         return kb.as_markup()
@@ -285,57 +241,32 @@ class Catch :
                 return "win"
             else:
                 self._place_target()
-                return "hit"
+                return "continue"
         else:
             self.game_over = True
             self.won = False
             return "miss"
-
-    def get_status_text(self):
-        if self.status_text_func:
-            return self.status_text_func(self)
-
+        
     def copy(self):
-        return Catch(
-            target=self.target,
-            empty=self.empty,
-            size=self.size,
-            rounds=self.rounds,
-            status_text_func=self.status_text_func,
-            hit_text=self.hit_text,
-            miss_text=self.miss_text,
-            win_text=self.win_text
-        )
-
-class Milking:
-    #* Milking - шаг с для поочередного нажатия на 2 кнопки
-    def __init__(self, target_presses=10, 
-                 status_text_func=None, lose_text="🐮 Корова вас лягнула!", 
-                 win_text="🪣 Ведро наполнено молоком!", continue_text="💧 Продолжайте доить..."):
+        return copy.deepcopy(self)
+        
+class Alternation(Step):
+    def __init__(self, target="💧", target_presses=10):
+        super().__init__()
+        self.target = target
         self.target_presses = target_presses
-        self.status_text_func = status_text_func
-        self.lose_text = lose_text
-        self.win_text = win_text
-        self.continue_text = continue_text
-        self.game_over = False
-        self.won = False
-        self._reset()
-
-    def _reset(self):
         self.current_presses = 0
         self.last_pressed_side = -1  # -1 - не определено, 0 - лево, 1 - право
-        self.game_over = False
-        self.won = False
-
+    
     def render_keyboard(self):
         kb = InlineKeyboardBuilder()
         kb.row(
-            types.InlineKeyboardButton(text="💧", callback_data="milking:0"),
-            types.InlineKeyboardButton(text="💧", callback_data="milking:1"),
+            types.InlineKeyboardButton(text=self.target, callback_data=self._make_callback_data("0")),
+            types.InlineKeyboardButton(text=self.target, callback_data=self._make_callback_data("1")),
             width=2
         )
         return kb.as_markup()
-
+    
     def click(self, side: int):
         if self.game_over:
             return "game_over"
@@ -354,91 +285,69 @@ class Milking:
             return "win"
 
         return "continue"
-    
-    def get_status_text(self):
-        if self.status_text_func:
-            return self.status_text_func(self)
-        return f"🐮 Дойка коровы...\nНаполнено: {self.current_presses}/{self.target_presses}"
-
+        
     def copy(self):
-        return Milking(
-            target_presses=self.target_presses,
-            status_text_func=self.status_text_func,
-            lose_text=self.lose_text,
-            win_text=self.win_text,
-            continue_text=self.continue_text
-        )
+        return copy.deepcopy(self)
 
 
-class Workflow:
-    #* Workflow - система многошаговых работ
-    def __init__(self, steps, name="Работа", 
-                 status_text_func=None, complete_text="🏆 Работа завершена!",
-                 cooldown_on_fail=False):
-        self.steps = steps  # Список шагов
+class Workflow(Step):
+    def __init__(self, steps, name="work"):
+        super().__init__()
+        self.steps = steps
         self.name = name
-        self.status_text_func = status_text_func
-        self.complete_text = complete_text
         self.current_step = 0
         self.completed = False
         self.failed = False
-        self.cooldown_on_fail = cooldown_on_fail
-    
-    def get_current_step(self):
-        if self.current_step < len(self.steps):
-            return self.steps[self.current_step]
-        return None
-    
-    def next_step(self):
+
+    def build_with_context(self, work_id: str):
+        for idx, step in enumerate(self.steps):
+            step.set_context(work_id, idx)
+            if isinstance(step, Workflow):
+                step.build_with_context(work_id)
+        return self
+
+    def get_current_step(self) -> Optional[Step]:
+        return self.steps[self.current_step] if self.current_step < len(self.steps) else None
+
+    def get_status_text(self) -> str:
+        if self.completed:
+            return ""
+
+        current = self.get_current_step()
+        return current.get_status_text() if current else ""
+
+    def next_step(self) -> str:
         self.current_step += 1
         if self.current_step >= len(self.steps):
             self.completed = True
-            return True
-        return False
-    
-    def fail_workflow(self):
-        self.failed = True
-    
-    def reset_workflow(self):
-        self.current_step = 0
-        self.completed = False
-        self.failed = False
-        for step in self.steps:
-            if hasattr(step, 'started'):
-                step.started = False
-            if hasattr(step, 'completed'):
-                step.completed = False
-            if hasattr(step, 'game_over'):
-                step.game_over = False
-            if hasattr(step, 'won'):
-                step.won = False
-    
-    def render_keyboard(self):
-        current_step = self.get_current_step()
-        if current_step:
-            return current_step.render_keyboard()
-        return None
-    
-    def get_status_text(self):
-        if self.status_text_func:
-            return self.status_text_func(self)
-        current_step = self.get_current_step()
-        if current_step and hasattr(current_step, 'get_status_text'):
-            return current_step.get_status_text()
-        return f"{self.name} - Шаг {self.current_step + 1}/{len(self.steps)}"
-    
+            self.won = True
+            self.game_over = True
+            return "win"
+        return "continue"
+
+    def get_keyboard(self):
+        current = self.get_current_step()
+        return current.render_keyboard() if current else None
+
+    def click(self, action: Any) -> str:
+        if self.game_over:
+            return "game_over"
+
+        current = self.get_current_step()
+        if not current:
+            return "game_over"
+
+        result = current.click(action)
+
+        if result == "win":
+            return self.next_step()
+        elif result == "lose":
+            self.failed = True
+            self.game_over = True
+            self.won = False
+            return "lose"
+
+        return result  # continue
+
     def copy(self):
-        copied_steps = []
-        for step in self.steps:
-            if hasattr(step, 'copy'):
-                copied_steps.append(step.copy())
-            else:
-                copied_steps.append(copy.deepcopy(step))
-        
-        return Workflow(
-            steps=copied_steps,
-            name=self.name,
-            status_text_func=self.status_text_func,
-            complete_text=self.complete_text,
-            cooldown_on_fail=self.cooldown_on_fail
-        )
+        return copy.deepcopy(self)

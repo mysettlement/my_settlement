@@ -1,30 +1,29 @@
 from aiogram import Router, types, F, Bot
-from aiogram.filters import Command, CommandStart, or_f, and_f
-from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
-from aiogram.enums import ParseMode, parse_mode
+from aiogram.filters import Command, CommandStart, or_f
+from aiogram.types import InlineKeyboardButton
+from aiogram.enums import ParseMode
 from aiogram.client.default import DefaultBotProperties
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, update, insert
+from sqlalchemy import select, update
 from sqlalchemy.orm import selectinload
 
 import logging
 from datetime import datetime
-import random
 
 from config import setup_logging, settings
 from db import SessionLocal
 import core
+from gamer import Workflow
 import models
-from mfunc import can_click_button, can_start_work, format_reward_text, start_work, end_work, get_work_remaining_time, can_choose_craft, is_meaningful, get_daily_reset_countdown, work_in_progress, work_timeout_tasks, work_start_time, work_in_progress, active_games
+from mfunc import active_games
+import mfunc
 
 bot = Bot(
         token=settings.BOT_TOKEN,
         default=DefaultBotProperties(parse_mode=ParseMode.HTML, disable_notification=True, link_preview_is_disabled=True)
     )
 router = Router()
-db_session: AsyncSession = None
 log = setup_logging(logging.getLogger(__name__))
 
 
@@ -61,7 +60,7 @@ async def me_command(message: types.Message):
         settlement = await core.settlement_getOrCreate(message.chat, user)
         settler = await core.settler_getOrCreate(user, settlement)
         craft_text = f"{settler.profession.emoji} {settler.profession.name}" if settler.profession else "❓ Без дела"
-        can_choose, when = can_choose_craft(settler.last_profession_change)
+        can_choose, when = mfunc.can_choose_craft(settler.last_profession_change)
         can_work, work_countdown = core.can_work_now(settler)
         
         if compact_style:
@@ -251,6 +250,7 @@ async def bot_added_to_chat_event(event: types.ChatMemberUpdated):
     if event.new_chat_member.status in ["left", "kicked"]:
         log.debug(f"{chat.id} | Бот удален из группы {chat.title}")
 
+
 @router.message(or_f(CommandStart(), Command("town"), F.text.lower() == "осмотреть город", F.text.lower() == "@mysettlementbot осмотреть город", F.text.lower() == "town", F.text.lower() == "@mysettlementbot town"))
 async def start_command(message: types.Message):
     #* Обработка команды /start
@@ -277,7 +277,7 @@ async def start_command(message: types.Message):
     
     kb = InlineKeyboardBuilder()
     buttons = []
-    buttons.append(InlineKeyboardButton(text="👤 Мой профиль", switch_inline_query_current_chat="Мой профиль"))
+    buttons.append(InlineKeyboardButton(text="👤 Профиль", switch_inline_query_current_chat="Профиль"))
     kb.row(*buttons, width=2)
 
     text = (
@@ -285,6 +285,7 @@ async def start_command(message: types.Message):
         f"👥{len(settlement.members)} 👑 <b>{settlement.owner.name or (f"User {settlement.owner.telegram_id}" if settlement.owner else "Отсутствует")}</b>"
     )
     await message.answer(text, reply_markup=kb.as_markup())
+
 
 @router.message(or_f(Command("cosmetics"), F.text.lower() == "косметика", F.text.lower() == "@mysettlementbot косметика", F.text.lower() == "cosmetics", F.text.lower() == "@mysettlementbot cosmetics"))
 async def cosmetics_command(message: types.Message):
@@ -366,6 +367,7 @@ async def cosmetics_select(callback: types.CallbackQuery):
     kb = InlineKeyboardBuilder().row(*buttons)
     await callback.message.edit_text(text=f"🪭 <b>Доступная косметика</b>\n\n🎭 <b>Текущий эмодзи</b>: {db_settler.emoji}", reply_markup=kb.as_markup())
 
+
 @router.message(or_f(Command("overtime"), F.text.lower() == "лишняя мера", F.text.lower() == "@mysettlementbot лишняя мера", F.text.lower() == "overtime", F.text.lower() == "@mysettlementbot overtime"))
 async def overtime_command(message: types.Message):
     #* Обработка команды /overtime
@@ -373,7 +375,7 @@ async def overtime_command(message: types.Message):
     settlement = await core.settlement_getOrCreate(message.chat, user)
     settler = await core.settler_getOrCreate(user, settlement)
     
-    daily_reset_countdown = get_daily_reset_countdown()
+    daily_reset_countdown = mfunc.get_daily_reset_countdown()
     compact_style = user.compact_style
     overtime_count=settler.overtime_count
     quote = settler.quote
@@ -400,6 +402,7 @@ async def overtime_command(message: types.Message):
     kb.row(*buttons)
     await message.answer(text, reply_markup=kb.as_markup())
 
+
 @router.callback_query(F.data == "overtime_take")
 async def overtime_take(callback: types.CallbackQuery):
     #* Обработка кнопки "взять лишнюю меру"
@@ -423,8 +426,9 @@ async def overtime_take(callback: types.CallbackQuery):
         log.debug(f"{callback.message.chat.id} | {settler.user_id} | 🔄 Лишняя мера взята: 0/{round((settler.level * 0.85 + 6) + (2 * (settler.overtime_count + 1)))}")
         await session.commit()
         
-        reset_countdown = get_daily_reset_countdown()
+        reset_countdown = mfunc.get_daily_reset_countdown()
         await callback.message.edit_text(f"⏳ <b>Мера лишняя взялась!</b>\nПора тебе осталась 🕒 <b>{reset_countdown}</b> чтоб новую меру исполнить!")
+
 
 @router.message(or_f(Command("inventory"), F.text.lower() == "инвентарь", F.text.lower() == "@mysettlementbot инвентарь", F.text.lower() == "inventory", F.text.lower() == "@mysettlementbot inventory"))
 async def inventory_command(message: types.Message):
@@ -466,6 +470,7 @@ async def inventory_command(message: types.Message):
     
     await message.answer(text=text)
 
+
 @router.message(or_f(Command("choose_craft"), F.text.lower() == "выбрать ремесло", F.text.lower() == "@mysettlementbot выбрать ремесло", F.text.lower() == "choose craft", F.text.lower() == "@mysettlementbot choose craft"))
 async def choose_craft_command(message: types.Message):
     #* Обработка команды /craft
@@ -483,7 +488,7 @@ async def choose_craft_command(message: types.Message):
     
     can_choose, when = True, ""
     if settler.profession_id:
-            can_choose, when = can_choose_craft(settler.last_profession_change)
+            can_choose, when = mfunc.can_choose_craft(settler.last_profession_change)
     
     text = f"💼 <b>Выбор ремесла</b>\n{'⚠️ Сменить ремесло можно через <b>' + when + '</b>\n' if not can_choose and settler.profession else ''}\n"
     kb = InlineKeyboardBuilder()
@@ -531,7 +536,7 @@ async def select_craft_callback(callback: types.CallbackQuery):
             await callback.answer(f"❌ Ремесло сие тебе не по плечу! {settler.level}/<b>{profession.required_level}</b>💡")
             return
         if settler.profession_id:
-            can_choose, when = can_choose_craft(settler.last_profession_change)
+            can_choose, when = mfunc.can_choose_craft(settler.last_profession_change)
             if not can_choose:
                 await callback.answer(f"❌Недавно ты ремесло своё сменил, человече! Новое взять можно, как {when} пройдёт.", True)
         
@@ -546,6 +551,31 @@ async def select_craft_callback(callback: types.CallbackQuery):
         await callback.message.edit_text(f"✅ <b>{callback.from_user.full_name}</b> ремесло себе избрал: {profession.emoji} <b>{profession.name}!</b>", reply_markup=kb.as_markup())
         log.debug(f"{callback.message.chat.id} | {settler.user_id} | 💼 Выбрано ремесло: {profession.name}")
 
+
+    
+    
+    
+    
+    
+        
+        
+    
+
+    
+    
+
+
+
+
+    
+    
+
+
+                
+
+        
+        
+
 @router.message(or_f(Command("craft"), F.text.lower() == "трудиться", F.text.lower() == "@mysettlementbot трудиться", F.text.lower() == "craft", F.text.lower() == "@mysettlementbot craft"))
 async def craft_command(message: types.Message):
     #* Обработка команды /craft
@@ -554,615 +584,169 @@ async def craft_command(message: types.Message):
     settler = await core.settler_getOrCreate(user, settlement)
     
     if not settler.profession_id:
-        await message.answer("❌ Ты ещё ремесла не избрал.", reply_markup=InlineKeyboardBuilder().row(InlineKeyboardButton(text="💼 Выбрать ремесло", switch_inline_query_current_chat="Выбрать ремесло")).as_markup())
+        await message.answer("⚠️ Ты ещё ремесла не избрал.", reply_markup=InlineKeyboardBuilder().row(InlineKeyboardButton(text="💼 Выбрать ремесло")).as_markup())
         return
     
-    can_work, work_countdown = core.can_work_now(settler)
-    if not can_work:
-        await message.answer(f"🗞 Труд уж свершён, добрый люд! Новое дело взять можно, как {work_countdown} пройдёт.")
-        return
-    
-    can_start, error_msg = can_start_work(message.chat.id)
-    if not can_start:
-        await message.answer(f"{error_msg}")
-        return
-    
-    
-    if settler.profession.emoji == "🌻":  # 🌻 Землепашец
-        start_work(message.chat.id)
-        workflow_or_step = models.WorkflowWork.get_ploughman_harvesting().copy()
-        
-        user_key = f"{message.chat.id}_{user.telegram_id}"
-        active_games[user_key] = workflow_or_step
-        remaining_time = get_work_remaining_time(message.chat.id)
-        text = f"🌻 <b>Поле для пахоты:</b>\nЖните 🌾/🥔/🍄‍🟫/🫐. Токмо не троньте саженцы 🌱 — они ещё сил набирают!\n\n⏰ <b>Пора вам осталась:</b> {remaining_time}с"
-        
-    elif settler.profession.emoji == "📔":  # 📔 Знахарь
-        kb = InlineKeyboardBuilder()
-        crafts = []
-        crafts.append(InlineKeyboardButton(text="🪴 Сбор трав", callback_data="select_work:healer:herbs"))
-        crafts.append(InlineKeyboardButton(text="🍵 Приготовление отвара", callback_data="select_work:healer:tea"))
-        kb.row(*crafts, width=2)
-        await message.reply("Избери труд 📔 <b>Знахаря:</b>", reply_markup=kb.as_markup(), disable_notification=True)
-        return
-    
-    elif settler.profession.emoji == "🐾": # 🐾 Ловчий
-        kb = InlineKeyboardBuilder()
-        crafts = []
-        crafts.append(InlineKeyboardButton(text="🎣 Рыбалка", callback_data="select_work:catcher:fishing"))
-        crafts.append(InlineKeyboardButton(text="🪣 Доение", callback_data="select_work:catcher:milking"))
-        kb.row(*crafts, width=2)
+    available_works = [
+        work for work in models.WORKS_REGISTRY.values()
+        if work.profession_id == settler.profession_id
+    ]
 
-        await message.reply("Избери труд 🐾 <b>Ловчего:</b>", reply_markup=kb.as_markup(), disable_notification=True)
+    if not available_works:
+        await message.answer("⚠️ Твоё ремесло пока не имеет доступных трудов. Жди вестей новых!")
         return
     
-    else:
-        text = "❌ Ремесло твоё покуда без дела стоит. Жди вестей новых!"
-        if settler.level < 2:
-            text += "\n\n<i>(Выбранная профессия пока не поддерживает труд)</i>"
-        await message.answer(text)
+    if len(available_works) == 1:
+        await core.start_workflow(message, available_works[0], user, settler)
         return
     
-    kb = workflow_or_step.render_keyboard()
-    await message.answer(text, reply_markup=kb)
+    kb = InlineKeyboardBuilder()
+    for work in available_works:
+        kb.add(InlineKeyboardButton(text=f"{work.emoji} {work.name}", callback_data=f"start_workflow:{work.id}"))
+    kb.adjust(2)
+
+    await message.reply(f"{settler.profession.emoji} <b>{settler.profession.name}:</b>", reply_markup=kb.as_markup(), disable_notification=True)
 
 @router.callback_query(F.data.startswith("select_work:"))
 async def work_selection_callback(callback: types.CallbackQuery):
-    #* Выбор работы по ремеслу
-    _, profession_key, work_key = callback.data.split(":")
+    work_id = callback.data.split(":", 1)[1]
+
     user = await core.user_getOrCreate(callback.from_user)
     settlement = await core.settlement_getOrCreate(callback.message.chat, user)
     settler = await core.settler_getOrCreate(user, settlement)
 
     if callback.from_user.id != callback.message.reply_to_message.from_user.id:
-            await callback.answer("❌ Не тронь чужой снасти!", True)
-            return
-
-    profession_emoji_by_key = {
-        "healer": "📔",
-        "catcher": "🐾",
-        "ploughman": "🌻",
-    }
-
-    if not settler.profession_id or settler.profession.emoji != profession_emoji_by_key.get(profession_key):
-        await callback.answer("Сие дело твоему ремеслу не по плечу.", True)
+        await callback.answer("⚠️ Не тронь чужой снасти!", True)
         return
     
-    can_work, work_countdown = core.can_work_now(settler)
-    if not can_work:
-        await callback.answer(f"🗞 Труд уж свершён, добрый люд! Новое дело взять можно, как {work_countdown} пройдёт.")
+    work = models.WORKS_REGISTRY.get(work_id)
+    if not work:
+        await callback.answer("⚠️ Труд не сыскан!", True)
         return
     
-    can_start, error_msg = can_start_work(callback.message.chat.id)
-    if not can_start:
-        await callback.answer(f"{error_msg}")
+    if work.profession_id != settler.profession_id:
+        await callback.answer("⚠️ Сие дело твоему ремеслу не по плечу!", True)
         return
 
-    user_key = f"{callback.message.chat.id}_{user.telegram_id}"
-
-    if profession_key == "healer": # 📔 Знахарь
-        if work_key == "herbs":
-            start_work(callback.message.chat.id)
-            step = models.WorkflowWork.get_healer_herb_gathering().copy()
-            active_games[user_key] = step
-            remaining_time = get_work_remaining_time(callback.message.chat.id)
-            text = f"🪴 <b>Травозбор:</b>\nСобирай 🪴/🎋!\n⏰ Пора тебе осталась <b>3 мин</b>."
-            kb = step.render_keyboard()
-            await callback.message.edit_text(text, reply_markup=kb)
-            await callback.answer("Начинаем сбор трав! 🪴")
-            return
-        elif work_key == "tea":
-            async with SessionLocal() as session:
-                bark_resource = await core.get_resource_by_emoji("🎋", session)
-                
-                settler_resources = await session.execute(
-                    select(models.settler_resources).where(
-                        models.settler_resources.c.settler_id == settler.id,
-                        models.settler_resources.c.resource_id == bark_resource.id
-                    )
-                )
-                settler_bark = settler_resources.first()
-                if not settler_bark or settler_bark.quantity < 3:
-                    await callback.answer("❌ Мало коры собрано (надобно 3 🎋).", True)
-                    return
-                await session.execute(
-                    update(models.settler_resources)
-                    .where(
-                        models.settler_resources.c.settler_id == settler.id,
-                        models.settler_resources.c.resource_id == bark_resource.id
-                    )
-                    .values(quantity=models.settler_resources.c.quantity -3)
-                )
-                await session.commit()
-
-            start_work(callback.message.chat.id)
-            workflow = models.WorkflowWork.get_tea_brewing_workflow().copy()
-            active_games[user_key] = workflow
-            remaining_time = get_work_remaining_time(callback.message.chat.id)
-            text = f"🍵 <b>Приготовление отвара:</b>\nШаг <b>1/2:</b> Измельчение коры 🎋\n⏰ У вас есть <b>3 мин</b>."
-            kb = workflow.render_keyboard()
-            await callback.message.edit_text(text, reply_markup=kb)
-            await callback.answer("Приступаем к приготовлению отвара! 🍵")
-            return
-        
-    elif profession_key == "catcher": # 🐾 Ловчий
-        if work_key == "fishing":
-            start_work(callback.message.chat.id)
-            step = models.WorkflowWork.get_catcher_fishing().copy()
-            active_games[user_key] = step
-            text = f"🎣 <b>Рыбалка:</b>\nЛови 🐟!\n⏰ Пора тебе осталась <b>3 мин</b>."
-            kb = step.render_keyboard()
-            await callback.message.edit_text(text, reply_markup=kb)
-            await callback.answer("Начинаем рыбалку! 🎣")
-            return
-        
-        elif work_key == "milking":
-            start_work(callback.message.chat.id)
-            step = models.WorkflowWork.get_catcher_milking().copy()
-            active_games[user_key] = step
-            text = f"🪣 <b>Доение:</b>\nСначала успокойте корову!\n⏰ Пора тебе осталась <b>3 мин</b>."
-            kb = step.render_keyboard()
-            await callback.message.edit_text(text, reply_markup=kb)
-            await callback.answer("Начинаем доение! 🪣")
-    else:
-        await callback.answer("Неизвестный труд.", True)
+    success = await core.start_workflow(callback, work, user, settler)
+    if not success:
         return
 
-@router.callback_query(F.data.startswith("harvest:"))
-async def harvest_callback(callback: types.CallbackQuery):
-    #* Обработка callback-кнопок для шага сбора
-    _, i, j = callback.data.split(":")
-    
+@router.callback_query(F.data.startswith("work:"))
+async def work_callback(callback: types.CallbackQuery):
+    #* Обработка callback-кнопок для работы
     user = await core.user_getOrCreate(callback.from_user)
     settlement = await core.settlement_getOrCreate(callback.message.chat, user)
     settler = await core.settler_getOrCreate(user, settlement)
-    
+
     user_key = f"{callback.message.chat.id}_{user.telegram_id}"
-    
-    if not can_click_button(user_key):
-        await callback.answer("⏳ Погоди миг единый меж трудами!")
+    if not mfunc.can_click_button(user_key):
+        await callback.answer("⏳ Погоди миг единый!")
         return
     
-    remaining_time = get_work_remaining_time(callback.message.chat.id)
-    if remaining_time <= 0:
+    remaining = mfunc.get_work_remaining_time(callback.message.chat.id)
+    if remaining <= 0:
         await callback.answer("⏰ Пора труда миновала! Дело отложено.", True)
         await callback.message.edit_text("⏰ Долго ты без дела стоял! Труд отложен.")
+        mfunc.end_work(callback.message.chat.id)
+        active_games.pop(user_key, None)
         return
     
-    workflow_or_step = active_games.get(user_key)
-    
-    if not workflow_or_step:
-        await callback.answer("❌ Дело не сыскано. Может, ты уж его свершил, али вовсе не твоё то дело?")
+    workflow: Workflow = active_games.get(user_key)
+    if not workflow or workflow.game_over:
+        await callback.answer("⚠️ Дело не сыскано. Может, ты уж его свершил, али вовсе не твоё то дело?")
         return
     
-    if hasattr(workflow_or_step, 'get_current_step'):
-        workflow = workflow_or_step
-        current_step = workflow.get_current_step()
-        if not current_step or not hasattr(current_step, 'click'):
-            await callback.answer("Неверный ход!")
-            return
-        result = current_step.click(int(i), int(j))
-
-        if result == "lose":
-            text = f"{workflow.get_status_text()}"
-            await callback.message.edit_text(text)
-            await callback.answer(getattr(current_step, 'lose_text', "💀 Проигрыш!"))
-            workflow.fail_workflow()
-            if getattr(workflow, 'cooldown_on_fail', False):
-                async with SessionLocal() as session:
-                    await core.end_work(settler, callback.message.chat.id, session, mark_work_completed=True)
-            active_games.pop(user_key, None)
-            end_work(callback.message.chat.id)
-            log.debug(f"{callback.message.chat.id} | {settler.user_id} | 💀 Сбор в workflow испорчен!")
-        elif result == "win":
-            if workflow.next_step():
-                text = f"{workflow.get_status_text()}"
-                await callback.message.edit_text(text)
-                await callback.answer(workflow.complete_text)
-                
-                active_games.pop(user_key, None)
-                end_work(callback.message.chat.id)
-                log.debug(f"{callback.message.chat.id} | {settler.user_id} | 💼 Труд завершён!")
-            else:
-                text = f"{workflow.get_status_text()}"
-                kb = workflow.render_keyboard()
-                await callback.message.edit_text(text, reply_markup=kb)
-                await callback.answer(getattr(current_step, 'win_text', "✅ Успех!"))
-                log.debug(f"{callback.message.chat.id} | {settler.user_id} | ➡️ Переход к следующему шагу")
-        elif result == "continue":
-            text = f"{workflow.get_status_text()}"
-            kb = workflow.render_keyboard()
-            await callback.message.edit_text(text, reply_markup=kb)
-            await callback.answer(getattr(current_step, 'continue_text', "✅ Продолжайте!"))
-            log.debug(f"{callback.message.chat.id} | {settler.user_id} | 🌾 Сбор продолжается...")
-        elif result == "game_over":
-            await callback.answer("Ход уже завершён!")
-            return
-    else:
-        game = workflow_or_step
-        result = game.click(int(i), int(j))
-
-        if result == "lose":
-            text = f"{game.get_status_text()}"
-            await callback.message.edit_text(text)
-            await callback.answer(game.lose_text)
-            async with SessionLocal() as session:
-                await core.end_work(settler, callback.message.chat.id, session, mark_work_completed=True)
-            active_games.pop(user_key, None)
-            end_work(callback.message.chat.id)
-            log.debug(f"{callback.message.chat.id} | {settler.user_id} | 💀 Собирательство испорчено!")
-            
-        elif result == "win":
-            text = f"{game.get_status_text()}"
-            await callback.message.edit_text(text)
-            await callback.answer(game.win_text)
-            async with SessionLocal() as session:
-                rewards = {}
-                if settler.profession.emoji == "🌻":
-                    resources = {
-                        "🌾": (1, 3),
-                        "🥔": (1, 2),
-                        "🍄": (1, 2),
-                        "🫐": (1, 2)
-                    }
-                    resource_emoji = random.choice(list(resources.keys()))
-                    amount = random.randint(*resources[resource_emoji])
-                    resource = await core.get_resource_by_emoji(resource_emoji, session)
-                    rewards = {resource.id: amount}
-                elif settler.profession.emoji == "📔":
-                    herb_resource = await core.get_resource_by_emoji("🪴", session)
-                    bark_resource = await core.get_resource_by_emoji("🎋", session)
-                    rewards = {
-                        herb_resource.id: random.randint(1, 2),
-                        bark_resource.id: random.randint(1, 2)
-                    }
-
-                exp_gained = await core.end_work(settler, callback.message.chat.id, session, mark_work_completed=True)
-                if exp_gained > 0:
-                    await callback.message.edit_text(text + format_reward_text({}, exp_gained))
-            
-            active_games.pop(user_key, None)
-            end_work(callback.message.chat.id)
-            log.debug(f"{callback.message.chat.id} | {settler.user_id} | 💼 Труд завершён!")
-            
-        elif result == "continue":
-            text = f"{game.get_status_text()}"
-            kb = game.render_keyboard()
-            await callback.message.edit_text(text, reply_markup=kb)
-            await callback.answer(game.continue_text)
-            log.debug(f"{callback.message.chat.id} | {settler.user_id} | 🌾 Собрано...")
-            
-        elif result == "game_over":
-            await callback.answer("Ход уже завершён!")
-            return
-
-    await callback.answer()
-
-@router.callback_query(F.data.startswith("hit:"))
-async def hitter_callback(callback: types.CallbackQuery):
-    #* Обработка callback-кнопок для шага с попаданием
-    _, i = callback.data.split(":")
-    i = int(i)
-    
-    user = await core.user_getOrCreate(callback.from_user)
-    settlement = await core.settlement_getOrCreate(callback.message.chat, user)
-    settler = await core.settler_getOrCreate(user, settlement)
-    
-    user_key = f"{callback.message.chat.id}_{user.telegram_id}"
-    
-    if not can_click_button(user_key):
-        await callback.answer("⏳ Погоди миг единый меж трудами!")
+    parts = callback.data.split(":")
+    if len(parts) < 4:
+        await callback.answer("⚠️ Неверный ход!")
         return
     
-    remaining_time = get_work_remaining_time(callback.message.chat.id)
-    if remaining_time <= 0:
-        await callback.answer("⏰ Пора труда миновала! Дело отложено.", True)
-        await callback.message.edit_text("⏰ <b>Долго ты без дела стоял!</b> Труд отложен.")
+    _, work_id, step_idx_str, *action_parts = parts
+    step_idx = int(step_idx_str)
+    action = ":".join(action_parts) if action_parts else None
+    log.debug(f"{callback.message.chat.id} | {user.id} | 🎭 Работа: {work_id}, Шаг: {step_idx}, Действие: {action}")
+    
+    work: models.Work = models.WORKS_REGISTRY.get(work_id)
+    if not work:
+        await callback.answer("⚠️ Труд не сыскан!")
         return
     
-    workflow_or_step = active_games.get(user_key)
-    
-    if not workflow_or_step:
-        await callback.answer("❌ Ход не сыскан. Может, ты его свершил, али вовсе не твой то ход?", True)
-        return
-    
-    if hasattr(workflow_or_step, 'get_current_step'):
-        workflow = workflow_or_step
-        current_step = workflow.get_current_step()
-        
-        if not current_step or not hasattr(current_step, 'click'):
-            await callback.answer("Неверный ход!")
-            return
-        
-        old_field = current_step.field.copy() if hasattr(current_step, 'field') else None
-        result = current_step.click(i)
-        
-        if result == "hit":
-            text = f"{workflow.get_status_text()}"
-            kb = workflow.render_keyboard()
-            
-            if old_field != current_step.field:
-                await callback.message.edit_text(text, reply_markup=kb)
-            else:
-                log.debug(f"{callback.message.chat.id} | {settler.user_id} | 🎯 Попадание! Поле не изменилось")
-            
-            await callback.answer(current_step.hit_text)
-            log.debug(f"{callback.message.chat.id} | {settler.user_id} | 🎯 Попадание! {current_step.score}/{current_step.rounds}")
-            
-        elif result == "miss":
-            text = f"{workflow.get_status_text()}"
-            await callback.message.edit_text(text)
-            await callback.answer(current_step.miss_text)
-            workflow.fail_workflow()
-            if getattr(workflow, 'cooldown_on_fail', False):
-                async with SessionLocal() as session:
-                    await core.end_work(settler, callback.message.chat.id, session, mark_work_completed=True)
-            active_games.pop(user_key, None)
-            end_work(callback.message.chat.id)
-            log.debug(f"{callback.message.chat.id} | {settler.user_id} | 💀 Промах! Труд провален!")
-            
-        elif result == "win":
-            if workflow.next_step():
-                text = f"{workflow.get_status_text()}"
-                await callback.message.edit_text(text)
-                await callback.answer(workflow.complete_text)
-                
-                async with SessionLocal() as session:
-                    tea_resource = await core.get_resource_by_emoji("🍵", session)
-                    await core.settler_addResource(settler, settlement, session, "🍵", quantity=1)
-                    exp_gained = await core.end_work(settler, callback.message.chat.id, session, mark_work_completed=True)
-                    if exp_gained > 0:
-                        await callback.message.edit_text(text + format_reward_text({}, exp_gained))
-                    
-                active_games.pop(user_key, None)
-                end_work(callback.message.chat.id)
-                log.debug(f"{callback.message.chat.id} | {settler.user_id} | 💼 Труд завершён!")
-            else:
-                text = f"{workflow.get_status_text()}"
-                kb = workflow.render_keyboard()
-                await callback.message.edit_text(text, reply_markup=kb)
-                await callback.answer(current_step.win_text)
-                log.debug(f"{callback.message.chat.id} | {settler.user_id} | ➡️ Переход к следующему шагу")
-                
-        elif result == "game_over":
-            await callback.answer("Ход уже завершён!")
-            return
-    
-    else:
-        game = workflow_or_step
-        if hasattr(game, 'click') and hasattr(game, 'render_keyboard'):
-            result = game.click(i)
-            if result == "hit":
-                text = f"{game.get_status_text()}"
-                kb = game.render_keyboard()
-                await callback.message.edit_text(text, reply_markup=kb)
-                await callback.answer(getattr(game, 'hit_text', "✅ Попадание!"))
-                log.debug(f"{callback.message.chat.id} | {settler.user_id} | 🎯 Попадание!")
-            elif result == "miss":
-                text = f"{game.get_status_text()}"
-                await callback.message.edit_text(text)
-                await callback.answer(getattr(game, 'miss_text', "💥 Промах!"))
-                async with SessionLocal() as session:
-                    await core.end_work(settler, callback.message.chat.id, session, mark_work_completed=True)
-                active_games.pop(user_key, None)
-                end_work(callback.message.chat.id)
-                log.debug(f"{callback.message.chat.id} | {settler.user_id} | 💀 Игра проиграна!")
-            elif result == "win":
-                text = f"{game.get_status_text()}"
-                await callback.message.edit_text(text)
-                await callback.answer(getattr(game, 'win_text', "🏆 Победа!"))
-                async with SessionLocal() as session:
-                    exp_gained = await core.end_work(settler, callback.message.chat.id, session, mark_work_completed=True)
-                    if exp_gained > 0:
-                        await callback.message.edit_text(text + format_reward_text({}, exp_gained))
-                active_games.pop(user_key, None)
-                end_work(callback.message.chat.id)
-                log.debug(f"{callback.message.chat.id} | {settler.user_id} | 🐟 Ловля завершена!")
-            elif result == "game_over":
-                await callback.answer("Ход уже завершён!")
-                return
-            else:
-                await callback.answer("Неверный ход!")
-                return
-        else:
-            await callback.answer("Неверный ход!")
-            return
-
-@router.callback_query(F.data.startswith("timer:"))
-async def timer_callback(callback: types.CallbackQuery):
-    #* Обработка callback-кнопок для таймерных шагов
-    _, i = callback.data.split(":")
-    
-    user = await core.user_getOrCreate(callback.from_user)
-    settlement = await core.settlement_getOrCreate(callback.message.chat, user)
-    settler = await core.settler_getOrCreate(user, settlement)
-    
-    user_key = f"{callback.message.chat.id}_{user.telegram_id}"
-    
-    if not can_click_button(user_key):
-        await callback.answer("⏳ Погоди миг единый меж трудами!")
-        return
-    
-    remaining_time = get_work_remaining_time(callback.message.chat.id)
-    if remaining_time <= 0:
-        await callback.answer("⏰ Пора труда миновала! Дело отложено.", True)
-        await callback.message.edit_text("⏰ Долго ты без дела стоял! Труд отложен.")
-        return
-    
-    workflow = active_games.get(user_key)
-    
-    if not workflow:
-        await callback.answer("❌ Ход не сыскан. Может, ты его свершил, али вовсе не твой то ход?", True)
-        return
-    
-    current_step = workflow.get_current_step()
-    if not current_step or not hasattr(current_step, 'click'):
-        await callback.answer("Неверный ход!")
-        return
-    
-    result = current_step.click(i)
-    
-    if result == "started":
-        text = f"{workflow.get_status_text()}"
-        kb = workflow.render_keyboard()
-        await callback.message.edit_text(text, reply_markup=kb)
-        await callback.answer(current_step.start_text)
-        log.debug(f"{callback.message.chat.id} | {settler.user_id} | ⏰ Таймер запущен!")
-        
-    elif result == "completed":
-        if workflow.next_step():
-            text = f"{workflow.get_status_text()}"
-            await callback.message.edit_text(text)
-            await callback.answer(workflow.complete_text)
-            
-            async with SessionLocal() as session:
-                if settler.profession.emoji == "📔":
-                    tea_resource = await core.get_resource_by_emoji("🍵", session)
-                    rewards = {tea_resource.id: 1}
-                else:
-                    await core.settler_addResource(settler, settlement, session, "🍵", quantity=1)
-                    exp_gained = await core.end_work(settler, callback.message.chat.id, session, mark_work_completed=True)
-                    if exp_gained > 0:
-                        await callback.message.edit_text(text + format_reward_text({}, exp_gained))
-                
-            active_games.pop(user_key, None)
-            end_work(callback.message.chat.id)
-            log.debug(f"{callback.message.chat.id} | {settler.user_id} | 💼 Труд завершён!")
-        else:
-            text = f"{workflow.get_status_text()}"
-            kb = workflow.render_keyboard()
-            await callback.message.edit_text(text, reply_markup=kb)
-            await callback.answer(current_step.complete_text)
-            log.debug(f"{callback.message.chat.id} | {settler.user_id} | ➡️ Переход к следующему шагу")
-            
-    elif result == "waiting":
-        remaining = current_step.get_remaining_time()
-        await callback.answer(f"⏳ Осталось: {remaining}с")
-        
-    elif result == "invalid":
-        await callback.answer("Неверное действие!")
+    if step_idx >= len(workflow.steps):
+        await callback.answer("⚠️ Неверный шаг!")
         return
 
-@router.callback_query(F.data.startswith("milking:"))
-async def milking_callback(callback: types.CallbackQuery):
-    #* Обработка callback-кнопок для шага доения
-    _, i = callback.data.split(":")
-    
-    user = await core.user_getOrCreate(callback.from_user)
-    settlement = await core.settlement_getOrCreate(callback.message.chat, user)
-    settler = await core.settler_getOrCreate(user, settlement)
-    
-    user_key = f"{callback.message.chat.id}_{user.telegram_id}"
-    
-    if not can_click_button(user_key):
-        await callback.answer("⏳ Погоди миг единый меж трудами!")
-        return
-    
-    remaining_time = get_work_remaining_time(callback.message.chat.id)
-    if remaining_time <= 0:
-        await callback.answer("⏰ Пора труда миновала! Дело отложено.", True)
-        await callback.message.edit_text("⏰ <b>Долго ты без дела стоял!</b> Труд отложен.")
-        return
-    
-    workflow_or_step = active_games.get(user_key)
-    
-    if not workflow_or_step:
-        await callback.answer("❌ Дело не сыскано. Может, ты его свершил, али вовсе не твоё то дело?")
-        return
+    result = workflow.click(action)
     try:
-        chosen_int = int(i)
-    except ValueError:
-        await callback.answer("Неверный ход!", True)
-        return
-    
-    if hasattr(workflow_or_step, 'get_current_step'):
-        workflow = workflow_or_step
-        current_step = workflow.get_current_step()
-        if not current_step or not hasattr(current_step, 'click'):
-            await callback.answer("Неверный ход!")
-            return
-        result = current_step.click(chosen_int)
+        step_obj = workflow.get_current_step()
+    except Exception:
+        step_obj = None
+    answer_text = work.get_answer_text(result, step_idx, workflow, step_obj)
+    if answer_text:
+        await callback.answer(str(answer_text))
 
-        if result == "lose":
-            text = f"{workflow.get_status_text()}"
-            await callback.message.edit_text(text)
-            await callback.answer(getattr(current_step, 'lose_text', "💀 Проигрыш!"))
-            workflow.fail_workflow()
-            if getattr(workflow, 'cooldown_on_fail', False):
-                async with SessionLocal() as session:
-                    await core.end_work(settler, callback.message.chat.id, session, mark_work_completed=True)
-            active_games.pop(user_key, None)
-            end_work(callback.message.chat.id)
-            log.debug(f"{callback.message.chat.id} | {settler.user_id} | 💀 Доение в workflow испорчено!")
-        elif result == "win":
-            if workflow.next_step():
-                text = f"{workflow.get_status_text()}"
-                await callback.message.edit_text(text)
-                await callback.answer(workflow.complete_text)
-                async with SessionLocal() as session:
-                    milk_resource = await core.get_resource_by_emoji("🥛", session)
-                    milk_qty = random.randint(1, 3)
-                    await core.settler_addResource(settler, settlement, session, "🥛", quantity=milk_qty)
-                    exp_gained = await core.end_work(settler, callback.message.chat.id, session, mark_work_completed=True)
-                    if exp_gained > 0:
-                        await callback.message.edit_text(text + format_reward_text({}, exp_gained))
-                active_games.pop(user_key, None)
-                end_work(callback.message.chat.id)
-                log.debug(f"{callback.message.chat.id} | {settler.user_id} | 🪣 Доение завершено!")
-            else:
-                text = f"{workflow.get_status_text()}"
-                kb = workflow.render_keyboard()
-                await callback.message.edit_text(text, reply_markup=kb)
-                await callback.answer(getattr(current_step, 'win_text', "✅ Успех!"))
-                log.debug(f"{callback.message.chat.id} | {settler.user_id} | ➡️ Переход к следующему шагу")
-        elif result == "continue":
-            text = f"{workflow.get_status_text()}"
-            kb = workflow.render_keyboard()
-            await callback.message.edit_text(text, reply_markup=kb)
-            await callback.answer(getattr(current_step, 'continue_text', "✅ Продолжайте!"))
-            log.debug(f"{callback.message.chat.id} | {settler.user_id} | 🐄 Доение продолжается...")
-        elif result == "game_over":
-            await callback.answer("Ход уже завершён!")
-            return
-    else:
-        game = workflow_or_step
-        result = game.click(chosen_int)
-
-        if result == "lose":
-            text = f"{game.get_status_text()}"
-            await callback.message.edit_text(text)
-            await callback.answer(getattr(game, 'lose_text', "💀 Проигрыш!"))
-            async with SessionLocal() as session:
-                await core.end_work(settler, callback.message.chat.id, session, mark_work_completed=True)
-            active_games.pop(user_key, None)
-            end_work(callback.message.chat.id)
-            log.debug(f"{callback.message.chat.id} | {settler.user_id} | 💀 Доение испорчено!")
+    if result == "win" and workflow.completed:
+        status_text = workflow.get_status_text()
+        async with SessionLocal() as session:
+            earned, exp = await core.apply_rewards(work, settler, session, callback.message.chat.id)
+            reward_text = mfunc.format_reward_text(earned, exp)
+            await callback.message.edit_text(f"{status_text}\n\n{reward_text}", reply_markup=None)
             
-        elif result == "win":
-            text = f"{game.get_status_text()}"
-            await callback.message.edit_text(text)
-            await callback.answer(game.win_text)
-            async with SessionLocal() as session:
-                milk_qty = random.randint(1, 3)
-                await core.settler_addResource(settler, settlement, session, "🥛", quantity=milk_qty)
-                exp_gained = await core.end_work(settler, callback.message.chat.id, session, mark_work_completed=True)
-                if exp_gained > 0:
-                    await callback.message.edit_text(text + format_reward_text({}, exp_gained))
+            if workflow.failed and work.cooldown_on_fail:
+                await mfunc.mark_work_completed(settler, session, callback.message.chat.id)
         
-            active_games.pop(user_key, None)
-            end_work(callback.message.chat.id)
-            log.debug(f"{callback.message.chat.id} | {settler.user_id} | 🪣  Доение завершено!")
-            
-        elif result == "continue":
-            text = f"{game.get_status_text()}"
-            kb = game.render_keyboard()
-            await callback.message.edit_text(text, reply_markup=kb)
-            await callback.answer(game.continue_text)
-            log.debug(f"{callback.message.chat.id} | {settler.user_id} | 🐄 Подоено...")
-            
-        elif result == "game_over":
-            await callback.answer("Ход уже завершён!")
-            return
+        active_games.pop(user_key, None)
+        mfunc.end_work(callback.message.chat.id)
+
+    elif result == "lose":
+        # prefer work-specific 'lose' text from texts (per-step or global), fallback to workflow status
+        status_text = None
+        # 1) explicit key for this step: step_{i}_lose
+        key_combo = f"step_{step_idx}_lose"
+        if key_combo in work.texts:
+            entry = work.texts[key_combo]
+        else:
+            # 2) nested dict under step_{i}
+            step_key = f"step_{step_idx}"
+            step_entry = work.texts.get(step_key)
+            if isinstance(step_entry, dict):
+                entry = step_entry.get("lose")
+            else:
+                # 3) global fallback
+                entry = work.texts.get("lose")
+
+        if entry is not None:
+            if callable(entry):
+                try:
+                    status_text = entry()
+                except TypeError:
+                    try:
+                        status_text = entry(workflow)
+                    except TypeError:
+                        try:
+                            status_text = entry(step_obj)
+                        except Exception:
+                            status_text = str(entry)
+                except Exception:
+                    status_text = str(entry)
+            else:
+                status_text = str(entry)
+
+        if not status_text:
+            status_text = workflow.get_status_text()
+
+        await callback.message.edit_text(status_text, reply_markup=None)
+        if work.cooldown_on_fail:
+            async with SessionLocal() as session:
+                await mfunc.mark_work_completed(settler, session, callback.message.chat.id)
+        active_games.pop(user_key, None)
+        mfunc.end_work(callback.message.chat.id)
+    else:
+        status_text = workflow.get_status_text()
+        kb = workflow.get_keyboard()
+        await callback.message.edit_text(status_text, reply_markup=kb)
+        
+
 
 
 
@@ -1186,7 +770,7 @@ async def quote_handler(message: types.Message):
             return
             
         try:
-            if await is_meaningful(message.text) and not settler.quote_is_completed:
+            if await mfunc.is_meaningful(message.text) and not settler.quote_is_completed:
                 await core.update_quote(settler, settlement, session, 1)
                 return
         except Exception as e:

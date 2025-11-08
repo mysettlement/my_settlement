@@ -1,11 +1,13 @@
 from sqlalchemy import Table, Column, Integer, BigInteger, String, ForeignKey, PickleType, Boolean, Enum as SAEnum, DateTime, Float
 from sqlalchemy.orm import relationship, declarative_base
 from sqlalchemy.ext.mutable import MutableList
-from pydantic import BaseModel, Field, computed_field
+from typing import List, Optional, Dict, Callable, Any
 from enum import Enum
-from typing import ClassVar
+from dataclasses import dataclass, field
+import copy
+import random
 
-from gamer import Hitting, TimerStep, Workflow, Harvesting, Catch, Milking
+from gamer import Step, Hitting, Timer, Workflow, Harvesting, Catch, Alternation
 
 
 Base = declarative_base()
@@ -140,173 +142,256 @@ class Profession(Base):
 
 #* === РАБОТЫ ===
 
-class WorkflowWork():
-    #* Многошаговая работа
-    tea_brewing_workflow = None
-    milking_workflow = None
+@dataclass
+class Work:
+    id: str
+    name: str
+    emoji: str
+    profession_id: Optional[int] = None
+    requirements: Dict[str, Any] = field(default_factory=dict)  # {"🎋": 3, "level": 2}
+    steps: List[Step] = field(default_factory=list) # [Hitting(...), Timer(...)]
+    rewards: Dict[str, Any] = field(default_factory=dict)  # {"resource": "🌾", "quantity": lambda: random.randint(2, 5)}
+    texts: Dict[str, str | Callable] = field(default_factory=dict)  # {"step_0_status": "Работай!", "complete": "Работа выполнена!"}
+    # answer_texts can contain global keys like "win"/"lose"/"continue"
+    # or step-specific entries using either:
+    #  - "step_{i}": {"continue": ..., "lose": ...}
+    #  - "step_{i}_{result}": "..."
+    answer_texts: Dict[str, Any] = field(default_factory=dict) # {"hit": "Попадение!", "miss": "Промах!"}
+    cooldown_on_fail: bool = False 
+    _workflow: Optional[Workflow] = None
+
+    def build(self) -> Workflow:
+        if self._workflow:
+            copied_workflow = self._workflow.copy()
+            if hasattr(copied_workflow, '_workflow_status_func'):
+                copied_workflow.get_status_text = lambda: copied_workflow._workflow_status_func(copied_workflow)
+            return copied_workflow
+        steps = [copy.deepcopy(step) for step in self.steps]
+
+        workflow = Workflow(
+            steps=steps,
+            name=f"{self.emoji} {self.name}",
+        ).build_with_context(self.id)
+
+        for i, step in enumerate(steps):
+            step_key = f"step_{i}_status"
+            if step_key in self.texts:
+                status_value = self.texts[step_key]
+                
+                if callable(status_value):
+                    step._status_text_func = status_value
+                    def make_status_text_func(step_obj):
+                        def get_status_text():
+                            try:
+                                return step_obj._status_text_func(step_obj)
+                            except TypeError:
+                                try:
+                                    return step_obj._status_text_func()
+                                except Exception:
+                                    return str(step_obj._status_text_func)
+                        return get_status_text
+                    step.get_status_text = make_status_text_func(step)
+                else:
+                    def make_status_text_func_str(text_val):
+                        def get_status_text():
+                            return str(text_val)
+                        return get_status_text
+                    step.get_status_text = make_status_text_func_str(status_value)
+
+        def workflow_status(workflow_self):
+            if workflow_self.completed:
+                complete_val = self.texts.get("complete", f"{self.emoji} {self.name} завершена!")
+                if callable(complete_val):
+                    try:
+                        return complete_val()
+                    except TypeError:
+                        try:
+                            return complete_val(workflow_self)
+                        except Exception:
+                            return str(complete_val)
+                return str(complete_val)
+
+            current_idx = workflow_self.current_step
+            current_step = workflow_self.get_current_step()
+            
+            val = self.texts.get(f"step_{current_idx}_status", None)
+            if val is not None:
+                if callable(val):
+                    try:
+                        return val(current_step)
+                    except TypeError:
+                        try:
+                            return val()
+                        except Exception:
+                            return str(val)
+                return str(val)
+            
+            if current_step and hasattr(current_step, 'get_status_text'):
+                try:
+                    result = current_step.get_status_text()
+                    if result:
+                        return result
+                except Exception:
+                    pass
+            
+            return "В процессе..."
+
+        workflow._workflow_status_func = workflow_status
+        workflow.get_status_text = lambda: workflow_status(workflow)
+
+        self._workflow = workflow
+        copied_workflow = workflow.copy()
+        if hasattr(copied_workflow, '_workflow_status_func'):
+            copied_workflow.get_status_text = lambda: copied_workflow._workflow_status_func(copied_workflow)
+        return copied_workflow
+
+    def get_answer_text(self, result: str, step_idx: int, workflow=None, step=None) -> Optional[str]:
+        """Resolve an answer text for a given result and step.
+
+        Priority:
+        1. key "step_{i}_{result}"
+        2. nested dict under "step_{i}" (if dict) -> dict.get(result)
+        3. global key result
+
+        If the value is callable, try calling it without arguments first, then with (workflow), then with (step).
+        Returns resolved string or None.
+        """
+        # 1. explicit combined key
+        key_combo = f"step_{step_idx}_{result}"
+        entry = None
+        if key_combo in self.answer_texts:
+            entry = self.answer_texts[key_combo]
+
+        # 2. nested dict for the step
+        if entry is None:
+            step_key = f"step_{step_idx}"
+            step_entry = self.answer_texts.get(step_key)
+            if isinstance(step_entry, dict):
+                entry = step_entry.get(result)
+
+        # 3. global fallback
+        if entry is None:
+            entry = self.answer_texts.get(result)
+
+        if entry is None:
+            return None
+
+        if callable(entry):
+            # try a few lightweight calling conventions in order
+            try:
+                return str(entry())
+            except TypeError:
+                try:
+                    return str(entry(workflow))
+                except TypeError:
+                    try:
+                        return str(entry(step))
+                    except Exception:
+                        return str(entry)
+            except Exception:
+                return str(entry)
+
+        return str(entry)
+
+
+WORKS_REGISTRY: Dict[str, Work] = {}
+
+def register_work(work: Work):
+    WORKS_REGISTRY[work.id] = work
+    return work
+
+
+def catcher_milking() -> Work:
+    # Шаг 1: Успокоение коровы (Harvesting)
+    step1 = Harvesting(
+        objects=["🐄", "💢", "💢", " "],
+        rules={
+            "forbidden": ["💢"],
+            "click": {"🐄": " "},
+            "win_check": lambda field: not any(cell == "🐄" for row in field for cell in row)
+        },
+        size=3,
+        required_at_least_one="🐄"
+    )
+
+    # Шаг 2: Доение (Alternation)
+    step2 = Alternation(target="💧", target_presses=10)
+
+    return Work(
+        id="catcher_milking",
+        name="Доение коровы",
+        emoji="🪣",
+        profession_id=3,
+        steps=[step1, step2],
+        rewards={
+            "level": 0,
+            "🥛": lambda: random.randint(3,5),
+            "exp": lambda: random.randint(1,4)
+        },
+        texts={
+            "step_0_status": lambda: "🪣 <b>Успокой корову:</b>\nПогладь 🐄",
+            "step_1_status": lambda step: f"🐮 <b>Доение коровы:</b>\nЧередуй нажим на ручки: 💧💧\n<b>{getattr(step, 'current_presses', 0)}/{step.target_presses}</b>",
+            "complete": "🥛 <b>Молоко собрано!</b>",
+            "lose": "🐄 Куда же ты лезешь! Всё, теперь то она точно не успокоится!"
+        },
+        answer_texts={
+            "step_0": {
+                "continue": "✅ Тихо-тихо — поглаживай корову, она успокоится.",
+                "win": "🐄 Корова полностью спокойна!"
+            },
+            "step_1": {
+                "continue": lambda: f"✅ Хм... Какая там ручка дальше? {'Правая?' if random.choice([True, False]) else 'Левая?'}"
+            },
+            "lose": "🐄 Корова лягнула! Она ещё не скоро тебя к себе подпустит!",
+            "win": "🥛 Ведро наполнено! Корове нужно время прежде чем ты сможешь подоить её ещё раз."
+        },
+        cooldown_on_fail=True
+    )
+register_work(catcher_milking())
+
+def healer_tea_brewing() -> Work:
+    # Шаг 1: Измельчение коры (Hitting)
+    step1 = Hitting(
+        target="🎋",
+        size=3,
+        rounds=6
+    )
     
-    @classmethod
-    def get_ploughman_harvesting(cls):
-        return Harvesting(
-            objects=["🌾", "🥔", "🍄‍🟫", "🫐", "🌱", "🌱"],
-            rules={
-                "forbidden": ["🌱"],
-                "click": {
-                    "🌾": " ",
-                    "🥔": " ",
-                    "🍄‍🟫": " ",
-                    "🫐": " "
-                },
-                "win_check": lambda field: not any(cell == "🌾" or cell == "🥔" or cell == "🍄‍🟫" or cell == "🫐" for row in field for cell in row)
+    # Шаг 2: Заваривание (Timer)
+    step2 = Timer(
+        duration=30,
+        button_text="💧 Налейте кипяток",
+        button2_text="⌛️ Ожидайте..."
+    )
+
+    return Work(
+        id="healer_tea_brewing",
+        name="Приготовление отвара",
+        emoji="🍵",
+        profession_id=2,  # ID профессии "Травник"
+        steps=[step1, step2],
+        rewards={
+            "level": 0,
+            "🍵": 1,
+            "exp": lambda: random.randint(2,5)
+        },
+        texts={
+            "step_0_status": lambda step: f"🥣 <b>Измельчение коры</b> — осталось {step.rounds - step.current_round + 1}/{step.rounds}\nПоместите кору в ступку! 🎋",
+            "step_1_status": lambda step: f"🍵 <b>Заваривание отвара...</b>\nОсталось: {step.get_remaining_time()}с" if step.started and not step.completed else ("💧 Налейте кипяток для заваривания" if not step.started else "🍵 Отвар готов!"),
+            "complete": "🍵 <b>Отвар готов!</b>"
+        },
+        answer_texts={
+            "step_0": {
+                "continue": "🎋 Кора добавлена!",
+                "lose": "💀 Кора испорчена!"
             },
-            size=4,
-            status_text_func=lambda game: "🌻 <b>Поле для пахоты:</b>\nЖните 🌾/🥔/🍄‍🟫/🫐. Токмо не троньте саженцы 🌱 — они ещё сил набирают!" if not game.game_over else ("🌾 Поле очищено! Урожай собран!" if game.won else "💀 Урожай испорчен!"),
-            lose_text="💀 Урожай испорчен!",
-            win_text="🌾 Поле очищено!",
-            continue_text="✅ Собрано!"
-        )
-
-    @classmethod
-    def get_tea_brewing_workflow(cls):
-        if cls.tea_brewing_workflow is None:
-            
-            # Шаг 1: Измельчение коры (Hitting)
-            step1 = Hitting(
-                target="🎋",
-                empty=" ", 
-                size=3,
-                rounds=3,
-                status_text_func=lambda game: f"🥣 <b>Измельчение коры</b> — осталось {game.rounds - game.current_round + 1}/{game.rounds}\nПоместите кору в ступку! 🎋" if not game.game_over else (f"✅ <b>Кора измельчена!</b> {game.score}/{game.rounds}" if game.won else f"💀 </b>Кора испорчена!</b> {game.score}/{game.rounds}"),
-                hit_text="🎋 Кора добавлена!",
-                miss_text="💀 Кора испорчена!",
-                win_text="✅ Кора измельчена!"
-            )
-            
-            # Шаг 2: Заваривание (TimerStep)
-            step2 = TimerStep(
-                button_text="💧 Налить кипяток",
-                button2_text="🍵 Заваривается...",
-                duration=30,
-                status_text_func=lambda step: f"🍵 <b>Заваривание отвара...</b>\nОсталось: {step.get_remaining_time()}с" if step.started and not step.completed else ("💧 Налейте кипяток для заваривания" if not step.started else "🍵 Отвар готов!"),
-                start_text="💧 Кипяток налит!",
-                complete_text="🍵 Отвар готов!"
-            )
-            
-            # Workflow
-            cls.tea_brewing_workflow = Workflow(
-                steps=[step1, step2],
-                name="🍵 Приготовление отвара",
-                status_text_func=lambda workflow: (workflow.get_current_step().get_status_text() if not workflow.completed else "🍵 <b>Отвар готов!</b>"),
-                complete_text="🍵 Отвар готов!",
-                cooldown_on_fail=False
-            )
-        
-        return cls.tea_brewing_workflow
-
-    @classmethod
-    def get_healer_herb_gathering(cls):
-        return Harvesting(
-            objects=["🪴", "🎋", " ", " "],
-            rules={
-                "click": {
-                    "🪴": " ",
-                    "🎋": " "
-                },
-                "win_check": lambda field: not any(cell == "🪴" or cell == "🎋" for row in field for cell in row)
+            "step_1": {
+                "continue": "🍵 Заваривание отвара...",
+                "lose": "💀 Отвар испорчена!"
             },
-            size=5,
-            status_text_func=lambda game: "🪴 <b>Сбор трав:</b>\nСобирайте 🪴/🎋!" if not game.game_over else ("✅ <b>Травы собраны!</b>" if game.won else "💀 <b>Сбор не удался!</b>"),
-            lose_text="💀 Сбор не удался!",
-            win_text="🪴 Травы собраны!",
-            continue_text="✅ Собрано!"
-        )
+            "win": "🍵 Отвар приготовлен!"
+        },
+        cooldown_on_fail=False
+    )
+register_work(healer_tea_brewing())
 
-    @classmethod
-    def get_catcher_fishing(cls):
-        return Catch(
-            target="🐟",
-            empty=" ",
-            size=4,
-            rounds=7,
-            status_text_func=lambda game: (
-                f"🎣 <b>Ловля</b> — осталось {game.rounds - game.current_round + 1}/{game.rounds}\nЖми на цель, коли увидишь 🐟!"
-                if not game.game_over else (
-                    f"✅ <b>Добрый улов!</b> {game.score}/{game.rounds}" if game.won else f"💀 <b>Рыба сорвалась!</b> {game.score}/{game.rounds}"
-                )
-            ),
-            hit_text="✅ Попал!",
-            miss_text="💀 Сорвалась!",
-            win_text="🐟 Рыба уловлена!"
-        )
-
-    @classmethod
-    def get_catcher_milking(cls):
-        if cls.milking_workflow is None:
-            # Шаг 1: Подготовка (Harvesting)
-            step1 = Harvesting(
-                objects=["🐄", "💢", "💢", " "],
-                rules={
-                    "forbidden": ["💢"],
-                    "click": {"🐄": " "},
-                    "win_check": lambda field: not any(cell == "🐄" for row in field for cell in row)
-                },
-                size=3,
-                status_text_func=lambda game: "🪣 <b>Успокоение коровы:</b>\nПогладь корову 🐄" if not game.game_over else ("✅ <b>Корова успокоилась!</b>" if game.won else "💀 <b>Корова разозлилась!</b>"),
-                lose_text="💀 Корова разозлилась!",
-                win_text="✅ Корова успокоилась!",
-                continue_text="✅ Продолжайте гладить...",
-                required_at_least_one="🐄"
-            )
-
-            # Шаг 2: Доение (Milking)
-            step2 = Milking(
-                target_presses=10,
-                status_text_func=lambda game: (
-                    f"🐮 <b>Доение коровы:</b>\nЧередуй нажим на ручки: 💧💧\n<b>{game.current_presses}/{game.target_presses}</b>"
-                    if not game.game_over else (
-                        "🥛 <b>Ведро наполнено!</b>" if game.won else "💀 <b>Корова вас лягнула!</b>"
-                    )
-                ),
-                lose_text="💀 Корова вас лягнула!",
-                win_text="🥛 Ведро наполнено!",
-                continue_text="✅ Продолжайте доить..."
-            )
-
-            # Workflow
-            cls.milking_workflow = Workflow(
-                steps=[step1, step2],
-                name="🪣 Доение коровы",
-                status_text_func=lambda workflow: (workflow.get_current_step().get_status_text() if not workflow.completed else "🥛 <b>Молоко собрано!</b>"),
-                complete_text="🥛 Молоко собрано!",
-                cooldown_on_fail=True
-            )
-        return cls.milking_workflow
-
-#* === PYDANTIC СХЕМЫ ===
-class SettlementBase(BaseModel):
-    name: str = Field(..., min_length=1, max_length=30, example="Моё поселение")
-
-class ResourceBase(BaseModel):
-    name: str = Field(..., min_length=1, max_length=15, example="Дерево")
-    emoji: str = Field(..., min_length=1, max_length=2, example="🪵")
-    description: str = None
-    category: str = Field(..., min_length=1, max_length=30, example="Материалы")
-    rarity: RarityLevel = RarityLevel.COMMON
-    base_value: int = 0
-
-    RARITY_TRANSLATIONS: ClassVar[dict[RarityLevel, str]] = {
-        RarityLevel.COMMON: "🌿 Обильное",
-        RarityLevel.UNCOMMON: "🐚 Невсякое",
-        RarityLevel.RARE: "🍀 <b>Редкостное</b>",
-        RarityLevel.EPIC: "🎍 <b>Диковинное</b>",
-        RarityLevel.LEGENDARY: "🌈 <b>Сказочное</b>"
-    }
-
-    @computed_field
-    def rarity_display(self) -> str:
-        return self.RARITY_TRANSLATIONS[self.rarity]
-
-class ProfessionBase(BaseModel):
-    name: str = Field(..., min_length=1, max_length=20, example="Фермер")
-    description: str = None
-    required_level: int = 1

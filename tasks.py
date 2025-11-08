@@ -18,6 +18,9 @@ scheduler = AsyncIOScheduler(timezone=pytz.timezone('Europe/Kiev'))
 logger = logging.getLogger(__name__)
 log = setup_logging(logger)
 
+async def availability_check():
+    log.debug("🔵 Online!")
+
 async def day_reset():
     async with SessionLocal() as session:
         log.info("↪️ Ежедневное обновление начато...")

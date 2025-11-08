@@ -3,20 +3,28 @@ import time
 import asyncio
 import pytz
 import re
+from sqlalchemy import update
 from wordfreq import zipf_frequency
 from typing import Dict, Union
 from datetime import datetime, timedelta
-from aiogram import types
+from sqlalchemy.ext.asyncio import AsyncSession
+from aiogram import Bot, types
+from aiogram.client.default import DefaultBotProperties
+from aiogram.enums import ParseMode
 
-from config import setup_logging
-from gamer import Harvesting, Hitting, Workflow
+from config import setup_logging, settings
+from gamer import Harvesting, Hitting, Timer, Catch, Alternation, Workflow
 from exceptions import GroupOwnerError
-from main import bot
 import models
 
 
 
-GameType = Union[Harvesting, Hitting, Workflow]
+bot = Bot(
+    token=settings.BOT_TOKEN,
+    default=DefaultBotProperties(parse_mode=ParseMode.HTML)
+)
+
+GameType = Union[Harvesting, Hitting, Catch, Alternation, Timer, Workflow]
 active_games: Dict[str, GameType] = {}
 log = setup_logging(logging.getLogger(__name__))
 
@@ -96,15 +104,15 @@ def format_reward_text(earned: dict, exp_gained: int = 0) -> str:
     if not earned and exp_gained == 0:
         return ""
     
-    reward_parts = []
+    parts = []
     if earned:
         earned_text = " | ".join(f"{resource.emoji}: +{quantity}" for resource, quantity in earned.items())
-        reward_parts.append(earned_text)
+        parts.append(earned_text)
     
     if exp_gained > 0:
-        reward_parts.append(f"🗂: +{exp_gained}")
+        parts.append(f"🗂: +{exp_gained}")
     
-    return f"\n\n📦 <b>Получено:</b>\n" + "\n".join(reward_parts)
+    return f"📦 <b>Получено:</b>\n" + "\n".join(parts)
 
 def can_start_work(chat_id: int) -> tuple[bool, str]:
     global work_in_progress, last_work_end_time
@@ -130,25 +138,18 @@ def can_click_button(user_key: str) -> bool:
     user_last_click_time[user_key] = current_time
     return True
 
-def start_work(chat_id: int):
-    global work_in_progress, work_start_time, work_timeout_tasks
-    work_in_progress[chat_id] = True
-    work_start_time[chat_id] = time.time()
-    
-    if chat_id in work_timeout_tasks:
-        work_timeout_tasks[chat_id].cancel()
-    
-    work_timeout_tasks[chat_id] = asyncio.create_task(timeout_work(chat_id))
-
-def end_work(chat_id: int):
-    work_in_progress[chat_id] = False
-    last_work_end_time[chat_id] = time.time()
-    
-    if chat_id in work_timeout_tasks:
-        work_timeout_tasks[chat_id].cancel()
-        del work_timeout_tasks[chat_id]
-    
-    work_start_time.pop(chat_id, None)
+def can_choose_craft(last_profession_change) -> tuple[bool, str]:
+    now_ts = int(datetime.now().timestamp())
+    last_ts = last_profession_change or 0
+    cooldown = int(timedelta(days=3).total_seconds())
+    if last_ts and now_ts - last_ts < cooldown:
+        remaining = cooldown - (now_ts - last_ts)
+        days = remaining // 86400
+        hours = (remaining % 86400) // 3600
+        minutes = (remaining % 3600) // 60
+        when = f"{days}д. {hours}ч. {minutes}м." if days > 0 else (f"{hours}ч. {minutes}м." if hours > 0 else f"{minutes}м.")
+        return False, when
+    return True, ""
 
 async def timeout_work(chat_id: int):
     try:
@@ -178,15 +179,34 @@ def get_work_remaining_time(chat_id: int) -> int:
     remaining = 180 - elapsed  # 3 минуты = 180 секунд
     return max(0, int(remaining))
 
-def can_choose_craft(last_profession_change) -> tuple[bool, str]:
-    now_ts = int(datetime.now().timestamp())
-    last_ts = last_profession_change or 0
-    cooldown = int(timedelta(days=3).total_seconds())
-    if last_ts and now_ts - last_ts < cooldown:
-        remaining = cooldown - (now_ts - last_ts)
-        days = remaining // 86400
-        hours = (remaining % 86400) // 3600
-        minutes = (remaining % 3600) // 60
-        when = f"{days}д. {hours}ч. {minutes}м." if days > 0 else (f"{hours}ч. {minutes}м." if hours > 0 else f"{minutes}м.")
-        return False, when
-    return True, ""
+def start_work(chat_id: int):
+    global work_in_progress, work_start_time, work_timeout_tasks
+    work_in_progress[chat_id] = True
+    work_start_time[chat_id] = time.time()
+    
+    if chat_id in work_timeout_tasks:
+        work_timeout_tasks[chat_id].cancel()
+    
+    work_timeout_tasks[chat_id] = asyncio.create_task(timeout_work(chat_id))
+
+def end_work(chat_id: int):
+    work_in_progress[chat_id] = False
+    last_work_end_time[chat_id] = time.time()
+    
+    if chat_id in work_timeout_tasks:
+        work_timeout_tasks[chat_id].cancel()
+        del work_timeout_tasks[chat_id]
+    
+    work_start_time.pop(chat_id, None)
+
+async def mark_work_completed(settler: models.Settler, session: AsyncSession, chat_id: int):
+    current_time = int(datetime.now().timestamp())
+    await session.execute(
+        update(models.Settler)
+        .where(models.Settler.id == settler.id)
+        .values(work_is_completed=True, last_work_time=current_time)
+    )
+        
+    await session.commit()
+    log.debug(f"{chat_id} | {settler.user_id} | 💼 Работа завершена")
+

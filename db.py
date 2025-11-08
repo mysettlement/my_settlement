@@ -83,8 +83,8 @@ async def init_db():
  
             professions_to_add = [
                 {"name": "Землепашец", "emoji": "🌻", "description": "Жнёт 🌾/🥔/🍄‍🟫/🫐 упорно трудясь в поле али лесу.", "collects": "🌾/🥔/🍄‍🟫/🫐", "required_level": 0}, # 1
-                {"name": "Ловчий", "emoji": "🐾", "description": "В лесу силки ставит, зверя бьёт да рыбу сетью тянет, скотину пасёт, чтоб 🐟/🍖/🥛/☁️ в общину нести.", "collects": "🐟/🍖/🥛/☁️", "required_level": 0}, # 2
-                {"name": "Знахарь", "emoji": "📔", "description": "Внемлет мольбам селян, варит 🍵/🩹, собирая 🪴/🎋 своими руками.", "crafts": "🍵/🩹", "collects": "🪴/🎋", "required_level": 0}, # 3
+                {"name": "Знахарь", "emoji": "📔", "description": "Внемлет мольбам селян, варит 🍵/🩹, собирая 🪴/🎋 своими руками.", "crafts": "🍵/🩹", "collects": "🪴/🎋", "required_level": 0}, # 2
+                {"name": "Ловчий", "emoji": "🐾", "description": "В лесу силки ставит, зверя бьёт да рыбу сетью тянет, скотину пасёт, чтоб 🐟/🍖/🥛/☁️ в общину нести.", "collects": "🐟/🍖/🥛/☁️", "required_level": 0}, # 3
                 {"name": "Ремесленник", "emoji": "⚒️", "description": "", "crafts": "🧺/🧵/🔩", "required_level": 0}, # 4
                 {"name": "Мастеровой", "emoji": "🧰", "description": "", "crafts": "🥾/🧥/🪑/🗡", "required_level": 0} # 5
             ]

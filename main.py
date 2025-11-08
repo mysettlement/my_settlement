@@ -11,6 +11,7 @@ from aiogram.methods.set_my_name import SetMyName
 import config
 import handlers
 import db
+import mfunc
 import tasks
 from exceptions import ErrorMiddleware
     
@@ -66,24 +67,35 @@ async def main():
 
     await db.init_db()
 
-    tasks.scheduler.add_job(tasks.day_reset, "cron", hour=0, minute=0)
+    tasks.scheduler.add_job(tasks.day_reset,
+        "cron",
+        hour=0,
+        minute=0,
+        coalesce=True,
+        misfire_grace_time=3600
+    )
+    
+    tasks.scheduler.add_job(tasks.availability_check,
+        "interval",
+        minutes=30,
+    )
 
     try:
         tasks.scheduler.start()
 
         #! Flood control
-        smile = random.choice(["🔷", "🔵", "🌀", "🫐", "🐬"])
-        await bot(SetMyName(name=f"🛖 Моё Поселение! {smile}", language_code="ru"))
-        await bot(SetMyName(name=f"🛖 My Settlement! {smile}", language_code="en"))
+        # smile = random.choice(["🔵", "🌀", "🫐", "🐬"])
+        # await bot(SetMyName(name=f"🛖 Моё Поселение! {smile}", language_code="ru"))
+        # await bot(SetMyName(name=f"🛖 My Settlement! {smile}", language_code="en"))
         log.info("🟢 Бот запущен!")
         await dp.start_polling(bot)
     finally:
-        cry = random.choice(["🔺", "🔴", "㊙️", "🍒", "🏮"])
-        await bot(SetMyName(name=f"🛖 Моё Поселение! {cry}", language_code="ru"))
-        await bot(SetMyName(name=f"🛖 My Settlement! {cry}", language_code="en"))
-        for task in handlers.work_timeout_tasks.values():
+        # cry = random.choice(["🔴", "㊙️", "🍒", "🏮"])
+        # await bot(SetMyName(name=f"🛖 Моё Поселение! {cry}", language_code="ru"))
+        # await bot(SetMyName(name=f"🛖 My Settlement! {cry}", language_code="en"))
+        for task in mfunc.work_timeout_tasks.values():
             task.cancel()
-        handlers.work_timeout_tasks.clear()
+        mfunc.work_timeout_tasks.clear()
         await bot.session.close()
         tasks.scheduler.shutdown()
 

@@ -154,7 +154,7 @@ class Hitting(Step):
                 return "win"
             else:
                 self._place_target()
-                return "hit"
+                return "continue"
         else:
             self.game_over = True
             self.won = False
@@ -172,6 +172,13 @@ class Timer(Step):
         self.started = False
         self.completed = False
         self.start_time = None
+
+    def get_remaining_time(self) -> int:
+        if not self.started:
+            return self.duration
+        elapsed = asyncio.get_running_loop().time() - self.start_time
+        remaining = max(0, int(self.duration - elapsed))
+        return remaining
     
     def render_keyboard(self):
         kb = InlineKeyboardBuilder()

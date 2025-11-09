@@ -14,7 +14,7 @@ from datetime import datetime
 from config import setup_logging, settings
 from db import SessionLocal
 import core
-from gamer import Workflow
+from gamer import Workflow, Harvesting, Hitting, Catch, Alternation
 import models
 from mfunc import active_games
 import mfunc
@@ -364,8 +364,8 @@ async def cosmetics_select(callback: types.CallbackQuery):
                     callback_data=f"cosmetics_select_{emoji_btn}"
                 ))
     
-    kb = InlineKeyboardBuilder().row(*buttons)
-    await callback.message.edit_text(text=f"🪭 <b>Доступная косметика</b>\n\n🎭 <b>Текущий эмодзи</b>: {db_settler.emoji}", reply_markup=kb.as_markup())
+    kb = InlineKeyboardBuilder().row(*buttons).as_markup()
+    await callback.message.edit_text(text=f"🪭 <b>Доступная косметика</b>\n\n🎭 <b>Текущий эмодзи</b>: {db_settler.emoji}", reply_markup=kb)
 
 
 @router.message(or_f(Command("overtime"), F.text.lower() == "лишняя мера", F.text.lower() == "@mysettlementbot лишняя мера", F.text.lower() == "overtime", F.text.lower() == "@mysettlementbot overtime"))
@@ -551,31 +551,6 @@ async def select_craft_callback(callback: types.CallbackQuery):
         await callback.message.edit_text(f"✅ <b>{callback.from_user.full_name}</b> ремесло себе избрал: {profession.emoji} <b>{profession.name}!</b>", reply_markup=kb.as_markup())
         log.debug(f"{callback.message.chat.id} | {settler.user_id} | 💼 Выбрано ремесло: {profession.name}")
 
-
-    
-    
-    
-    
-    
-        
-        
-    
-
-    
-    
-
-
-
-
-    
-    
-
-
-                
-
-        
-        
-
 @router.message(or_f(Command("craft"), F.text.lower() == "трудиться", F.text.lower() == "@mysettlementbot трудиться", F.text.lower() == "craft", F.text.lower() == "@mysettlementbot craft"))
 async def craft_command(message: types.Message):
     #* Обработка команды /craft
@@ -584,7 +559,7 @@ async def craft_command(message: types.Message):
     settler = await core.settler_getOrCreate(user, settlement)
     
     if not settler.profession_id:
-        await message.answer("⚠️ Ты ещё ремесла не избрал.", reply_markup=InlineKeyboardBuilder().row(InlineKeyboardButton(text="💼 Выбрать ремесло")).as_markup())
+        await message.answer("⚠️ Ты ещё ремесла не избрал.", reply_markup=InlineKeyboardBuilder().row(InlineKeyboardButton(text="💼 Выбрать ремесло", switch_inline_query_current_chat="Выбрать ремесло")).as_markup())
         return
     
     available_works = [
@@ -676,7 +651,25 @@ async def work_callback(callback: types.CallbackQuery):
         await callback.answer("⚠️ Неверный шаг!")
         return
 
-    result = workflow.click(action)
+    current_step = workflow.get_current_step()
+    converted_action = action
+    if action is not None and current_step is not None:
+        if isinstance(current_step, (Hitting, Catch, Alternation)):
+            try:
+                converted_action = int(action)
+            except Exception:
+                # best-effort: if action contains colon, take last part
+                if isinstance(action, str) and ":" in action:
+                    try:
+                        converted_action = int(action.split(":")[-1])
+                    except Exception:
+                        converted_action = action
+                else:
+                    converted_action = action
+        else:
+            converted_action = action
+
+    result = workflow.click(converted_action)
     try:
         step_obj = workflow.get_current_step()
     except Exception:
@@ -699,20 +692,16 @@ async def work_callback(callback: types.CallbackQuery):
         mfunc.end_work(callback.message.chat.id)
 
     elif result == "lose":
-        # prefer work-specific 'lose' text from texts (per-step or global), fallback to workflow status
         status_text = None
-        # 1) explicit key for this step: step_{i}_lose
         key_combo = f"step_{step_idx}_lose"
         if key_combo in work.texts:
             entry = work.texts[key_combo]
         else:
-            # 2) nested dict under step_{i}
             step_key = f"step_{step_idx}"
             step_entry = work.texts.get(step_key)
             if isinstance(step_entry, dict):
                 entry = step_entry.get("lose")
             else:
-                # 3) global fallback
                 entry = work.texts.get("lose")
 
         if entry is not None:

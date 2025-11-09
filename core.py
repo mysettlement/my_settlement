@@ -147,41 +147,48 @@ async def settler_getOrCreate(user: models.User, settlement: models.Settlement):
         raise SettlerCreationError(f"Ошибка при создании/получении поселенца {user.id} в поселении {settlement.id}: {str(e)}", user_id=user.id)
 
 async def settler_addExp(settler: models.Settler, session: AsyncSession, exp: int):
-    settler.exp += exp
-    log.debug(f"{settler.settlement.chat_id} | {settler.user_id} | 🗂 Опыт увеличен: +{exp} ({settler.exp}/{settler.target_exp})")
+    current = await session.get(models.Settler, settler.id)
+    if not current:
+        result = await session.execute(select(models.Settler).where(models.Settler.id == settler.id))
+        current = result.scalars().first()
+        if not current:
+            raise ValueError(f"Settler with id={settler.id} not found in DB")
+
+    current.exp += exp
+    log.debug(f"{current.settlement.id} | {current.user_id} | 🗂 Опыт увеличен: +{exp} ({current.exp}/{current.target_exp})")
 
     text = None
-    while settler.exp >= settler.target_exp:
-        old_rank = settler.rank
-        old_emoji = settler.rank_emoji_available[0] if settler.rank_emoji_available else "❓"
-        settler.level += 1
-        settler.exp -= settler.target_exp
+    while current.exp >= current.target_exp:
+        old_rank = current.rank
+        old_emoji = current.rank_emoji_available[0] if current.rank_emoji_available else "❓"
+        current.level += 1
+        current.exp -= current.target_exp
 
         # перерасчёт опыта и ранга
-        if settler.level <= 16:
+        if settler.level < 15:
             settler.target_exp = 2 * settler.level + 7
             settler.rank = "Крестьянин"
-        elif settler.level <= 31:
+        elif settler.level < 30:
             settler.target_exp = 5 * settler.level - 38
             settler.rank = "Вольный"
-        elif settler.level <= 46:
+        elif settler.level < 45:
             settler.target_exp = 9 * settler.level - 158
             settler.rank = "Старейшина"
-        elif settler.level <= 61:
+        elif settler.level < 60:
             settler.rank = "Дворянин"
         else:
             settler.rank = "Лорд"
 
         user_result = await session.execute(
-            select(models.User).where(models.User.id == settler.user_id)
+            select(models.User).where(models.User.id == current.user_id)
         )
         user = user_result.scalars().first()
-        user_name = user.name if user else f"User {settler.user_id}"
-        
-        text = f"🎉 <b>{user_name}</b> повысил уровень до <b>{settler.level}</b>!\n"
-        log.debug(f"{settler.settlement.chat_id} | {settler.user_id} | ⬆️ Новый уровень: {settler.level}")
+        user_name = user.name if user else f"User {current.user_id}"
 
-        if old_rank != settler.rank:
+        text = f"🎉 <b>{user_name}</b> повысил уровень до <b>{current.level}</b>!\n"
+        log.debug(f"{current.settlement_id} | {current.user_id} | ⬆️ Новый уровень: {current.level}")
+
+        if old_rank != current.rank:
             rank_emojis = {
                 "Крестьянин": ["🧑‍🌾", "👨‍🌾", "👩‍🌾"],
                 "Вольный": ["🌾", "🌱", "🍃"],
@@ -189,20 +196,21 @@ async def settler_addExp(settler: models.Settler, session: AsyncSession, exp: in
                 "Дворянин": ["🏰", "🏯", "🏛"],
                 "Лорд": ["👑", "🏰", "⚔️", "🛡"]
             }
-            new_rank_emojis = rank_emojis.get(settler.rank, [])
-            settler.rank_emoji_available = new_rank_emojis
-            flag_modified(settler, 'rank_emoji_available')
+            new_rank_emojis = rank_emojis.get(current.rank, [])
+            current.rank_emoji_available = new_rank_emojis
+            flag_modified(current, 'rank_emoji_available')
 
-            text += f"<b>⬆️ Новый ранг:</b> {old_emoji} {old_rank} → {new_rank_emojis[0] if new_rank_emojis else '❓'} <b>{settler.rank}</b>!"
-            log.debug(f"{settler.settlement.chat_id} | {settler.user_id} | 🔼 Новый ранг: {settler.rank}")
+            text += f"<b>⬆️ Новый ранг:</b> {old_emoji} {old_rank} → {new_rank_emojis[0] if new_rank_emojis else '❓'} <b>{current.rank}</b>!"
+            log.debug(f"{current.settlement_id} | {current.user_id} | 🔼 Новый ранг: {current.rank}")
 
     await session.flush()
-    await session.refresh(settler, ["user", "settlement"])
+    refreshed = await session.get(models.Settler, current.id)
+    await session.refresh(refreshed, ["user", "settlement"])
 
     if text:
-        await bot.send_message(settler.settlement.chat_id, text)
+        await bot.send_message(refreshed.settlement.chat_id, text)
 
-    return settler
+    return refreshed
 
 async def settler_addMoney(settler: models.Settler, settlement: models.Settlement, session: AsyncSession, money: int):
     result = await session.execute(
@@ -423,7 +431,7 @@ async def start_workflow(
         await message_or_callback.answer(f"{work.emoji} {work.name}!")
         await message_or_callback.edit_text(text, reply_markup=kb)
     
-    log.debug(f"{chat_id} | {user.telegram_id} | 🚧 Работа начата: {work.name}")
+    log.debug(f"{chat_id} | {user.id} | 🚧 Работа начата: {work.name}")
     return True
 
 
@@ -437,6 +445,7 @@ async def apply_rewards(work: models.Work, settler: models.Settler, session: Asy
         .where(models.Settler.id == settler.id)
         .values(work_is_completed=True, last_work_time=current_time)
     )
+    current_settler = await session.get(models.Settler, settler.id)
 
     for key, value in work.rewards.items():
         if key == "exp":
@@ -450,10 +459,10 @@ async def apply_rewards(work: models.Work, settler: models.Settler, session: Asy
             qty = value() if callable(value) else int(value)
             if qty <= 0:
                 continue
-            resource, added_qty = await settler_addResource(settler, session, key, qty, chat_id)
+            resource, added_qty = await settler_addResource(current_settler, session, key, qty, chat_id)
             resources_obtained[resource] = added_qty
     
-    log.debug(f"{chat_id} | {settler.user_id} | 🏆 Награды выданы")
+    log.debug(f"{chat_id} | {current_settler.user_id} | 🏆 Награды выданы")
     await session.commit()
     
     return resources_obtained, exp

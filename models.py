@@ -359,7 +359,7 @@ def healer_tea_brewing() -> Work:
     
     # Шаг 2: Заваривание (Timer)
     step2 = Timer(
-        duration=30,
+        duration=40,
         button_text="💧 Налейте кипяток",
         button2_text="⌛️ Ожидайте..."
     )
@@ -371,13 +371,12 @@ def healer_tea_brewing() -> Work:
         profession_id=2,  # ID профессии "Травник"
         steps=[step1, step2],
         rewards={
-            "level": 0,
             "🍵": 1,
             "exp": lambda: random.randint(2,5)
         },
         texts={
             "step_0_status": lambda step: f"🥣 <b>Измельчение коры</b> — осталось {step.rounds - step.current_round + 1}/{step.rounds}\nПоместите кору в ступку! 🎋",
-            "step_1_status": lambda step: f"🍵 <b>Заваривание отвара...</b>\nОсталось: {step.get_remaining_time()}с" if step.started and not step.completed else ("💧 Налейте кипяток для заваривания" if not step.started else "🍵 Отвар готов!"),
+            "step_1_status": lambda step: f"🍵 <b>Заваривание отвара...</b>\nОсталось: <b>{step.get_remaining_time()}с</b>" if step.started and not step.completed else ("💧 Налейте кипяток для заваривания" if not step.started else "🍵 Отвар готов!"),
             "complete": "🍵 <b>Отвар готов!</b>"
         },
         answer_texts={

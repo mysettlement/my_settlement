@@ -22,6 +22,16 @@ log = setup_logging(logging.getLogger(__name__))
 
 
 
+async def get_resource_by_emoji(emoji: str, session: AsyncSession) -> models.Resource:
+    #* Получение ресурса по эмодзи
+    result = await session.execute(
+        select(models.Resource).where(models.Resource.emoji == emoji)
+    )
+    resource = result.scalars().first()
+    if not resource:
+        raise ValueError(f"Ресурс с эмодзи '{emoji}' не найден")
+    return resource
+
 async def user_getOrCreate(telegram_user: types.User):
     #* Получение или создание пользователя
     try:
@@ -51,7 +61,7 @@ async def user_getOrCreate(telegram_user: types.User):
     except Exception as e:
         raise UserCreationError(f"Ошибка при создании/получении пользователя {telegram_user.id}: {str(e)}", telegram_user_id=telegram_user.id)
 
-async def settlement_getOrCreate(chat: types.Chat, user: models.User):
+async def settlement_getOrCreate(chat: types.Chat):
     #* Получение или создание поселения
     try:
         async with SessionLocal() as session:
@@ -74,7 +84,6 @@ async def settlement_getOrCreate(chat: types.Chat, user: models.User):
                 await session.commit()
                 return db_settlement
             else:
-                # Получение владельца группы
                 group_owner = await mfunc.get_group_owner(chat.id)
                 if not group_owner:
                     raise SettlementCreationError(f"Не удалось получить владельца группы {chat.id}", chat_id=chat.id)
@@ -92,13 +101,12 @@ async def settlement_getOrCreate(chat: types.Chat, user: models.User):
                     session.add(settlement)
                     await session.commit()
                     await session.refresh(settlement, ['members', 'owner'])
-                    log.debug(f"{settlement.chat_id} | ✅ Создано поселение: {settlement.name}")
+                    log.debug(f"{settlement.id} | ✅ Создано поселение: {settlement.name} ({settlement.chat_id})")
                     return settlement
                 except Exception as e:
                     log.warning(f"Ошибка при создании поселения: {e}")
                     await session.rollback()
                     
-                    # Повторный поиск поселения
                     result = await session.execute(
                         select(models.Settlement)
                         .options(
@@ -109,7 +117,7 @@ async def settlement_getOrCreate(chat: types.Chat, user: models.User):
                     )
                     db_settlement = result.scalars().first()
                     if db_settlement:
-                        log.debug(f"{db_settlement.chat_id} | ✅ Найдено существующее поселение: {db_settlement.name}")
+                        log.debug(f"{db_settlement.id} | ✅ Найдено существующее поселение: {db_settlement.name} ({db_settlement.chat_id})")
                         return db_settlement
                     else:
                         raise SettlementCreationError(f"Не удалось найти или создать поселение для чата {chat.id}", chat_id=chat.id)
@@ -141,7 +149,7 @@ async def settler_getOrCreate(user: models.User, settlement: models.Settlement):
                 await session.commit()
                 await session.refresh(settler, ['user', 'settlement', 'profession'])
                 
-                log.debug(f"{settlement.chat_id} | ✅ Создан поселец: {settler.id}")
+                log.debug(f"{settlement.id} | ✅ Создан поселец: {settler.id}")
                 return settler
     except Exception as e:
         raise SettlerCreationError(f"Ошибка при создании/получении поселенца {user.id} в поселении {settlement.id}: {str(e)}", user_id=user.id)
@@ -155,7 +163,7 @@ async def settler_addExp(settler: models.Settler, session: AsyncSession, exp: in
             raise ValueError(f"Settler with id={settler.id} not found in DB")
 
     current.exp += exp
-    log.debug(f"{current.settlement.id} | {current.user_id} | 🗂 Опыт увеличен: +{exp} ({current.exp}/{current.target_exp})")
+    log.debug(f"{current.settlement_id} | {current.user_id} | 🗂 Опыт увеличен: +{exp} ({current.exp}/{current.target_exp})")
 
     text = None
     while current.exp >= current.target_exp:
@@ -200,7 +208,7 @@ async def settler_addExp(settler: models.Settler, session: AsyncSession, exp: in
             current.rank_emoji_available = new_rank_emojis
             flag_modified(current, 'rank_emoji_available')
 
-            text += f"<b>⬆️ Новый ранг:</b> {old_emoji} {old_rank} → {new_rank_emojis[0] if new_rank_emojis else '❓'} <b>{current.rank}</b>!"
+            text += f"<b>🔼 Новый ранг:</b> {old_emoji} {old_rank} → {new_rank_emojis[0] if new_rank_emojis else '❓'} <b>{current.rank}</b>!"
             log.debug(f"{current.settlement_id} | {current.user_id} | 🔼 Новый ранг: {current.rank}")
 
     await session.flush()
@@ -221,10 +229,83 @@ async def settler_addMoney(settler: models.Settler, settlement: models.Settlemen
         return None
 
     current_settler.balance += money
-    await session.flush()
+    await session.commit()
     await session.refresh(current_settler, ["user", "settlement"])
-    log.debug(f"{settlement.chat_id} | {current_settler.user_id} | 💰 Деньги получены: +{money} ({current_settler.balance})")
+    log.debug(f"{settlement.id} | {current_settler.user_id} | 💰 Деньги получены: +{money} ({current_settler.balance})")
     return current_settler
+
+async def settler_addResource(settler: models.Settler, session: AsyncSession, emoji: str, quantity: int = None, chat_id: int = None):
+    #* Добавление ресурса поселенцу
+    resource = await get_resource_by_emoji(emoji, session)
+    
+    if quantity is None:
+        min_qty, max_qty = models.RARITY_QUANTITY_RANGES.get(resource.rarity, (1, 1))
+        quantity = random.randint(min_qty, max_qty)
+    
+    existing_result = await session.execute(
+        select(models.settler_resources).where(
+            models.settler_resources.c.settler_id == settler.id,
+            models.settler_resources.c.resource_id == resource.id
+        )
+    )
+    existing = existing_result.first()
+    
+    if existing:
+        await session.execute(
+            update(models.settler_resources).where(
+                models.settler_resources.c.settler_id == settler.id,
+                models.settler_resources.c.resource_id == resource.id
+            ).values(quantity=models.settler_resources.c.quantity + quantity)
+        )
+    else:
+        await session.execute(
+            insert(models.settler_resources).values(
+                settler_id=settler.id,
+                resource_id=resource.id,
+                quantity=quantity
+            )
+        )
+    
+    await session.execute(
+        update(models.Resource).where(models.Resource.id == resource.id).values(
+            received=models.Resource.received + quantity
+        )
+    )
+    
+    log.debug(f"{settler.settlement_id} | {settler.user_id} | 📥 Ресурс получен: {resource.emoji} x{quantity}")
+
+    return resource, quantity
+
+async def withdraw_resource(settler: models.Settler, session: AsyncSession, emoji: str, quantity: int):
+    #* Изъятие ресурса у поселенца
+    resource = await get_resource_by_emoji(emoji, session)
+    
+    existing_result = await session.execute(
+        select(models.settler_resources.c.quantity).where(
+            models.settler_resources.c.settler_id == settler.id,
+            models.settler_resources.c.resource_id == resource.id
+        )
+    )
+    exist = existing_result.scalar() or 0
+    
+    if exist < quantity:
+        return False, f"⚠️ Недостаточно ресурсов: {resource.emoji} {exist}/{quantity}"
+    
+    await session.execute(
+        update(models.settler_resources).where(
+            models.settler_resources.c.settler_id == settler.id,
+            models.settler_resources.c.resource_id == resource.id
+        ).values(quantity=models.settler_resources.c.quantity - quantity)
+    )
+    
+    await session.execute(
+        update(models.Resource).where(models.Resource.id == resource.id).values(
+            spent=models.Resource.spent + quantity
+        )
+    )
+    
+    log.debug(f"{settler.settlement.id} | {settler.user_id} | 📤 Ресурс снят: {resource.emoji} x{quantity}")
+    return True, f"{resource.emoji} {quantity}"
 
 async def update_quote(settler: models.Settler, settlement: models.Settlement, session: AsyncSession, add_quote: int = 0):
     result = await session.execute(
@@ -270,7 +351,6 @@ async def update_quote(settler: models.Settler, settlement: models.Settlement, s
             updated_settler = await settler_addExp(current_settler, session, earned_xp)
             
             if updated_settler:
-                # При повышении уровня сбрасываем квоту и пересчитываем целевую квоту
                 current_settler.quote = 0
                 if current_settler.overtime_is_toggled:
                     current_settler.target_quote = round((updated_settler.level * 0.85 + 6) + (2 * current_settler.overtime_count))
@@ -284,67 +364,11 @@ async def update_quote(settler: models.Settler, settlement: models.Settlement, s
             )
             
             await bot.send_message(settlement.chat_id, text)
-            log.debug(f"{settlement.chat_id} | {current_settler.user_id} | ✅ Мера исполнена: {current_settler.quote}/{current_settler.target_quote}")
+            log.debug(f"{settlement.id} | {current_settler.user_id} | ✅ Мера исполнена: {current_settler.quote}/{current_settler.target_quote}")
 
-    log.debug(f"{settlement.chat_id} | {current_settler.user_id} | 🔄 Мера обновлена: {current_settler.quote}/{current_settler.target_quote}")
+    log.debug(f"{settlement.id} | {current_settler.user_id} | 🔄 Мера обновлена: {current_settler.quote}/{current_settler.target_quote}")
     await session.commit()
     await session.refresh(current_settler, ["user", "settlement"])
-
-async def get_resource_by_emoji(emoji: str, session: AsyncSession) -> models.Resource:
-    #* Получение ресурса по эмодзи
-    result = await session.execute(
-        select(models.Resource).where(models.Resource.emoji == emoji)
-    )
-    resource = result.scalars().first()
-    if not resource:
-        raise ValueError(f"Ресурс с эмодзи '{emoji}' не найден")
-    return resource
-
-async def settler_addResource(settler: models.Settler, session: AsyncSession, emoji: str, quantity: int = None, chat_id: int = None):
-    #* Добавление ресурса поселенцу
-    resource = await get_resource_by_emoji(emoji, session)
-    
-    if quantity is None:
-        min_qty, max_qty = models.RARITY_QUANTITY_RANGES.get(resource.rarity, (1, 1))
-        quantity = random.randint(min_qty, max_qty)
-    
-    existing_result = await session.execute(
-        select(models.settler_resources).where(
-            models.settler_resources.c.settler_id == settler.id,
-            models.settler_resources.c.resource_id == resource.id
-        )
-    )
-    existing = existing_result.first()
-    
-    if existing:
-        await session.execute(
-            update(models.settler_resources).where(
-                models.settler_resources.c.settler_id == settler.id,
-                models.settler_resources.c.resource_id == resource.id
-            ).values(quantity=models.settler_resources.c.quantity + quantity)
-        )
-    else:
-        await session.execute(
-            insert(models.settler_resources).values(
-                settler_id=settler.id,
-                resource_id=resource.id,
-                quantity=quantity
-            )
-        )
-    
-    if chat_id is None:
-        result = await session.execute(
-            select(models.Settler)
-            .options(selectinload(models.Settler.settlement))
-            .where(models.Settler.id == settler.id)
-        )
-        current_settler = result.scalars().first()
-        if current_settler and current_settler.settlement:
-            chat_id = current_settler.settlement.chat_id
-    
-    if chat_id:
-        log.debug(f"{chat_id} | {settler.user_id} | 📦 Ресурс добавлен: {resource.emoji} x{quantity}")
-    return resource, quantity
 
 def can_work_now(settler: models.Settler) -> tuple[bool, str]:
     #* Проверка доступности работы
@@ -390,31 +414,14 @@ async def start_workflow(
         for emoji, qty in work.requirements.items():
             if emoji == "level":
                 if settler.level < qty:
-                    text = f"⚠️ Сие дело тебе не по плечу. Требуемый уровень: {settler.level}/{qty}"
+                    text = f"⚠️ Сие дело тебе не по плечу. 💡 Требуемый уровень: {settler.level}/{qty}"
                     await message_or_callback.answer(text) if is_message else await message_or_callback.answer(text, show_alert=True)
                     return False
                 continue
-            resource = await get_resource_by_emoji(emoji, session)
-            result = await session.execute(
-                select(models.settler_resources.c.quantity)
-                .where(
-                    models.settler_resources.c.settler_id == settler.id,
-                    models.settler_resources.c.resource_id == resource.id
-                )
-            )
-            current = result.scalar() or 0
-            if current < qty:
-                text = f"⚠️ Недостаточно ресурсов: {resource.emoji} {current}/{qty}"
-                await message_or_callback.answer(text) if is_message else await message_or_callback.answer(text, show_alert=True)
-                return False
-            await session.execute(
-                update(models.settler_resources)
-                .where(
-                    models.settler_resources.c.settler_id == settler.id,
-                    models.settler_resources.c.resource_id == resource.id
-                )
-                .values(quantity=models.settler_resources.c.quantity - qty)
-            )
+            success, result = await withdraw_resource(settler, session, emoji, qty)
+            if not success:
+                await message_or_callback.answer(result) if is_message else await message_or_callback.answer(text, show_alert=True)
+            return success
         await session.commit()
     
     mfunc.start_work(chat_id)
@@ -422,7 +429,7 @@ async def start_workflow(
     mfunc.active_games[user_key] = workflow
 
     remaining = mfunc.get_work_remaining_time(chat_id)
-    text = f"{work.emoji} <b>{work.name}</b>\n\n{workflow.get_status_text()}\n\n⏳ У тебя есть <b>{remaining} секунд</b> на выполнение работы."
+    text = f"{work.emoji} <b>{work.name}</b>\n\n{workflow.get_status_text()}\n\n⏳ Осталось <b>{remaining} секунд</b>"
 
     kb = workflow.get_keyboard()
     if is_message:
@@ -431,12 +438,11 @@ async def start_workflow(
         await message_or_callback.answer(f"{work.emoji} {work.name}!")
         await message_or_callback.edit_text(text, reply_markup=kb)
     
-    log.debug(f"{chat_id} | {user.id} | 🚧 Работа начата: {work.name}")
+    log.debug(f"{settler.settlement_id} | {user.id} | 🚧 Работа начата: {work.name}")
     return True
 
-
 async def apply_rewards(work: models.Work, settler: models.Settler, session: AsyncSession, chat_id: int) -> Tuple[Dict[models.Resource, int], int]:
-    resources_obtained: Dict[models.Resource, int] = {}
+    obtained: Dict[models.Resource, int] = {}
     exp = 0
 
     current_time = int(datetime.now().timestamp())
@@ -445,10 +451,9 @@ async def apply_rewards(work: models.Work, settler: models.Settler, session: Asy
         .where(models.Settler.id == settler.id)
         .values(work_is_completed=True, last_work_time=current_time)
     )
-    current_settler = await session.get(models.Settler, settler.id)
 
     for key, value in work.rewards.items():
-        if key == "exp":
+        if key == "exp" or key == "🗂":
             if callable(value):
                 exp += value()
             else:
@@ -459,10 +464,10 @@ async def apply_rewards(work: models.Work, settler: models.Settler, session: Asy
             qty = value() if callable(value) else int(value)
             if qty <= 0:
                 continue
-            resource, added_qty = await settler_addResource(current_settler, session, key, qty, chat_id)
-            resources_obtained[resource] = added_qty
+            resource, added_qty = await settler_addResource(settler, session, key, qty, chat_id)
+            obtained[resource] = added_qty
     
-    log.debug(f"{chat_id} | {current_settler.user_id} | 🏆 Награды выданы")
+    log.debug(f"{settler.settlement_id} | {settler.user_id} | 🏆 Награды выданы")
     await session.commit()
     
-    return resources_obtained, exp
+    return obtained, exp

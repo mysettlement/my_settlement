@@ -57,7 +57,7 @@ async def me_command(message: types.Message):
     buttons = []
 
     if message.chat.type == "supergroup" or message.chat.type == "group":
-        settlement = await core.settlement_getOrCreate(message.chat, user)
+        settlement = await core.settlement_getOrCreate(message.chat)
         settler = await core.settler_getOrCreate(user, settlement)
         craft_text = f"{settler.profession.emoji} {settler.profession.name}" if settler.profession else "❓ Без дела"
         can_choose, when = mfunc.can_choose_craft(settler.last_profession_change)
@@ -255,7 +255,7 @@ async def bot_added_to_chat_event(event: types.ChatMemberUpdated):
 async def start_command(message: types.Message):
     #* Обработка команды /start
     user = await core.user_getOrCreate(message.from_user)
-    settlement = await core.settlement_getOrCreate(message.chat, user)
+    settlement = await core.settlement_getOrCreate(message.chat)
     settler = await core.settler_getOrCreate(user, settlement)
     
     
@@ -291,7 +291,7 @@ async def start_command(message: types.Message):
 async def cosmetics_command(message: types.Message):
     #* Обработка команды /cosmetics
     user = await core.user_getOrCreate(message.from_user)
-    settlement = await core.settlement_getOrCreate(message.chat, user)
+    settlement = await core.settlement_getOrCreate(message.chat)
     settler = await core.settler_getOrCreate(user, settlement)
     
     if not settler:
@@ -328,7 +328,7 @@ async def cosmetics_command(message: types.Message):
 async def cosmetics_select(callback: types.CallbackQuery):
     #* Обработка выбора эмодзи
     user = await core.user_getOrCreate(callback.from_user)
-    settlement = await core.settlement_getOrCreate(callback.message.chat, user)
+    settlement = await core.settlement_getOrCreate(callback.message.chat)
     settler = await core.settler_getOrCreate(user, settlement)
     
     emoji = callback.data.split("_")[2]
@@ -372,7 +372,7 @@ async def cosmetics_select(callback: types.CallbackQuery):
 async def overtime_command(message: types.Message):
     #* Обработка команды /overtime
     user = await core.user_getOrCreate(message.from_user)
-    settlement = await core.settlement_getOrCreate(message.chat, user)
+    settlement = await core.settlement_getOrCreate(message.chat)
     settler = await core.settler_getOrCreate(user, settlement)
     
     daily_reset_countdown = mfunc.get_daily_reset_countdown()
@@ -408,7 +408,7 @@ async def overtime_take(callback: types.CallbackQuery):
     #* Обработка кнопки "взять лишнюю меру"
     async with SessionLocal() as session:
         user = await core.user_getOrCreate(callback.from_user)
-        settlement = await core.settlement_getOrCreate(callback.message.chat, user)
+        settlement = await core.settlement_getOrCreate(callback.message.chat)
         settler = await core.settler_getOrCreate(user, settlement)
 
         await session.execute(
@@ -434,7 +434,7 @@ async def overtime_take(callback: types.CallbackQuery):
 async def inventory_command(message: types.Message):
     #* Обработка команды /inventory
     user = await core.user_getOrCreate(message.from_user)
-    settlement = await core.settlement_getOrCreate(message.chat, user)
+    settlement = await core.settlement_getOrCreate(message.chat)
     settler = await core.settler_getOrCreate(user, settlement)
 
     text = f"📦 <b>Инвентарь</b>\n\n"
@@ -475,7 +475,7 @@ async def inventory_command(message: types.Message):
 async def choose_craft_command(message: types.Message):
     #* Обработка команды /craft
     user = await core.user_getOrCreate(message.from_user)
-    settlement = await core.settlement_getOrCreate(message.chat, user)
+    settlement = await core.settlement_getOrCreate(message.chat)
     settler = await core.settler_getOrCreate(user, settlement)
 
     async with SessionLocal() as session:
@@ -518,7 +518,7 @@ async def select_craft_callback(callback: types.CallbackQuery):
 
     async with SessionLocal() as session:
         user = await core.user_getOrCreate(callback.from_user)
-        settlement = await core.settlement_getOrCreate(callback.message.chat, user)
+        settlement = await core.settlement_getOrCreate(callback.message.chat)
         settler = await core.settler_getOrCreate(user, settlement)
 
         if callback.from_user.id != callback.message.reply_to_message.from_user.id:
@@ -555,7 +555,7 @@ async def select_craft_callback(callback: types.CallbackQuery):
 async def craft_command(message: types.Message):
     #* Обработка команды /craft
     user = await core.user_getOrCreate(message.from_user)
-    settlement = await core.settlement_getOrCreate(message.chat, user)
+    settlement = await core.settlement_getOrCreate(message.chat)
     settler = await core.settler_getOrCreate(user, settlement)
     
     if not settler.profession_id:
@@ -587,7 +587,7 @@ async def work_selection_callback(callback: types.CallbackQuery):
     work_id = callback.data.split(":", 1)[1]
 
     user = await core.user_getOrCreate(callback.from_user)
-    settlement = await core.settlement_getOrCreate(callback.message.chat, user)
+    settlement = await core.settlement_getOrCreate(callback.message.chat)
     settler = await core.settler_getOrCreate(user, settlement)
 
     if callback.from_user.id != callback.message.reply_to_message.from_user.id:
@@ -611,7 +611,7 @@ async def work_selection_callback(callback: types.CallbackQuery):
 async def work_callback(callback: types.CallbackQuery):
     #* Обработка callback-кнопок для работы
     user = await core.user_getOrCreate(callback.from_user)
-    settlement = await core.settlement_getOrCreate(callback.message.chat, user)
+    settlement = await core.settlement_getOrCreate(callback.message.chat)
     settler = await core.settler_getOrCreate(user, settlement)
 
     user_key = f"{callback.message.chat.id}_{user.telegram_id}"
@@ -658,7 +658,6 @@ async def work_callback(callback: types.CallbackQuery):
             try:
                 converted_action = int(action)
             except Exception:
-                # best-effort: if action contains colon, take last part
                 if isinstance(action, str) and ":" in action:
                     try:
                         converted_action = int(action.split(":")[-1])

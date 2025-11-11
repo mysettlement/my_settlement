@@ -126,6 +126,8 @@ class Resource(Base):
     from_resource = Column(String, nullable=True, default=None)
     for_resource = Column(String, nullable=True, default=None)
     rarity = Column(SAEnum(RarityLevel), default=RarityLevel.COMMON, nullable=False)
+    received = Column(Integer, server_default="0")
+    spent = Column(Integer, server_default="0")
 
 class Profession(Base):
     __tablename__ = "professions"
@@ -152,10 +154,6 @@ class Work:
     steps: List[Step] = field(default_factory=list) # [Hitting(...), Timer(...)]
     rewards: Dict[str, Any] = field(default_factory=dict)  # {"resource": "🌾", "quantity": lambda: random.randint(2, 5)}
     texts: Dict[str, str | Callable] = field(default_factory=dict)  # {"step_0_status": "Работай!", "complete": "Работа выполнена!"}
-    # answer_texts can contain global keys like "win"/"lose"/"continue"
-    # or step-specific entries using either:
-    #  - "step_{i}": {"continue": ..., "lose": ...}
-    #  - "step_{i}_{result}": "..."
     answer_texts: Dict[str, Any] = field(default_factory=dict) # {"hit": "Попадение!", "miss": "Промах!"}
     cooldown_on_fail: bool = False 
     _workflow: Optional[Workflow] = None
@@ -246,30 +244,17 @@ class Work:
         return copied_workflow
 
     def get_answer_text(self, result: str, step_idx: int, workflow=None, step=None) -> Optional[str]:
-        """Resolve an answer text for a given result and step.
-
-        Priority:
-        1. key "step_{i}_{result}"
-        2. nested dict under "step_{i}" (if dict) -> dict.get(result)
-        3. global key result
-
-        If the value is callable, try calling it without arguments first, then with (workflow), then with (step).
-        Returns resolved string or None.
-        """
-        # 1. explicit combined key
         key_combo = f"step_{step_idx}_{result}"
         entry = None
         if key_combo in self.answer_texts:
             entry = self.answer_texts[key_combo]
 
-        # 2. nested dict for the step
         if entry is None:
             step_key = f"step_{step_idx}"
             step_entry = self.answer_texts.get(step_key)
             if isinstance(step_entry, dict):
                 entry = step_entry.get(result)
 
-        # 3. global fallback
         if entry is None:
             entry = self.answer_texts.get(result)
 
@@ -277,7 +262,6 @@ class Work:
             return None
 
         if callable(entry):
-            # try a few lightweight calling conventions in order
             try:
                 return str(entry())
             except TypeError:
@@ -375,13 +359,13 @@ def healer_tea_brewing() -> Work:
             "exp": lambda: random.randint(2,5)
         },
         texts={
-            "step_0_status": lambda step: f"🥣 <b>Измельчение коры</b> — осталось {step.rounds - step.current_round + 1}/{step.rounds}\nПоместите кору в ступку! 🎋",
+            "step_0_status": lambda step: f"🥣 <b>Измельчение коры</b> — осталось {step.rounds - step.current_round + 1}/{step.rounds}\nИзмельчите кору ступкой! 🎋",
             "step_1_status": lambda step: f"🍵 <b>Заваривание отвара...</b>\nОсталось: <b>{step.get_remaining_time()}с</b>" if step.started and not step.completed else ("💧 Налейте кипяток для заваривания" if not step.started else "🍵 Отвар готов!"),
             "complete": "🍵 <b>Отвар готов!</b>"
         },
         answer_texts={
             "step_0": {
-                "continue": "🎋 Кора добавлена!",
+                "continue": "🎋 Кора растоптана!",
                 "lose": "💀 Кора испорчена!"
             },
             "step_1": {

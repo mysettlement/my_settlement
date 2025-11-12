@@ -155,7 +155,7 @@ class Work:
     rewards: Dict[str, Any] = field(default_factory=dict)  # {"resource": "🌾", "quantity": lambda: random.randint(2, 5)}
     texts: Dict[str, str | Callable] = field(default_factory=dict)  # {"step_0_status": "Работай!", "complete": "Работа выполнена!"}
     answer_texts: Dict[str, Any] = field(default_factory=dict) # {"hit": "Попадение!", "miss": "Промах!"}
-    cooldown_on_fail: bool = False 
+    cooldown_on_fail: bool = True 
     _workflow: Optional[Workflow] = None
 
     def build(self) -> Workflow:
@@ -328,10 +328,35 @@ def catcher_milking() -> Work:
             },
             "lose": "🐄 Корова лягнула! Она ещё не скоро тебя к себе подпустит!",
             "win": "🥛 Ведро наполнено! Корове нужно время прежде чем ты сможешь подоить её ещё раз."
-        },
-        cooldown_on_fail=True
+        }
     )
 register_work(catcher_milking())
+
+def catcher_fishing() -> Work:
+    step1 = Catch(
+        target="🐟",
+        rounds=8
+    )
+    
+    return Work(
+        id="catcher_fishing",
+        name="Рыбалка",
+        emoji="🎣",
+        profession_id=3,
+        steps=[step1],
+        rewards={
+            "🐟": None,
+            "exp": None
+        },
+        texts={
+            "step_0_status": lambda step: f"🎣 <b>Лови рыбу — осталось {step.rounds - step.current_round + 1}/{step.rounds}</b>\n",
+            "complete": "🐟 <b>Рыба поймана!</b>"
+        },
+        answer_texts={
+            "win": "🐟 Рыба поймана!",
+            "lose": "💀 Рыба сорвалась!"
+        }
+    )
 
 def farmer_harvest_grain() -> Work:
     # Шаг 1: Сбор урожая (Harvesting)
@@ -369,9 +394,9 @@ def farmer_harvest_grain() -> Work:
             },
             "lose": "🌱 Ты срезал росток! Нужно быть внимательнее.",
             "win": "🌾 Урожай собран! Теперь можно отдохнуть."
-        },
-        cooldown_on_fail=False
+        }
     )
+register_work(farmer_harvest_grain())
 
 def healer_tea_brewing() -> Work:
     # Шаг 1: Измельчение коры (Hitting)
@@ -396,7 +421,7 @@ def healer_tea_brewing() -> Work:
         steps=[step1, step2],
         requirements={
             "🎋": 3
-        }
+        },
         rewards={
             "🍵": 1,
             "exp": None
@@ -420,4 +445,3 @@ def healer_tea_brewing() -> Work:
         cooldown_on_fail=False
     )
 register_work(healer_tea_brewing())
-

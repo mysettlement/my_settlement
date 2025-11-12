@@ -312,7 +312,7 @@ async def settler_withdrawResource(settler: models.Settler, session: AsyncSessio
     log.debug(f"{settler.settlement.id} | {settler.user_id} | 📤 Ресурс снят: {resource.emoji} x{quantity}")
     return True, f"{resource.emoji} {quantity}"
 
-async def update_quote(settler: models.Settler, settlement: models.Settlement, session: AsyncSession, add_quote: int = 0):
+async def quote_update(settler: models.Settler, settlement: models.Settlement, session: AsyncSession, add_quote: int = 0):
     result = await session.execute(
         select(models.Settler).where(models.Settler.id == settler.id)
     )

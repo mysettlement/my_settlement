@@ -153,7 +153,7 @@ def can_choose_craft(last_profession_change) -> tuple[bool, str]:
 
 async def timeout_work(chat_id: int):
     try:
-        await asyncio.sleep(180)  # 3 минуты = 180 секунд
+        await asyncio.sleep(settings.WORK_TIMEOUT_SECONDS)
         
         if work_in_progress.get(chat_id, False):
             end_work(chat_id)
@@ -162,7 +162,7 @@ async def timeout_work(chat_id: int):
             for user_key in user_keys_to_remove:
                 active_games.pop(user_key, None)
             
-            log.warning(f"{chat_id} | ⏰ Труд автоматически отменён по таймауту (3 минуты)")
+            log.warning(f"{chat_id} | ⏰ Труд автоматически отменён по таймауту")
             
     except asyncio.CancelledError:
         pass

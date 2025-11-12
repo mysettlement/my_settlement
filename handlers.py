@@ -683,9 +683,7 @@ async def work_callback(callback: types.CallbackQuery):
             earned, exp = await core.apply_rewards(work, settler, session, callback.message.chat.id)
             reward_text = mfunc.format_reward_text(earned, exp)
             await callback.message.edit_text(f"{status_text}\n\n{reward_text}", reply_markup=None)
-            
-            if workflow.failed and work.cooldown_on_fail:
-                await mfunc.mark_work_completed(settler, session, callback.message.chat.id)
+            await mfunc.mark_work_completed(settler, session, callback.message.chat.id)
         
         active_games.pop(user_key, None)
         mfunc.end_work(callback.message.chat.id)
@@ -759,7 +757,7 @@ async def quote_handler(message: types.Message):
             
         try:
             if await mfunc.is_meaningful(message.text) and not settler.quote_is_completed:
-                await core.update_quote(settler, settlement, session, 1)
+                await core.quote_update(settler, settlement, session, 1)
                 return
         except Exception as e:
             log.error(f"Ошибка в функции quote_handler(): {e}")

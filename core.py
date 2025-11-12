@@ -20,9 +20,7 @@ session = SessionLocal()
 log = setup_logging(logging.getLogger(__name__))
 
 
-
-
-async def get_resource_by_emoji(emoji: str, session: AsyncSession) -> models.Resource:
+async def resource_getByEmoji(emoji: str, session: AsyncSession) -> models.Resource:
     #* Получение ресурса по эмодзи
     result = await session.execute(
         select(models.Resource).where(models.Resource.emoji == emoji)
@@ -31,6 +29,13 @@ async def get_resource_by_emoji(emoji: str, session: AsyncSession) -> models.Res
     if not resource:
         raise ValueError(f"Ресурс с эмодзи '{emoji}' не найден")
     return resource
+
+def resource_getRandom(resource: models.Resource) -> int:
+    if random.random() > models.RARITY_DROP_PROBABILITIES[resource.rarity]:
+        return 0
+
+    min_qty, max_qty = models.RARITY_QUANTITY_RANGES[resource.rarity]
+    return random.randint(min_qty, max_qty)
 
 async def user_getOrCreate(telegram_user: types.User):
     #* Получение или создание пользователя
@@ -236,7 +241,7 @@ async def settler_addMoney(settler: models.Settler, settlement: models.Settlemen
 
 async def settler_addResource(settler: models.Settler, session: AsyncSession, emoji: str, quantity: int = None, chat_id: int = None):
     #* Добавление ресурса поселенцу
-    resource = await get_resource_by_emoji(emoji, session)
+    resource = await resource_getByEmoji(emoji, session)
     
     if quantity is None:
         min_qty, max_qty = models.RARITY_QUANTITY_RANGES.get(resource.rarity, (1, 1))
@@ -276,9 +281,9 @@ async def settler_addResource(settler: models.Settler, session: AsyncSession, em
 
     return resource, quantity
 
-async def withdraw_resource(settler: models.Settler, session: AsyncSession, emoji: str, quantity: int):
+async def settler_withdrawResource(settler: models.Settler, session: AsyncSession, emoji: str, quantity: int):
     #* Изъятие ресурса у поселенца
-    resource = await get_resource_by_emoji(emoji, session)
+    resource = await resource_getByEmoji(emoji, session)
     
     existing_result = await session.execute(
         select(models.settler_resources.c.quantity).where(
@@ -418,7 +423,7 @@ async def start_workflow(
                     await message_or_callback.answer(text) if is_message else await message_or_callback.answer(text, show_alert=True)
                     return False
                 continue
-            success, result = await withdraw_resource(settler, session, emoji, qty)
+            success, result = await settler_withdrawResource(settler, session, emoji, qty)
             if not success:
                 await message_or_callback.answer(result) if is_message else await message_or_callback.answer(text, show_alert=True)
             return success
@@ -441,33 +446,33 @@ async def start_workflow(
     log.debug(f"{settler.settlement_id} | {user.id} | 🚧 Работа начата: {work.name}")
     return True
 
-async def apply_rewards(work: models.Work, settler: models.Settler, session: AsyncSession, chat_id: int) -> Tuple[Dict[models.Resource, int], int]:
+async def apply_rewards(work: models.Work, settler: models.Settler, session: AsyncSession) -> Tuple[Dict[models.Resource, int], int]:
     obtained: Dict[models.Resource, int] = {}
     exp = 0
 
-    current_time = int(datetime.now().timestamp())
-    await session.execute(
-        update(models.Settler)
-        .where(models.Settler.id == settler.id)
-        .values(work_is_completed=True, last_work_time=current_time)
-    )
-
     for key, value in work.rewards.items():
-        if key == "exp" or key == "🗂":
-            if callable(value):
-                exp += value()
-            else:
-                exp = int(value)
+        if key == "exp":
+            exp = value() if callable(value) else int(value) if value is not None else random.randint(1, 3)
             if exp > 0:
                 await settler_addExp(settler, session, exp)
+            continue
+
+        resource = await resource_getByEmoji(key, session)
+        if not resource:
+            continue
+
+        if callable(value):
+            qty = value()
+        elif value is not None:
+            qty = int(value)
         else:
-            qty = value() if callable(value) else int(value)
-            if qty <= 0:
-                continue
-            resource, added_qty = await settler_addResource(settler, session, key, qty, chat_id)
-            obtained[resource] = added_qty
-    
-    log.debug(f"{settler.settlement_id} | {settler.user_id} | 🏆 Награды выданы")
+            qty = resource_getRandom(resource)
+
+        if qty <= 0:
+            continue
+
+        added_resource, added_qty = await settler_addResource(settler, session, key, qty)
+        obtained[added_resource] = added_qty
+
     await session.commit()
-    
     return obtained, exp

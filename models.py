@@ -309,8 +309,8 @@ def catcher_milking() -> Work:
         steps=[step1, step2],
         rewards={
             "level": 0,
-            "🥛": lambda: random.randint(3,5),
-            "exp": lambda: random.randint(1,4)
+            "🥛": None,
+            "exp": None
         },
         texts={
             "step_0_status": lambda: "🪣 <b>Успокой корову:</b>\nПогладь 🐄",
@@ -333,6 +333,46 @@ def catcher_milking() -> Work:
     )
 register_work(catcher_milking())
 
+def farmer_harvest_grain() -> Work:
+    # Шаг 1: Сбор урожая (Harvesting)
+    step1 = Harvesting(
+        objects=["🌾", "🌱", "🥔", "🍄‍🟫", "🫐"],
+        rules={
+            "forbidden": ["🌱"],
+            "click": {"🌾": " "},
+            "win_check": lambda field: not any(cell == "🌾" for row in field for cell in row)
+        },
+        size=4,
+        required_at_least_one="🌾"
+    )
+
+    return Work(
+        id="farmer_harvest_grain",
+        name="Сбор урожая",
+        emoji="🌾",
+        profession_id=1,
+        steps=[step1],
+        rewards={
+            "🌾": None,
+            "🥔": None,
+            "🍄‍🟫": None,
+            "🫐": None,
+            "exp": None
+        },
+        texts={
+            "step_0_status": lambda: "🌾 <b>Собери урожай:</b>\nЖни только созревшие культуры!",
+            "complete": "🌾 <b>Урожай собран!</b>"
+        },
+        answer_texts={
+            "step_0": {
+                "continue": "✅ Отлично! Продолжай косить!"
+            },
+            "lose": "🌱 Ты срезал росток! Нужно быть внимательнее.",
+            "win": "🌾 Урожай собран! Теперь можно отдохнуть."
+        },
+        cooldown_on_fail=False
+    )
+
 def healer_tea_brewing() -> Work:
     # Шаг 1: Измельчение коры (Hitting)
     step1 = Hitting(
@@ -354,9 +394,12 @@ def healer_tea_brewing() -> Work:
         emoji="🍵",
         profession_id=2,  # ID профессии "Травник"
         steps=[step1, step2],
+        requirements={
+            "🎋": 3
+        }
         rewards={
             "🍵": 1,
-            "exp": lambda: random.randint(2,5)
+            "exp": None
         },
         texts={
             "step_0_status": lambda step: f"🥣 <b>Измельчение коры</b> — осталось {step.rounds - step.current_round + 1}/{step.rounds}\nИзмельчите кору ступкой! 🎋",

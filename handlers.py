@@ -680,7 +680,7 @@ async def work_callback(callback: types.CallbackQuery):
     if result == "win" and workflow.completed:
         status_text = workflow.get_status_text()
         async with SessionLocal() as session:
-            earned, exp = await core.apply_rewards(work, settler, session, callback.message.chat.id)
+            earned, exp = await core.apply_rewards(work, settler, session)
             reward_text = mfunc.format_reward_text(earned, exp)
             await callback.message.edit_text(f"{status_text}\n\n{reward_text}", reply_markup=None)
             await mfunc.mark_work_completed(settler, session, callback.message.chat.id)

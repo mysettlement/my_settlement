@@ -30,7 +30,7 @@ async def resource_getByEmoji(emoji: str, session: AsyncSession) -> models.Resou
         raise ValueError(f"Ресурс с эмодзи '{emoji}' не найден")
     return resource
 
-def resource_getRandom(resource: models.Resource) -> int:
+def resource_getRandomQuantity(resource: models.Resource) -> int:
     if random.random() > models.RARITY_DROP_PROBABILITIES[resource.rarity]:
         return 0
 
@@ -239,9 +239,9 @@ async def settler_addMoney(settler: models.Settler, settlement: models.Settlemen
     log.debug(f"{settlement.id} | {current_settler.user_id} | 💰 Деньги получены: +{money} ({current_settler.balance})")
     return current_settler
 
-async def settler_addResource(settler: models.Settler, session: AsyncSession, emoji: str, quantity: int = None, chat_id: int = None):
+async def settler_addResource(settler: models.Settler, session: AsyncSession, quantity: int = None, resource: models.Resource = None, emoji: str = None) -> Tuple[models.Resource, int]:
     #* Добавление ресурса поселенцу
-    resource = await resource_getByEmoji(emoji, session)
+    resource = await resource_getByEmoji(emoji, session) if not resource else resource
     
     if quantity is None:
         min_qty, max_qty = models.RARITY_QUANTITY_RANGES.get(resource.rarity, (1, 1))
@@ -466,12 +466,12 @@ async def apply_rewards(work: models.Work, settler: models.Settler, session: Asy
         elif value is not None:
             qty = int(value)
         else:
-            qty = resource_getRandom(resource)
+            qty = resource_getRandomQuantity(resource)
 
         if qty <= 0:
             continue
 
-        added_resource, added_qty = await settler_addResource(settler, session, key, qty)
+        added_resource, added_qty = await settler_addResource(settler, session, qty, resource)
         obtained[added_resource] = added_qty
 
     await session.commit()

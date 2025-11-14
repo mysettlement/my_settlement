@@ -391,7 +391,8 @@ def farmer_harvest_grain() -> Work:
         },
         texts={
             "step_0_status": lambda: "🌾 <b>Собери урожай:</b>\nЖни только созревшие культуры!",
-            "complete": "🌾 <b>Урожай собран!</b>"
+            "complete": "🌾 <b>Урожай собран!</b>",
+            "lose": "🌱 <b>Ты срезал росток! Нужно быть внимательнее.</b>"
         },
         answer_texts={
             "step_0": {

@@ -376,22 +376,29 @@ async def quote_update(settler: models.Settler, settlement: models.Settlement, s
     await session.refresh(current_settler, ["user", "settlement"])
 
 def can_work_now(settler: models.Settler) -> tuple[bool, str]:
-    #* Проверка доступности работы
-
-    
     current_time = datetime.now()
-    last_work_time = datetime.fromtimestamp(settler.last_work_time) if settler.last_work_time else datetime.min
+    
+    if settler.last_work_time == 0:
+        return True, ""
+
+    last_work_time = datetime.fromtimestamp(settler.last_work_time)
     cooldown = timedelta(hours=settings.WORK_COOLDOWN_HOURS)
-    
-    if settler.work_is_completed:
-        time_since_work = current_time - last_work_time
-        if time_since_work < cooldown:
-            remaining_time = cooldown - time_since_work
-            hours = int(remaining_time.total_seconds() // 3600)
-            minutes = int((remaining_time.total_seconds() % 3600) // 60)
-            seconds = int(remaining_time.total_seconds() % 60)
-            return False, f"{hours}ч. {minutes}м. {seconds}с." if hours > 0 else f"{minutes}м. {seconds}с." if minutes > 0 else f"{seconds}с."
-    
+    time_since_work = current_time - last_work_time
+
+    if settler.work_is_completed and time_since_work < cooldown:
+        remaining = cooldown - time_since_work
+        total_seconds = int(remaining.total_seconds())
+        hours = total_seconds // 3600
+        minutes = (total_seconds % 3600) // 60
+        seconds = total_seconds % 60
+
+        if hours > 0:
+            return False, f"{hours}ч. {minutes}м. {seconds}с."
+        elif minutes > 0:
+            return False, f"{minutes}м. {seconds}с."
+        else:
+            return False, f"{seconds}с."
+
     return True, ""
 
 async def start_workflow(

@@ -84,26 +84,31 @@ async def main():
         tasks.scheduler.start()
 
         #! Flood control
-        # smile = random.choice(["🔵", "🌀", "🫐", "🐬"])
-        # await bot(SetMyName(name=f"🛖 Моё Поселение! {smile}", language_code="ru"))
-        # await bot(SetMyName(name=f"🛖 My Settlement! {smile}", language_code="en"))
+        try:
+            smile = random.choice(["🔵", "🌀", "🫐", "🐬"])
+            await bot(SetMyName(name=f"🛖 Моё Поселение! {smile}", language_code="ru"))
+        except Exception as e:
+            log.error(f"Flood control: {e}")
         log.info("🟢 Бот запущен!")
         await dp.start_polling(bot)
     finally:
-        # cry = random.choice(["🔴", "㊙️", "🍒", "🏮"])
-        # await bot(SetMyName(name=f"🛖 Моё Поселение! {cry}", language_code="ru"))
-        # await bot(SetMyName(name=f"🛖 My Settlement! {cry}", language_code="en"))
+        try:
+            cry = random.choice(["🔴", "㊙️", "🍒", "🏮"])
+            await bot(SetMyName(name=f"🛖 Моё Поселение! {cry}", language_code="ru"))
+        except Exception as e:
+            log.error(f"Flood control: {e}")
         for task in mfunc.work_timeout_tasks.values():
             task.cancel()
         mfunc.work_timeout_tasks.clear()
         await bot.session.close()
         tasks.scheduler.shutdown()
+        log.info("🔴 Бот остановлен!")
 
 
 if __name__ == "__main__":
     try:
         asyncio.run(main())
     except KeyboardInterrupt:
-        log.info("🔴 Бот остановлен пользователем")
+        log.info("🔴 Скрипт остановлен")
     except Exception as e:
         log.critical(f"Критическая ошибка: {e}")

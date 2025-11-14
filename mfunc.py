@@ -3,10 +3,10 @@ import time
 import asyncio
 import pytz
 import re
-from sqlalchemy import update
 from wordfreq import zipf_frequency
 from typing import Dict, Union
 from datetime import datetime, timedelta
+from sqlalchemy import update
 from sqlalchemy.ext.asyncio import AsyncSession
 from aiogram import Bot, types
 from aiogram.client.default import DefaultBotProperties
@@ -114,6 +114,31 @@ def format_reward_text(earned: dict, exp_gained: int = 0) -> str:
     
     return f"📦 <b>Получено:</b>\n" + "\n".join(parts)
 
+def format_created_at(created_at: datetime) -> str:
+    now = datetime.now()
+    delta = now - created_at
+
+    years = delta.days // 365
+    days = delta.days % 365
+    hours = delta.seconds // 3600
+
+    parts = []
+    if years == 1:
+        parts.append("1 год")
+    elif years > 1:
+        parts.append(f"{years} года" if years < 5 else f"{years} лет")
+    
+    if days == 1:
+        parts.append("1 день")
+    elif days > 1:
+        days_word = "дня" if 2 <= days <= 4 else "дней"
+        parts.append(f"{days} {days_word}")
+    elif days < 1 and hours >= 1:
+        parts.append("менее дня")
+
+    ago = ", ".join(parts) + " назад" if parts else "только что"
+    return f"основан {ago}"
+
 def can_click_button(user_key: str) -> bool:
     current_time = time.time()
     last_click = user_last_click_time.get(user_key, 0)
@@ -126,7 +151,7 @@ def can_click_button(user_key: str) -> bool:
 
 def can_choose_craft(last_profession_change) -> tuple[bool, str]:
     now_ts = int(datetime.now().timestamp())
-    last_ts = last_profession_change or 0
+    last_ts = int(last_profession_change.timestamp()) or 0
     cooldown = int(timedelta(hours=settings.CRAFT_COOLDOWN_HOURS).total_seconds())
     if last_ts and now_ts - last_ts < cooldown:
         remaining = cooldown - (now_ts - last_ts)

@@ -281,7 +281,7 @@ async def start_command(message: types.Message):
     kb.row(*buttons, width=2)
 
     text = (
-        f"<b>{settlement.name}</b>\n"
+        f"<b>{settlement.name}</b> ({mfunc.format_created_at(settlement.created_at)})\n"
         f"👥{len(settlement.members)} 👑 <b>{settlement.owner.name or (f"User {settlement.owner.telegram_id}" if settlement.owner else "Отсутствует")}</b>"
     )
     await message.answer(text, reply_markup=kb.as_markup())
@@ -543,7 +543,7 @@ async def select_craft_callback(callback: types.CallbackQuery):
         await session.execute(
             update(models.Settler)
             .where(models.Settler.id == settler.id)
-            .values(profession_id=prof_id, last_profession_change=int(datetime.now().timestamp()))
+            .values(profession_id=prof_id, last_profession_change=datetime.now())
         )
         await session.commit()
         
@@ -577,7 +577,10 @@ async def craft_command(message: types.Message):
     
     kb = InlineKeyboardBuilder()
     for work in available_works:
-        kb.add(InlineKeyboardButton(text=f"{work.emoji} {work.name}", callback_data=f"start_workflow:{work.id}"))
+        if user.compact_style:
+            kb.add(InlineKeyboardButton(text=f"{work.emoji}", callback_data=f"start_workflow:{work.id}"))
+        else:
+            kb.add(InlineKeyboardButton(text=f"{work.emoji} {work.name}", callback_data=f"start_workflow:{work.id}"))
     kb.adjust(2)
 
     await message.reply(f"{settler.profession.emoji} <b>{settler.profession.name}:</b>", reply_markup=kb.as_markup(), disable_notification=True)

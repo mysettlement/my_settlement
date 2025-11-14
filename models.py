@@ -1,4 +1,5 @@
-from sqlalchemy import Table, Column, Integer, BigInteger, String, ForeignKey, PickleType, Boolean, Enum as SAEnum, DateTime, Float
+from sqlalchemy import func, Table, Column, Integer, BigInteger, String, ForeignKey, PickleType, Boolean, Enum as SAEnum, DateTime, Float
+from sqlalchemy.sql import text
 from sqlalchemy.orm import relationship, declarative_base
 from sqlalchemy.ext.mutable import MutableList
 from typing import List, Optional, Dict, Callable, Any
@@ -77,6 +78,9 @@ class Settlement(Base):
     chat_id = Column(BigInteger, unique=True, index=True)
     name = Column(String)
     owner_id = Column(BigInteger, ForeignKey("users.id"))
+    created_at = Column(DateTime, server_default=func.now(), nullable=False)
+    last_name_change = Column(DateTime, server_default=text("to_timestamp(0)"), nullable=False)
+
     owner = relationship("User", back_populates="owned")
     members = relationship("Settler", back_populates="settlement")
 
@@ -98,7 +102,7 @@ class Settler(Base):
     profession_id = Column(BigInteger, ForeignKey("professions.id"), nullable=True)
     work_is_completed = Column(Boolean, server_default="False")
     last_work_time = Column(BigInteger, server_default="0")
-    last_profession_change = Column(BigInteger, server_default="0")
+    last_profession_change = Column(DateTime, server_default=text("to_timestamp(0)"), nullable=False)
 
     quote = Column(Integer, server_default="0")
     target_quote = Column(Integer, server_default="6")
@@ -399,9 +403,7 @@ def farmer_harvest_grain() -> Work:
             "lose": "🌱 <b>Ты срезал росток! Нужно быть внимательнее.</b>"
         },
         answer_texts={
-            "step_0": {
-                "continue": "✅ Отлично! Продолжай косить!"
-            },
+            "continue": "✅ Отлично! Продолжай косить!",
             "lose": "🌱 Ты срезал росток! Нужно быть внимательнее.",
             "win": "🌾 Урожай собран! Теперь можно отдохнуть."
         }
@@ -437,8 +439,8 @@ def healer_tea_brewing() -> Work:
             "exp": None
         },
         texts={
-            "step_0_status": lambda step: f"🥣 <b>Измельчение коры</b> — осталось {step.rounds - step.current_round + 1}/{step.rounds}\nИзмельчите кору ступкой! 🎋",
-            "step_1_status": lambda step: f"🍵 <b>Заваривание отвара...</b>\nОсталось: <b>{step.get_remaining_time()}с</b>" if step.started and not step.completed else ("💧 Налейте кипяток для заваривания" if not step.started else "🍵 Отвар готов!"),
+            "step_0_status": lambda step: f"🥣 <b>Измельчение коры</b> — осталось {step.rounds - step.current_round + 1}/{step.rounds}\nИзмельчи кору ступкой! 🎋",
+            "step_1_status": lambda step: f"🍵 <b>Заваривание отвара...</b>\nОсталось: <b>{step.get_remaining_time()}с</b>" if step.started and not step.completed else ("💧 Налей кипяток для заваривания" if not step.started else "🍵 Отвар готов!"),
             "complete": "🍵 <b>Отвар готов!</b>",
             "lose": "💀 Отвар испорчен!"
         },
@@ -456,3 +458,44 @@ def healer_tea_brewing() -> Work:
         cooldown_on_fail=False
     )
 register_work(healer_tea_brewing())
+
+def healer_herb_gathering() -> Work:
+    # Шаг 1: Сбор трав (Harvesting)
+    step1 = Harvesting(
+        objects=["🌿", "🌵", "🎋"],
+        rules={
+            "forbidden": ["🌵"],
+            "click": {
+                "🌿": " ",
+                "🎋": " "
+            },
+            "win_check": lambda field: not any(
+                cell in ["🌿", "🎋"] for row in field for cell in row
+            )
+        },
+        size=4,
+        required_at_least_one="🌿"
+    )
+
+    return Work(
+        id="healer_herb_gathering",
+        name="Сбор трав",
+        emoji="🌿",
+        profession_id=2,
+        steps=[step1],
+        rewards={
+            "🌿": None,
+            "exp": None
+        },
+        texts={
+            "step_0_status": lambda: "🌿 <b>Соберите травы:</b>\nСобирайте только полезные растения!",
+            "complete": "🌿 <b>Травы собраны!</b>",
+            "lose": "🌵 <b>Ты сорвал колючее, бесполезное растение! Все руки в иголках!</b>"
+        },
+        answer_texts={
+            "continue": "✅ Отлично! Продолжайте сбор!",
+            "lose": "🌵 Ты сорвал колючее растение! Все руки в иголках!",
+            "win": "🌿 Травы собраны! Теперь можно приготовить отвар."
+        }
+    )
+register_work(healer_herb_gathering())

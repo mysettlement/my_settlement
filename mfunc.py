@@ -114,20 +114,6 @@ def format_reward_text(earned: dict, exp_gained: int = 0) -> str:
     
     return f"📦 <b>Получено:</b>\n" + "\n".join(parts)
 
-def can_start_work(chat_id: int) -> tuple[bool, str]:
-    global work_in_progress, last_work_end_time
-    
-    if work_in_progress.get(chat_id, False):
-        return False, "⏳ Уж кто-то в сей сходке трудится. Жди, покуда дело свершится!"
-    
-    current_time = time.time()
-    last_end_time = last_work_end_time.get(chat_id, 0)
-    if current_time - last_end_time < 10:
-        remaining = 10 - (current_time - last_end_time)
-        return False, f"⏳ Передышка меж трудом: {remaining:.0f}с.\nℹ️ Кулдаун накладывается из-за ограничений Telegram. Чтобы избежать непредвиденных ошибок, пожалуйста, подождите."
-    
-    return True, ""
-
 def can_click_button(user_key: str) -> bool:
     current_time = time.time()
     last_click = user_last_click_time.get(user_key, 0)
@@ -141,7 +127,7 @@ def can_click_button(user_key: str) -> bool:
 def can_choose_craft(last_profession_change) -> tuple[bool, str]:
     now_ts = int(datetime.now().timestamp())
     last_ts = last_profession_change or 0
-    cooldown = int(timedelta(days=3).total_seconds())
+    cooldown = int(timedelta(hours=settings.CRAFT_COOLDOWN_HOURS).total_seconds())
     if last_ts and now_ts - last_ts < cooldown:
         remaining = cooldown - (now_ts - last_ts)
         days = remaining // 86400
@@ -178,6 +164,21 @@ def get_work_remaining_time(chat_id: int) -> int:
     elapsed = time.time() - work_start_time[chat_id]
     remaining = 180 - elapsed  # 3 минуты = 180 секунд
     return max(0, int(remaining))
+
+
+def can_start_work(chat_id: int) -> tuple[bool, str]:
+    global work_in_progress, last_work_end_time
+    
+    if work_in_progress.get(chat_id, False):
+        return False, "⏳ Уж кто-то в сей сходке трудится. Жди, покуда дело свершится!"
+    
+    current_time = time.time()
+    last_end_time = last_work_end_time.get(chat_id, 0)
+    if current_time - last_end_time < 10:
+        remaining = 10 - (current_time - last_end_time)
+        return False, f"⏳ Передышка меж трудом: {remaining:.0f}с.\nℹ️ Кулдаун накладывается из-за ограничений Telegram. Чтобы избежать непредвиденных ошибок, пожалуйста, подождите."
+    
+    return True, ""
 
 def start_work(chat_id: int):
     global work_in_progress, work_start_time, work_timeout_tasks

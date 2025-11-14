@@ -125,8 +125,9 @@ class Settings(BaseSettings):
     DB_PASS: str
     DB_NAME: str
     ADMIN_IDS: list[int]
-    WORK_COOLDOWN_HOURS: float = 0.03
-    WORK_TIMEOUT_SECONDS: int = 180
+    WORK_COOLDOWN_HOURS: float = 0.03 # Кулдаун на работу (в часах)
+    WORK_TIMEOUT_SECONDS: int = 180 # Таймаут на выполнение работы (в секундах)
+    CRAFT_COOLDOWN_HOURS: float = 0.03 # Кулдаун на смену профессии (в часах)
 
     @property
     def DB_URL(self) -> str:

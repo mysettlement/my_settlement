@@ -364,7 +364,12 @@ def farmer_harvest_grain() -> Work:
         objects=["🌾", "🌱", "🥔", "🍄‍🟫", "🫐"],
         rules={
             "forbidden": ["🌱"],
-            "click": {"🌾": " "},
+            "click": {
+                "🌾": " ",
+                "🥔": " ",
+                "🍄‍🟫": " ",
+                "🫐": " "
+            },
             "win_check": lambda field: not any(cell == "🌾" for row in field for cell in row)
         },
         size=4,

@@ -350,13 +350,15 @@ def catcher_fishing() -> Work:
         },
         texts={
             "step_0_status": lambda step: f"🎣 <b>Лови рыбу — осталось {step.rounds - step.current_round + 1}/{step.rounds}</b>\n",
-            "complete": "🐟 <b>Рыба поймана!</b>"
+            "complete": "🐟 <b>Рыба поймана!</b>",
+            "lose": "💀 <b>Рыба сорвалась!</b>"
         },
         answer_texts={
             "win": "🐟 Рыба поймана!",
             "lose": "💀 Рыба сорвалась!"
         }
     )
+register_work(catcher_fishing())
 
 def farmer_harvest_grain() -> Work:
     # Шаг 1: Сбор урожая (Harvesting)
@@ -370,7 +372,9 @@ def farmer_harvest_grain() -> Work:
                 "🍄‍🟫": " ",
                 "🫐": " "
             },
-            "win_check": lambda field: not any(cell == "🌾" for row in field for cell in row)
+            "win_check": lambda field: not any(
+                cell in ["🌾", "🥔", "🍄‍🟫", "🫐"] for row in field for cell in row
+            )
         },
         size=4,
         required_at_least_one="🌾"
@@ -435,7 +439,8 @@ def healer_tea_brewing() -> Work:
         texts={
             "step_0_status": lambda step: f"🥣 <b>Измельчение коры</b> — осталось {step.rounds - step.current_round + 1}/{step.rounds}\nИзмельчите кору ступкой! 🎋",
             "step_1_status": lambda step: f"🍵 <b>Заваривание отвара...</b>\nОсталось: <b>{step.get_remaining_time()}с</b>" if step.started and not step.completed else ("💧 Налейте кипяток для заваривания" if not step.started else "🍵 Отвар готов!"),
-            "complete": "🍵 <b>Отвар готов!</b>"
+            "complete": "🍵 <b>Отвар готов!</b>",
+            "lose": "💀 Отвар испорчен!"
         },
         answer_texts={
             "step_0": {
@@ -444,7 +449,7 @@ def healer_tea_brewing() -> Work:
             },
             "step_1": {
                 "continue": "🍵 Заваривание отвара...",
-                "lose": "💀 Отвар испорчена!"
+                "lose": "💀 Отвар испорчен!"
             },
             "win": "🍵 Отвар приготовлен!"
         },

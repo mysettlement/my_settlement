@@ -432,7 +432,7 @@ async def start_workflow(
                 continue
             success, result = await settler_withdrawResource(settler, session, emoji, qty)
             if not success:
-                await message_or_callback.answer(result) if is_message else await message_or_callback.answer(text, show_alert=True)
+                await message_or_callback.answer(result) if is_message else await message_or_callback.answer(result, show_alert=True)
             return success
         await session.commit()
     

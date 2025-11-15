@@ -4,6 +4,8 @@ import asyncio
 import pytz
 import re
 from wordfreq import zipf_frequency
+from langdetect import detect, DetectorFactory
+from functools import lru_cache
 from typing import Dict, Union
 from datetime import datetime, timedelta
 from sqlalchemy import update
@@ -35,6 +37,14 @@ work_start_time: Dict[int, float] = {}  # Время начала работы �
 work_timeout_tasks: Dict[int, asyncio.Task] = {}  # Задачи таймаута работы по чатам
 user_last_click_time: Dict[str, float] = {}  # Последнее нажатие кнопки для каждого пользователя
 
+DetectorFactory.seed = 0
+
+SUPPORTED_LANGS = {
+    'ru', 'en', 'de', 'fr', 'es', 'it', 'pt', 'nl', 'pl', 'uk', 'cs', 'tr', 'sv', 'no', 'da', 'fi',
+    'hu', 'ro', 'hr', 'sr', 'sl', 'sk', 'bg', 'el', 'he', 'ar', 'fa', 'hi', 'bn', 'ta', 'te',
+    'mr', 'ur', 'th', 'ko', 'ja', 'zh'
+}
+
 
 
 async def get_group_owner(chat_id: int) -> types.User:
@@ -63,42 +73,45 @@ def get_daily_reset_countdown() -> str:
     
     return f"{hours}ч. {minutes}м." if hours > 0 else f"{minutes}м."
 
-async def is_meaningful(text: str, length: int = 3, words_amount: int = 1, lang: str = "ru") -> bool:
+async def is_meaningful(text: str, length: int = 3, words_amount: int = 1) -> bool:
     if not text:
         return False
 
-    text = text.strip().lower()
+    text = text.strip()
+    if len(text) < length:
+        return False
 
-    if len(text) < length: # слишком короткие (меньше 3 символов)
+    lower_text = text.lower()
+    if re.fullmatch(r"[\W\d_]+", lower_text):
         return False
-    if re.fullmatch(r"[\W\d_]+", text): # только смайлы/спецсимволы/цифры
+    if re.fullmatch(r"(.)\1{3,}", lower_text):
         return False
-    if re.fullmatch(r"(.)\1{3,}", text): # повтор одинаковых букв (ааааа, лоллллл, хахахах)
+
+    words = lower_text.split()
+    if len(words) > words_amount and len(set(words)) == 1:
         return False
-    words = text.split()
-    if len(set(words)) == 1 and len(words) > words_amount: # повтор слов (привет привет привет)
-        return False
-    
-    # --- Проверка частоты слов ---
+
+    try:
+        detected_lang = detect(text)
+        lang = detected_lang if detected_lang in SUPPORTED_LANGS else 'ru' 
+    except:
+        lang = 'ru'
+
     meaningful = 0
     total = 0
     for w in words:
-        w = re.sub(r"[^\wа-яё]", "", w)
-        if not w:
+        w_clean = re.sub(r"[^\w" + (r"а-яё" if lang == "ru" else r"") + r"]", "", w)
+        if not w_clean:
             continue
         total += 1
-        freq = zipf_frequency(w, lang)
-        if freq >= 1.5:  # нормальное слово
+        freq = zipf_frequency(w_clean, lang)
+        if freq >= 1.5:
             meaningful += 1
 
     if total == 0:
         return False
 
-    ratio = meaningful / total
-    if ratio < 0.4:  # меньше 40% нормальных слов
-        return False
-
-    return True
+    return (meaningful / total) >= 0.4
 
 def format_reward_text(earned: dict, exp_gained: int = 0) -> str:
     if not earned and exp_gained == 0:

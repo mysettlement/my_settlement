@@ -522,23 +522,23 @@ async def select_craft_callback(callback: types.CallbackQuery):
         settler = await core.settler_getOrCreate(user, settlement)
 
         if callback.from_user.id != callback.message.reply_to_message.from_user.id:
-            await callback.answer("❌ Не тронь чужой снасти!", True)
+            await callback.answer("⚠️ Не тронь чужой снасти!", True)
             return
         
         if settler.profession_id == prof_id:
-            await callback.answer("❌ Ты уж сие ремесло избрал! Аль сменить хочешь, то другое избери.")
+            await callback.answer("⚠️ Ты уж сие ремесло избрал! Аль сменить хочешь, то другое избери.")
             return
         
         prof_result = await session.execute(select(models.Profession).where(models.Profession.id == prof_id))
         profession = prof_result.scalars().first()
         
         if not profession or settler.level < profession.required_level:
-            await callback.answer(f"❌ Ремесло сие тебе не по плечу! {settler.level}/<b>{profession.required_level}</b>💡")
+            await callback.answer(f"⚠️ Ремесло сие тебе не по плечу! {settler.level}/<b>{profession.required_level}</b>💡")
             return
         if settler.profession_id:
             can_choose, when = mfunc.can_choose_craft(settler.last_profession_change)
             if not can_choose:
-                await callback.answer(f"❌Недавно ты ремесло своё сменил, человече! Новое взять можно, как {when} пройдёт.", True)
+                await callback.answer(f"⚠️ Недавно ты ремесло своё сменил, человече! Новое взять можно, как <b>{when}</b> пройдёт.", True)
         
         await session.execute(
             update(models.Settler)

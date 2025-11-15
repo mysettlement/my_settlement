@@ -36,6 +36,10 @@ class Step(ABC):
         """Возвращает текст статуса шага. По умолчанию пустой — переопределяется в Work.build()"""
         return ""
 
+    def reset(self):
+        self.game_over = False
+        self.won = False
+        
     @abstractmethod
     def click(self, action: Any) -> str:
         pass
@@ -43,7 +47,7 @@ class Step(ABC):
     @abstractmethod
     def copy(self) -> 'Step':
         pass
-
+    
 
 class Harvesting(Step):
     def __init__(self, objects, rules, size=5, required_at_least_one=None):
@@ -106,6 +110,10 @@ class Harvesting(Step):
     def copy(self):
         return copy.deepcopy(self)
     
+    def reset(self):
+        super().reset()
+        self._reset_field()
+    
 class Hitting(Step):
     def __init__(self, target, empty=" ", size=3, rounds=8):
         super().__init__()
@@ -163,6 +171,13 @@ class Hitting(Step):
         
     def copy(self):
         return copy.deepcopy(self)
+    
+    def reset(self):
+        super().reset()
+        self.current_round = 1
+        self.score = 0
+        self.target_position = None
+        self._place_target()
 
 class Catch(Step):
     def __init__(self, target, empty=" ", size=5, rounds=8):
@@ -218,6 +233,13 @@ class Catch(Step):
     def copy(self):
         return copy.deepcopy(self)
 
+    def reset(self):
+        super().reset()
+        self.current_round = 1
+        self.score = 0
+        self.target_position = None
+        self._place_target()
+
 class Alternation(Step):
     def __init__(self, target="💧", target_presses=10):
         super().__init__()
@@ -256,6 +278,11 @@ class Alternation(Step):
         
     def copy(self):
         return copy.deepcopy(self)
+    
+    def reset(self):
+        super().reset()
+        self.current_presses = 0
+        self.last_pressed_side = -1
 
 class Timer(Step):
     def __init__(self, button_text, button2_text, duration=30):
@@ -296,6 +323,12 @@ class Timer(Step):
         
     def copy(self):
         return copy.deepcopy(self)
+    
+    def reset(self):
+        super().reset()
+        self.started = False
+        self.completed = False
+        self.start_time = None
  
 
 class Workflow(Step):
@@ -359,3 +392,12 @@ class Workflow(Step):
 
     def copy(self):
         return copy.deepcopy(self)
+    
+    def reset(self):
+        super().reset()
+        self.current_step = 0
+        self.completed = False
+        self.failed = False
+        for step in self.steps:
+            if hasattr(step, "reset"):
+                step.reset()

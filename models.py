@@ -23,15 +23,15 @@ class RarityLevel(str, Enum):
     LEGENDARY = "LEGENDARY"
 
 RARITY_DROP_PROBABILITIES = {
-    RarityLevel.COMMON: 50 / 100.0,
-    RarityLevel.UNCOMMON: 35 / 100.0,
-    RarityLevel.RARE: 8 / 100.0,
-    RarityLevel.EPIC: 3.5 / 100.0,
-    RarityLevel.LEGENDARY: 0.5 / 100.0
+    RarityLevel.COMMON: 70 / 100.0,
+    RarityLevel.UNCOMMON: 45 / 100.0,
+    RarityLevel.RARE: 10 / 100.0,
+    RarityLevel.EPIC: 3 / 100.0,
+    RarityLevel.LEGENDARY: 0.1 / 100.0
 }
 
 RARITY_QUANTITY_RANGES = {
-    RarityLevel.COMMON: (3, 5),
+    RarityLevel.COMMON: (2, 5),
     RarityLevel.UNCOMMON: (2, 4),
     RarityLevel.RARE: (1, 3),
     RarityLevel.EPIC: (1, 2),
@@ -165,6 +165,7 @@ class Work:
     def build(self) -> Workflow:
         if self._workflow:
             copied_workflow = self._workflow.copy()
+            copied_workflow.reset()
             if hasattr(copied_workflow, '_workflow_status_func'):
                 copied_workflow.get_status_text = lambda: copied_workflow._workflow_status_func(copied_workflow)
             return copied_workflow
@@ -243,6 +244,7 @@ class Work:
 
         self._workflow = workflow
         copied_workflow = workflow.copy()
+        copied_workflow.reset()
         if hasattr(copied_workflow, '_workflow_status_func'):
             copied_workflow.get_status_text = lambda: copied_workflow._workflow_status_func(copied_workflow)
         return copied_workflow

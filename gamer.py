@@ -165,7 +165,7 @@ class Hitting(Step):
         return copy.deepcopy(self)
 
 class Catch(Step):
-    def __init__(self, target, empty="", size=5, rounds=8):
+    def __init__(self, target, empty=" ", size=5, rounds=8):
         super().__init__()
         self.target = target
         self.empty = empty

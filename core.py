@@ -309,7 +309,6 @@ async def settler_withdrawResource(settler: models.Settler, session: AsyncSessio
         )
     )
     
-    session.commit()
     log.debug(f"{settler.settlement_id} | {settler.user_id} | 📤 Ресурс снят: {resource.emoji} x{quantity}")
     return True, f"{resource.emoji} {quantity}"
 
@@ -434,7 +433,7 @@ async def start_workflow(
             success, result = await settler_withdrawResource(settler, session, emoji, qty)
             if not success:
                 await message_or_callback.answer(result) if is_message else await message_or_callback.answer(result, show_alert=True)
-            return success
+                return success
         await session.commit()
     
     mfunc.start_work(chat_id)

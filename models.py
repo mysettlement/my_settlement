@@ -463,15 +463,16 @@ register_work(healer_tea_brewing())
 def healer_herb_gathering() -> Work:
     # Шаг 1: Сбор трав (Harvesting)
     step1 = Harvesting(
-        objects=["🌿", "🌵", "🎋"],
+        objects=["🌿", "🌵", "🎋", "🪴"],
         rules={
             "forbidden": ["🌵"],
             "click": {
                 "🌿": " ",
-                "🎋": " "
+                "🎋": " ",
+                "🪴": " "
             },
             "win_check": lambda field: not any(
-                cell in ["🌿", "🎋"] for row in field for cell in row
+                cell in ["🌿", "🎋", "🪴"] for row in field for cell in row
             )
         },
         size=4,
@@ -481,22 +482,23 @@ def healer_herb_gathering() -> Work:
     return Work(
         id="healer_herb_gathering",
         name="Сбор трав",
-        emoji="🌿",
+        emoji="🪴",
         profession_id=2,
         steps=[step1],
         rewards={
-            "🌿": None,
+            "🎋": None,
+            "🪴": None,
             "exp": None
         },
         texts={
-            "step_0_status": lambda: "🌿 <b>Соберите травы:</b>\nСобирайте только полезные растения!",
-            "complete": "🌿 <b>Травы собраны!</b>",
+            "step_0_status": lambda: "🪴 <b>Соберите травы:</b>\nСобирайте только полезные растения!",
+            "complete": "🪴 <b>Травы собраны!</b>",
             "lose": "🌵 <b>Ты сорвал колючее, бесполезное растение! Все руки в иголках!</b>"
         },
         answer_texts={
             "continue": "✅ Отлично! Продолжайте сбор!",
             "lose": "🌵 Ты сорвал колючее растение! Все руки в иголках!",
-            "win": "🌿 Травы собраны! Теперь можно приготовить отвар."
+            "win": "🪴 Травы собраны! Теперь можно приготовить отвар."
         }
     )
 register_work(healer_herb_gathering())

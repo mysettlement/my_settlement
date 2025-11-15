@@ -312,7 +312,6 @@ def catcher_milking() -> Work:
         profession_id=3,
         steps=[step1, step2],
         rewards={
-            "level": 0,
             "🥛": None,
             "exp": None
         },

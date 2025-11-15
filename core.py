@@ -448,7 +448,7 @@ async def start_workflow(
         await message_or_callback.answer(text, reply_markup=kb)
     else:
         await message_or_callback.answer(f"{work.emoji} {work.name}!")
-        await message_or_callback.edit_text(text, reply_markup=kb)
+        await message_or_callback.message.edit_text(text, reply_markup=kb)
     
     log.debug(f"{settler.settlement_id} | {user.id} | 🚧 Работа начата: {work.name}")
     return True

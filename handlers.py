@@ -389,7 +389,7 @@ async def overtime_command(message: types.Message):
         if compact_style:
             text += f"🔘 {overtime_count} (🕒 {daily_reset_countdown}) | 📄 <b>{quote}/{target_quote}</b>"
         else:
-            text += f"Состояние лишней меры: ⚪️ <b>Активна</b>\nСколько лишней меры взято: {overtime_count} (🕒 <b>{daily_reset_countdown}</b>осталось до новой меры)\n📄 Мера: <b>{quote}/{target_quote}</b>"
+            text += f"Состояние лишней меры: ⚪️ <b>Активна</b>\nСколько лишней меры взято: {overtime_count} (🕒 <b>{daily_reset_countdown}</b> осталось до новой меры)\n📄 Мера: <b>{quote}/{target_quote}</b>"
     elif not settler.overtime_is_toggled and not settler.quote_is_completed:
         text += "⚠️ Лишнюю меру брать можно, токмо основную 📄 меру свершив!"
     else:
@@ -578,9 +578,9 @@ async def craft_command(message: types.Message):
     kb = InlineKeyboardBuilder()
     for work in available_works:
         if user.compact_style:
-            kb.add(InlineKeyboardButton(text=f"{work.emoji}", callback_data=f"start_workflow:{work.id}"))
+            kb.add(InlineKeyboardButton(text=f"{work.emoji}", callback_data=f"select_work:{work.id}"))
         else:
-            kb.add(InlineKeyboardButton(text=f"{work.emoji} {work.name}", callback_data=f"start_workflow:{work.id}"))
+            kb.add(InlineKeyboardButton(text=f"{work.emoji} {work.name}", callback_data=f"select_work:{work.id}"))
     kb.adjust(2)
 
     await message.reply(f"{settler.profession.emoji} <b>{settler.profession.name}:</b>", reply_markup=kb.as_markup(), disable_notification=True)

@@ -34,10 +34,11 @@ async def day_reset():
         try: # обновление квоты
             overtime_settlers = [s for s in settlers if s.overtime_is_toggled and not s.quote_is_completed]
             for settler in overtime_settlers:
+                fine = 20 + settler.level
                 await session.execute(
                     update(Settler)
                     .where(Settler.id == settler.id)
-                    .values(balance=settler.balance - 20)
+                    .values(balance=settler.balance - fine)
                 )
                 
                 user_result = await session.execute(
@@ -51,7 +52,7 @@ async def day_reset():
                     )
                     settlement = settlement_result.scalars().first()
                     if settlement:
-                        await bot.send_message(settlement.chat_id, f"⚠️ {mention}, лишнюю меру свершить не поспел! Вира наложена: 💰 20. Будь впредь расторопнее!")
+                        await bot.send_message(settlement.chat_id, f"⚠️ <b>{mention} не поспел(а) свершить лишнюю меру!</b> Вира наложена: 💰 <b>{fine}</b>. Впредь будь расторопнее!")
             
             await session.execute(
                 update(Settler)

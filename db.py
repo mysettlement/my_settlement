@@ -68,7 +68,7 @@ async def init_db():
                 {"name": "Нити", "emoji": "🧵", "description": "Нитки из шерсти (☁️) для пошива одежды", "category": "Материалы", "from_resource": "☁️", "rarity": models.RarityLevel.UNCOMMON}, # 
                 {"name": "Сырьё", "emoji": "🔩", "description": "Сырьё из руды (🪨) для создания мебели", "category": "Материалы", "from_resource": "🪨", "rarity": models.RarityLevel.UNCOMMON}, # 
                 {"name": "Лён", "emoji": "🪴", "description": '<a href="https://ru.wikipedia.org/wiki/Лён">Лён</a> для создания <a href="https://ru.wikipedia.org/wiki/Льняное_масло">лечебных масел</a> и пропитывания ими ткани (🧺) для создания бинтов (🩹)', "category": "Материалы", "for": "🩹", "rarity": models.RarityLevel.COMMON}, # 
-                {"name": "Кора", "emoji": "🎋", "description": 'Кора <a href="https://ru.wikipedia.org/wiki/Осина">осиного дерева</a> для создания лечебных отваров (🍵)', "category": "Материалы", "for_resource": "🍵", "rarity": models.RarityLevel.UNCOMMON}, # 
+                {"name": "Кора", "emoji": "🎋", "description": 'Кора <a href="https://ru.wikipedia.org/wiki/Осина">осинового дерева</a> для создания лечебных отваров (🍵)', "category": "Материалы", "for_resource": "🍵", "rarity": models.RarityLevel.UNCOMMON}, # 
                 {"name": "Отвар", "emoji": "🍵", "description": "Целебный отвар из коры осины (🎋) для лечения болезней", "category": "Лекарства", "from_resource": "🎋", "rarity": models.RarityLevel.UNCOMMON}, #  - 3 отвара для лечения болезни
                 {"name": "Бинт", "emoji": "🩹", "description": "Пропитанная лечебными маслами из льна (🪴) ткань (🧺) для перевязки ран", "category": "Лекарства", "from_resource": "🪴+🧺", "rarity": models.RarityLevel.RARE}, #  - 1 бинт для лечения раны
             ]

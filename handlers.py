@@ -70,7 +70,7 @@ async def me_command(message: types.Message):
                 f"🗂 <b>{round(settler.exp)}/{round(settler.target_exp)}</b> | "
                 f"📄 {f'<b>{settler.quote}/{settler.target_quote}</b>' if not settler.quote_is_completed else f'{settler.target_quote}/{settler.target_quote}'} {'(⏳) ' if settler.overtime_is_toggled else ''}| "
                 f"💰 <b>{round(settler.balance)}</b> ({'<b>' if settler.income != 0 else ''}{round(settler.income)}/день{'</b>' if settler.income != 0 else ''})\n"
-                f"\n{(settler.profession.emoji + ' Трудиться можно через <b>' + work_countdown + '</b> ⚠️') if (settler.profession and not can_work) else ((settler.profession.emoji + ' <b>Можно трудиться</b> ✅') if settler.profession else '')}"
+                f"\n{(settler.profession.emoji + ': <b>' + work_countdown + '</b> ☑️') if (settler.profession and not can_work) else ((settler.profession.emoji + ': ✅') if settler.profession else '')}"
             )
 
             buttons.append(InlineKeyboardButton(text="🪭", switch_inline_query_current_chat="Косметика"))
@@ -88,7 +88,7 @@ async def me_command(message: types.Message):
                 f"🏷 <b>Ранг:</b> {settler.emoji} {settler.rank}\n"
                 f"📄 <b>Мера:</b> {f'<b>{settler.quote}/{settler.target_quote}</b>' if not settler.quote_is_completed else f'{settler.target_quote}/{settler.target_quote}'} {'(⏳ Лишняя мера взята)' if settler.overtime_is_toggled else ''}\n"
                 f"💰 <b>Баланс:</b> {round(settler.balance)} ({'<b>' if settler.income != 0 else ''}{round(settler.income)}/день{'</b>' if settler.income != 0 else ''})\n"
-                f"\n {(settler.profession.emoji + ' Трудиться можно через <b>' + work_countdown + '</b> ⚠️') if (settler.profession and not can_work) else ((settler.profession.emoji + ' <b>Можно трудиться</b> ✅') if settler.profession else '')} "
+                f"\n {(settler.profession.emoji + ' Трудиться можно через <b>' + work_countdown + '</b> ☑️') if (settler.profession and not can_work) else ((settler.profession.emoji + ' <b>Можно трудиться</b> ✅') if settler.profession else '')} "
             )
 
             buttons.append(InlineKeyboardButton(text="🪭 Косметика", switch_inline_query_current_chat="Косметика"))
@@ -251,7 +251,7 @@ async def bot_added_to_chat_event(event: types.ChatMemberUpdated):
         log.debug(f"{chat.id} | Бот удален из группы {chat.title}")
 
 
-@router.message(or_f(CommandStart(), Command("town"), F.text.lower() == "осмотреть город", F.text.lower() == "@mysettlementbot осмотреть город", F.text.lower() == "town", F.text.lower() == "@mysettlementbot town"))
+@router.message(or_f(CommandStart(), Command("town"), F.text.lower().in_({"осмотреть город", "@mysettlementbot осмотреть город", "town", "@mysettlementbot town"})))
 async def start_command(message: types.Message):
     #* Обработка команды /start
     user = await core.user_getOrCreate(message.from_user)
@@ -402,7 +402,6 @@ async def overtime_command(message: types.Message):
     kb.row(*buttons)
     await message.answer(text, reply_markup=kb.as_markup())
 
-
 @router.callback_query(F.data == "overtime_take")
 async def overtime_take(callback: types.CallbackQuery):
     #* Обработка кнопки "взять лишнюю меру"
@@ -427,7 +426,7 @@ async def overtime_take(callback: types.CallbackQuery):
         await session.commit()
         
         reset_countdown = mfunc.get_daily_reset_countdown()
-        await callback.message.edit_text(f"⏳ <b>Мера лишняя взялась!</b>\nПора тебе осталась 🕒 <b>{reset_countdown}</b> чтоб новую меру исполнить!")
+        await callback.message.edit_text(f"⏳ <b>Мера лишняя взята!</b>\nТебе осталось 🕒 <b>{reset_countdown}</b> чтоб новую меру исполнить!")
 
 
 @router.message(or_f(Command("inventory"), F.text.lower() == "инвентарь", F.text.lower() == "@mysettlementbot инвентарь", F.text.lower() == "inventory", F.text.lower() == "@mysettlementbot inventory"))
@@ -466,7 +465,7 @@ async def inventory_command(message: types.Message):
                 categories[category].append(f"{resource_emoji} {resource_name}: {quantity}")
         
         for category, items in categories.items():
-            text += f"<b>{category}:</b>\n{' '.join(items)}\n\n"
+            text += f"<b>{category}:</b>\n{' | '.join(items)}\n\n"
     
     await message.answer(text=text)
 

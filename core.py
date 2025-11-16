@@ -198,7 +198,7 @@ async def settler_addExp(settler: models.Settler, session: AsyncSession, exp: in
         user = user_result.scalars().first()
         user_name = user.name if user else f"User {current.user_id}"
 
-        text = f"🎉 <b>{user_name}</b> повысил уровень до <b>{current.level}</b>!\n"
+        text = f"🎉 <b>{user_name}</b> повысил(а) уровень до <b>{current.level}</b>!\n"
         log.debug(f"{current.settlement_id} | {current.user_id} | ⬆️ Новый уровень: {current.level}")
 
         if old_rank != current.rank:

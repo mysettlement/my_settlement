@@ -354,7 +354,7 @@ def catcher_fishing() -> Work:
             "exp": None
         },
         texts={
-            "step_0_status": lambda step: f"🎣 <b>Лови рыбу — осталось {step.rounds - step.current_round + 1}/{step.rounds}</b>\n",
+            "step_0_status": lambda step: f"🎣 <b>Лови рыбу — осталось {step.rounds - step.current_round + 1}/{step.rounds}</b>",
             "complete": "🐟 <b>Рыба поймана!</b>",
             "lose": "💀 <b>Рыба сорвалась!</b>"
         },

@@ -8,7 +8,7 @@ from dataclasses import dataclass, field
 import copy
 import random
 
-from gamer import Step, Hitting, Timer, Workflow, Harvesting, Catch, Alternation
+from gamer import Step, Hitting, Timer, Workflow, Harvesting, Catch, Alternation, ProgressBar
 
 
 Base = declarative_base()
@@ -365,6 +365,32 @@ def catcher_fishing() -> Work:
     )
 register_work(catcher_fishing())
 
+def catcher_shearing() -> Work:
+    # Шаг 1: Стрижка овцы (ProgressBar)
+    step1 = ProgressBar(line_length=5, bar_length=15)
+    return Work(
+        id="catcher_shearing",
+        name="Стрижка овцы",
+        emoji="🐑",
+        profession_id=3,
+        steps=[step1],
+        rewards={
+            "☁️": None,
+            "exp": None
+            },
+        texts={
+            "step_0_status": lambda step: f"✂️ <b>Стриги овцу:</b>\Используй ножницы аккуратно!",
+            "complete": "☁️ <b>Шерсть собрана!</b>",
+            "lose": "💀 <b>Овца испугалась и убежала!</b>"
+        },
+        answer_texts={
+            "continue": "✅ Овечка лысеет...",
+            "win": "☁️ Шерсть собрана!",
+            "lose": "💀 Овца испугалась и убежала!"
+        }
+    )
+register_work(catcher_shearing())
+
 def farmer_harvest_grain() -> Work:
     # Шаг 1: Сбор урожая (Harvesting)
     step1 = Harvesting(
@@ -441,7 +467,7 @@ def healer_tea_brewing() -> Work:
         },
         texts={
             "step_0_status": lambda step: f"🥣 <b>Измельчение коры</b> — осталось {step.rounds - step.current_round + 1}/{step.rounds}\nИзмельчи кору ступкой! 🎋",
-            "step_1_status": lambda step: f"🍵 <b>Заваривание отвара...</b>\nОсталось: <b>{step.get_remaining_time()}с</b>" if step.started and not step.completed else ("💧 Налей кипяток для заваривания" if not step.started else "🍵 Отвар готов!"),
+            "step_1_status": lambda step: f"🍵 <b>Заваривание отвара...</b> — осталось  <b>{step.get_remaining_time()}с</b>" if step.started and not step.completed else ("💧 Налей кипяток для заваривания" if not step.started else "🍵 Отвар готов!"),
             "complete": "🍵 <b>Отвар готов!</b>",
             "lose": "💀 Отвар испорчен!"
         },

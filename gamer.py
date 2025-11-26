@@ -329,7 +329,57 @@ class Timer(Step):
         self.started = False
         self.completed = False
         self.start_time = None
- 
+
+class ProgressBar(Step):
+    def __init__(self, line_length=5, bar_length=10, target="✂️", empty=" ", line="☁️"):
+        super().__init__()
+        self.bar_length = bar_length
+        self.target = target
+        self.empty = empty
+        self.line = line
+        self.current = 0
+        self.line_length = line_length
+
+    def render_keyboard(self):
+        kb = InlineKeyboardBuilder()
+        for i in range(self.bar_length):
+            if i == self.current:
+                cell = self.target
+            elif i < self.current:
+                cell = self.empty
+            else:
+                cell = self.line
+            kb.add(types.InlineKeyboardButton(text=cell, callback_data=self._make_callback_data(str(i))))
+        kb.adjust(self.line_length)
+        return kb.as_markup()
+
+    def click(self, position: int):
+        if self.game_over:
+            return "game_over"
+
+        if position == self.current:
+            self.current += 1
+            if self.current >= self.bar_length:
+                self.game_over = True
+                self.won = True
+                return "win"
+            return "continue"
+        
+        else:
+            self.game_over = True
+            self.won = False
+            return "lose"
+    
+    def copy(self):
+        return copy.deepcopy(self)
+    
+    def reset(self):
+        super().reset()
+        self.current = 0
+        self.game_over = False
+        self.won = False
+        self.lose = False
+
 
 class Workflow(Step):
     def __init__(self, steps, name="work"):

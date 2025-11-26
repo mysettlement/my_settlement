@@ -3,6 +3,7 @@ import time
 import asyncio
 import pytz
 import re
+from typing import Optional
 from wordfreq import zipf_frequency
 from langdetect import detect, DetectorFactory
 from functools import lru_cache
@@ -127,30 +128,84 @@ def format_reward_text(earned: dict, exp_gained: int = 0) -> str:
     
     return f"📦 <b>Получено:</b>\n" + "\n".join(parts)
 
-def format_created_at(created_at: datetime) -> str:
-    now = datetime.now()
-    delta = now - created_at
+async def format_relative_time(target: datetime, now: Optional[datetime] = None) -> str:
+    """
+    Возвращает читаемую строку вида:
+    - только что
+    - 5 минут назад
+    - 1 час назад
+    - 3 дня назад
+    - 2 года назад
+    - через 10 минут
+    - через 1 день
+    - через 5 лет
+    """
+    if now is None:
+        now = datetime.now(target.tzinfo)
 
-    years = delta.days // 365
-    days = delta.days % 365
-    hours = delta.seconds // 3600
+    delta = target - now
+    is_future = delta.total_seconds() > 0
+    total_seconds = abs(int(delta.total_seconds()))
+
+    if total_seconds == 0:
+        return "сейчас"
+
+    years = total_seconds // (365 * 24 * 3600)
+    remaining = total_seconds % (365 * 24 * 3600)
+    days = remaining // (24 * 3600)
+    remaining = remaining % (24 * 3600)
+    hours = remaining // 3600
+    remaining = remaining % 3600
+    minutes = remaining // 60
 
     parts = []
-    if years == 1:
-        parts.append("1 год")
-    elif years > 1:
-        parts.append(f"{years} года" if years < 5 else f"{years} лет")
-    
-    if days == 1:
-        parts.append("1 день")
-    elif days > 1:
-        days_word = "дня" if 2 <= days <= 4 else "дней"
-        parts.append(f"{days} {days_word}")
-    elif days < 1 and hours >= 1:
-        parts.append("менее дня")
 
-    ago = ", ".join(parts) + " назад" if parts else "только что"
-    return f"основан {ago}"
+    # Годы
+    if years > 0:
+        if years == 1:
+            parts.append("1 год")
+        elif 2 <= years <= 4:
+            parts.append(f"{years} года")
+        else:
+            parts.append(f"{years} лет")
+
+    # Дни
+    if days > 0:
+        if days == 1:
+            parts.append("1 день")
+        elif 2 <= days <= 4:
+            parts.append(f"{days} дня")
+        else:
+            parts.append(f"{days} дней")
+
+    # Часы
+    if hours > 0:
+        if hours == 1:
+            parts.append("1 час")
+        elif 2 <= hours <= 4:
+            parts.append(f"{hours} часа")
+        else:
+            parts.append(f"{hours} часов")
+
+    # Минуты
+    if minutes > 0 and (total_seconds < 365 * 24 * 3600 or years == 0):
+        if minutes == 1:
+            parts.append("1 минуту")
+        elif 2 <= minutes <= 4:
+            parts.append(f"{minutes} минуты")
+        elif minutes % 10 in (2, 3, 4) and minutes not in (12, 13, 14):
+            parts.append(f"{minutes} минуты")
+        else:
+            parts.append(f"{minutes} минут")
+
+    # Менее минуты
+    if not parts:
+        result = "через несколько секунд" if is_future else "только что"
+    else:
+        text = ", ".join(parts)
+        result = ("через " + text) if is_future else (text + " назад")
+
+    return result
 
 def can_click_button(user_key: str) -> bool:
     current_time = time.time()

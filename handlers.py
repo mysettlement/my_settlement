@@ -14,7 +14,7 @@ from datetime import datetime
 from config import setup_logging, settings
 from db import SessionLocal
 import core
-from gamer import Workflow, Harvesting, Hitting, Catch, Alternation
+from gamer import Workflow, Harvesting, Hitting, Catch, Alternation, ProgressBar
 import models
 from mfunc import active_games
 import mfunc
@@ -281,10 +281,50 @@ async def start_command(message: types.Message):
     kb.row(*buttons, width=2)
 
     text = (
-        f"<b>{settlement.name}</b> ({mfunc.format_created_at(settlement.created_at)})\n"
+        f"<b>{settlement.name}</b> (основан {await mfunc.format_relative_time(settlement.created_at)})\n"
         f"👥{len(settlement.members)} 👑 <b>{settlement.owner.name or (f"User {settlement.owner.telegram_id}" if settlement.owner else "Отсутствует")}</b>"
     )
     await message.answer(text, reply_markup=kb.as_markup())
+
+
+# @router.message(or_f(Command("name_settlement"), F.text.startswith.lower().in_({"назвать поселение", "@mysettlementbot назвать поселение", "name settlement", "@mysettlementbot name settlement"})))
+# async def name_settlement(message: types.Message):
+#     #* Обработка команды /name_settlement
+#     user = await core.user_getOrCreate(message.from_user)
+#     settlement = await core.settlement_getOrCreate(message.chat)
+#     settler = await core.settler_getOrCreate(user, settlement)
+#     if not settler:
+#         log.error(f"Не удалось получить или создать поселенца для пользователя {message.from_user.id} в функции name_settlement()")
+#         await message.answer("⚠️ Беда приключилась, вести о тебе не сысканы. Погоди малость, опосля пытай снова.")
+#         return
+    
+#     owner = settlement.owner
+#     if not owner:
+#         log.error(f"Не удалось получить владельца поселения чата {message.chat.id} в функции name_settlement()")
+#         await message.answer("⚠️ Беда приключилась, вести мэре не сысканы. Погоди малость, опосля пытай снова.")
+#         return
+    
+#     if owner.telegram_id != message.from_user.id:
+#         await message.answer("⚠️ Управлять поселением токмо мэр может! Иди своим путём, простолюдин.")
+#         return
+    
+#     delta = datetime.now() - settlement.last_name_change
+#     hours = delta.seconds // 3600
+#     if hours < 72:
+#         await message.answer(f"📜<b>Встань, {owner}, но не радуйся прежде времени.</b>\n\nСлово твоё услышано, однако милости на этот раз не будет.\nЯ вижу, что прошение о новом имени ты принёс, но <b>отказываю тебе твёрдо и окончательно</b>:📌\nПоселение твоё лишь недавно, по моей же воле, получило имя <b>{new_name}</b>, и древний обычай велит ждать ещё <b>{mfunc.format_relative_time(settlement.last_name_change)}</b>, прежде чем вновь тревожить печати, грамоты и память народную. Пусть имя это остаётся нерушимым, как скала, и служит людям многие лета без новых перемен.\nПусть под нынешним знаменем <b>{new_name}</b> град наш крепнет и цветёт, а не мечется меж новых слов, словно лист на ветру.\n\n<b>Да здравствует {new_name} — и да пребудет оно неизменным!</b>💪\n🏰Возвращайся в свой град с миром и передай всем: воля моя такова, и точка.")
+#         return
+
+#     new_name = message.text.split("")[1] #! Исправить!
+#     old_name = settlement.name
+#     if new_name == old_name:
+#         message.answer(f"📜<b>Что за шутки, мэр?</b>\n\nТы просишь переименовать град из <b>{old_name}</b> в… <b>{new_name}</b>? Но ведь это одно и то же имя!\nМенять его на то же самое — всё равно что воду в ступе толочь.\n\n❌<b>Отказываю!</b> Пусть остаётся как есть.\n\n<b>Да здравствует {new_name} — и без лишних бумаг!</b>💪\n🏰Иди с миром и больше не трать пергамент понапрасну.")
+#         return
+    
+#     settlement.name = new_name
+#     settlement.last_name_change = datetime.now()
+
+#     await message.answer(f"📜<b>Добро, верный мэр!</b>\n\nВстань с колен и подними чело своё — милость моя к тебе велика, а слово твоё услышано и принято с радостью.\nВижу я, что воля моя исполнена точно и в срок: отныне и во веки веков <b>поселение моё, прежде звавшееся {old_name}, носит новое славное имя — {new_name}!</b>📌\n🌄Пусть же это имя гремит от края до края земли моей, пусть в летописях золотом будет вписано, а в сердцах подданных моих — выжжено огнём вечной верности.\n🔔Люди ликуют, колокола гудят, а враги наши да трепещут, ибо под новым знаменем град наш станет ещё крепче и славнее!\n\n<b>Да здравствует {new_name}!</b>💪\nДа цветёт оно под дланью моей многие лета!🏞\nИди с миром и неси славу новую по всей земле!</b>")
+
 
 
 @router.message(or_f(Command("cosmetics"), F.text.lower().in_({"косметика", "@mysettlementbot косметика", "cosmetics", "@mysettlementbot cosmetics"})))
@@ -656,7 +696,7 @@ async def work_callback(callback: types.CallbackQuery):
     current_step = workflow.get_current_step()
     converted_action = action
     if action is not None and current_step is not None:
-        if isinstance(current_step, (Hitting, Catch, Alternation)):
+        if isinstance(current_step, (Hitting, Catch, Alternation, ProgressBar)):
             try:
                 converted_action = int(action)
             except Exception:

@@ -88,7 +88,6 @@ async def init_db():
                 {"name": "Ремесленник", "emoji": "⚒️", "description": "", "crafts": "🧺/🧵/🔩", "required_level": 0}, # 4
                 {"name": "Мастеровой", "emoji": "🧰", "description": "", "crafts": "🥾/🧥/🪑/🗡", "required_level": 0} # 5
             ]
-
             for profession in professions_to_add:
                 profession_data = profession.copy()
                 if 'crafts' not in profession_data:

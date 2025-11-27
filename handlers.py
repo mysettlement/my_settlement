@@ -28,6 +28,36 @@ log = setup_logging(logging.getLogger(__name__))
 
 
 
+@router.my_chat_member()
+async def bot_added_to_chat_event(event: types.ChatMemberUpdated):
+    #* Приветствие при добавлении бота в группу
+    chat = event.chat
+    if event.new_chat_member.status in ["member", "administrator"]:
+        log.debug(f"{chat.id} | Бот добавлен в группу {chat.title}")
+        
+        
+        welcome_text = (
+                '🏰 <b>Добро пожаловать в игру "Поселения"!</b>\n\n',
+                "🛖 Для начала игры используйте команду /start"
+            )
+        
+        if event.new_chat_member.status == "member":
+            welcome_text += (
+                "\n\n⚠️ Пожалуйста, <b>назначьте меня администратором</b> с правами на закрепление и удаление сообщений, <b>чтобы я мог полноценно функционировать!</b>\n"
+            )
+        
+        
+        kb = InlineKeyboardBuilder()
+        buttons = []
+        buttons.append(InlineKeyboardButton(text="❓ Помощь", switch_inline_query_current_chat="Помощь"))
+        buttons.append(InlineKeyboardButton(text="🚶‍➡️ Осмотреть поселение", switch_inline_query_current_chat="Осмотреть город"))
+        kb.row(*buttons)
+
+        await event.answer(welcome_text, reply_markup=kb.as_markup())
+    if event.new_chat_member.status in ["left", "kicked"]:
+        log.debug(f"{chat.id} | Бот удален из группы {chat.title}")
+
+
 @router.message(or_f(Command("my_id"), F.text.lower().in_({"@mysettlementbot мой айди", "мой айди", "my id", "@mysettlementbot my id"})))
 async def my_id_command(message: types.Message):
     #* Обработка команды /my_id
@@ -47,7 +77,7 @@ async def my_id_command(message: types.Message):
         )
     await message.answer(text)
 
-@router.message(or_f(Command("me"), F.text.lower().in_({"профиль", "@mysettlementbot профиль", "my profile", "@mysettlementbot my profile", "мій профіль", "@mysettlementbot мій профіль"})))
+@router.message(or_f(Command("me"), F.text.lower().in_({"профиль", "@mysettlementbot профиль", "мой профиль", "@mysettlementbot мой профиль", "my profile", "@mysettlementbot my profile", "мій профіль", "@mysettlementbot мій профіль"})))
 async def me_command(message: types.Message):
     #* Обработка команды /me
     user = await core.user_getOrCreate(message.from_user)
@@ -221,37 +251,7 @@ async def private_handler(message: types.Message):
 
 
 
-@router.my_chat_member()
-async def bot_added_to_chat_event(event: types.ChatMemberUpdated):
-    #* Приветствие при добавлении бота в группу
-    chat = event.chat
-    if event.new_chat_member.status in ["member", "administrator"]:
-        log.debug(f"{chat.id} | Бот добавлен в группу {chat.title}")
-        
-        
-        welcome_text = (
-                '🏰 <b>Добро пожаловать в игру "Поселения"!</b>\n\n',
-                "🛖 Для начала игры используйте команду /start"
-            )
-        
-        if event.new_chat_member.status == "member":
-            welcome_text += (
-                "\n\n⚠️ Пожалуйста, <b>назначьте меня администратором</b> с правами на закрепление и удаление сообщений, <b>чтобы я мог полноценно функционировать!</b>\n"
-            )
-        
-        
-        kb = InlineKeyboardBuilder()
-        buttons = []
-        buttons.append(InlineKeyboardButton(text="❓ Помощь", switch_inline_query_current_chat="Помощь"))
-        buttons.append(InlineKeyboardButton(text="🚶‍➡️ Осмотреть поселение", switch_inline_query_current_chat="Осмотреть город"))
-        kb.row(*buttons)
-
-        await event.answer(welcome_text, reply_markup=kb.as_markup())
-    if event.new_chat_member.status in ["left", "kicked"]:
-        log.debug(f"{chat.id} | Бот удален из группы {chat.title}")
-
-
-@router.message(or_f(CommandStart(), Command("town"), F.text.lower().in_({"осмотреть город", "@mysettlementbot осмотреть город", "town", "@mysettlementbot town"})))
+@router.message(or_f(CommandStart(), Command("town"), F.text.lower().in_({"осмотреть город", "@mysettlementbot осмотреть город", "осмотреть поселение", "@mysettlementbot осмотреть поселение", "town", "@mysettlementbot town"})))
 async def start_command(message: types.Message):
     #* Обработка команды /start
     user = await core.user_getOrCreate(message.from_user)

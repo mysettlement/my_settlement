@@ -467,7 +467,7 @@ def healer_tea_brewing() -> Work:
         },
         texts={
             "step_0_status": lambda step: f"🥣 <b>Измельчение коры</b> — осталось {step.rounds - step.current_round + 1}/{step.rounds}\nИзмельчи кору ступкой! 🎋",
-            "step_1_status": lambda step: f"🍵 <b>Заваривание отвара...</b> — осталось  <b>{step.get_remaining_time()}с</b>" if step.started and not step.completed else ("💧 Налей кипяток для заваривания" if not step.started else "🍵 Отвар готов!"),
+            "step_1_status": lambda step: f"🍵 <b>Заваривание отвара...</b>\n Осталось <b>{step.get_remaining_time()}с</b>" if step.started and not step.completed else ("💧 Налей кипяток для заваривания" if not step.started else "🍵 Отвар готов!"),
             "complete": "🍵 <b>Отвар готов!</b>",
             "lose": "💀 Отвар испорчен!"
         },

@@ -37,9 +37,9 @@ async def bot_added_to_chat_event(event: types.ChatMemberUpdated):
         
         
         welcome_text = (
-                '🏰 <b>Добро пожаловать в игру "Поселения"!</b>\n\n',
-                "🛖 Для начала игры используйте команду /start"
-            )
+            "🏰 <b>Добро пожаловать в игру «Поселения»!</b>\n\n"
+            "🛖 Для начала игры используйте команду /start"
+        )
         
         if event.new_chat_member.status == "member":
             welcome_text += (

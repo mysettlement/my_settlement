@@ -1,4 +1,5 @@
 from sqlalchemy import select, update
+from sqlalchemy.orm import selectinload
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 import logging
 import pytz
@@ -20,6 +21,32 @@ log = setup_logging(logger)
 
 async def availability_check():
     log.debug("🔵 Online!")
+
+async def reminder_overtime():
+    async with SessionLocal() as session:
+        try:
+            result = await session.execute(select(Settler))
+            settlers = result.scalars().all()
+        except Exception as e:
+            log.error(f"Ошибка при получении поселенцев для проверки овертайма: {e}")
+            return
+        
+        for settler in settlers:
+            if settler.overtime_is_toggled and not settler.quote_is_completed:
+                try:
+                    result = await session.execute(select(User).where(User.id == settler.user_id))
+                    user = result.scalars().first()
+                    result = await session.execute(select(Settlement).where(Settlement.id == settler.settlement_id))
+                    settlement = result.scalars().first()
+                    mention = f"<a href='tg://user?id={user.telegram_id}'>{user.name}</a>"
+                    await bot.send_message(
+                        settlement.chat_id,
+                        f"⏰ <b>{mention}, не забудь выполнить лишнюю меру!</b> ({settler.quote}/{settler.target_quote})"
+                    )
+                except Exception as e:
+                    log.error(f"Ошибка при отправке напоминания поселенцу {settler.id}: {e}")
+        
+        log.info("✅ Проверка поселенцев на переработку завершена.")
 
 async def day_reset():
     async with SessionLocal() as session:

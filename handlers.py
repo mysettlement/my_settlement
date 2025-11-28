@@ -806,7 +806,7 @@ async def quote_handler(message: types.Message):
             
         try:
             if await mfunc.is_meaningful(message.text) and not settler.quote_is_completed:
-                await core.quote_update(settler, settlement, session, 1)
+                await core.settler_updateQuote(settler, settlement, session, 1)
                 return
         except Exception as e:
             log.error(f"Ошибка в функции quote_handler(): {e}")

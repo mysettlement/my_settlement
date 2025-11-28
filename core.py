@@ -178,19 +178,19 @@ async def settler_addExp(settler: models.Settler, session: AsyncSession, exp: in
         current.exp -= current.target_exp
 
         # перерасчёт опыта и ранга
-        if settler.level < 15:
-            settler.target_exp = 2 * settler.level + 7
-            settler.rank = "Крестьянин"
-        elif settler.level < 30:
-            settler.target_exp = 5 * settler.level - 38
-            settler.rank = "Вольный"
-        elif settler.level < 45:
-            settler.target_exp = 9 * settler.level - 158
-            settler.rank = "Старейшина"
-        elif settler.level < 60:
-            settler.rank = "Дворянин"
+        if current.level < 15:
+            current.target_exp = 2 * current.level + 7
+            current.rank = "Крестьянин"
+        elif current.level < 30:
+            current.target_exp = 5 * current.level - 38
+            current.rank = "Вольный"
+        elif current.level < 45:
+            current.target_exp = 9 * current.level - 158
+            current.rank = "Старейшина"
+        elif current.level < 60:
+            current.rank = "Дворянин"
         else:
-            settler.rank = "Лорд"
+            current.rank = "Лорд"
 
         user_result = await session.execute(
             select(models.User).where(models.User.id == current.user_id)
@@ -312,68 +312,68 @@ async def settler_withdrawResource(settler: models.Settler, session: AsyncSessio
     log.debug(f"{settler.settlement_id} | {settler.user_id} | 📤 Ресурс снят: {resource.emoji} x{quantity}")
     return True, f"{resource.emoji} {quantity}"
 
-async def quote_update(settler: models.Settler, settlement: models.Settlement, session: AsyncSession, add_quote: int = 0):
+async def settler_updateQuote(settler: models.Settler, settlement: models.Settlement, session: AsyncSession, add_quote: int = 0):
     result = await session.execute(
         select(models.Settler).where(models.Settler.id == settler.id)
     )
-    current_settler = result.scalars().first()
-    if not current_settler:
+    current = result.scalars().first()
+    if not current:
         return None
 
     if settler.overtime_is_toggled:
-        current_settler.target_quote = round((current_settler.level * 0.85 + 6) + (2 * settler.overtime_count))
+        current.target_quote = round((current.level * 0.85 + 6) + (2 * settler.overtime_count))
     else:
-        current_settler.target_quote = round(current_settler.level * 0.85 + 6)
+        current.target_quote = round(current.level * 0.85 + 6)
 
-    if not current_settler.quote_is_completed:
-        current_settler.quote += add_quote
-        if current_settler.quote >= current_settler.target_quote:
-            current_settler.quote_is_completed = True
+    if not current.quote_is_completed:
+        current.quote += add_quote
+        if current.quote >= current.target_quote:
+            current.quote_is_completed = True
             user_result = await session.execute(
-                select(models.User).where(models.User.id == current_settler.user_id)
+                select(models.User).where(models.User.id == current.user_id)
             )
             user = user_result.scalars().first()
             
 
-            if current_settler.level <= 16:
+            if current.level <= 16:
                 rexp = random.randint(1, 3)
-                earned_xp = current_settler.level * 0.50 + rexp
+                earned_xp = current.level * 0.45 + rexp
                 rmoney = random.randint(2, 4)
-            elif current_settler.level <= 31:
+            elif current.level <= 31:
                 rexp = random.randint(2, 5)
-                earned_xp = current_settler.level * 0.40 + rexp
+                earned_xp = current.level * 0.35 + rexp
                 rmoney = random.randint(3, 7)
             else:
                 rexp = random.randint(4, 9)
-                earned_xp = current_settler.level * 0.20 + rexp
+                earned_xp = current.level * 0.20 + rexp
                 rmoney = random.randint(5, 13)
                 
-            earned_money = current_settler.level + rmoney
+            earned_money = current.level + rmoney
 
-            await settler_addMoney(current_settler, settlement, session, earned_money)
-            if current_settler.overtime_is_toggled:
+            await settler_addMoney(current, settlement, session, earned_money)
+            if current.overtime_is_toggled:
                 earned_xp *= 0.2
-            updated_settler = await settler_addExp(current_settler, session, earned_xp)
+            updated_settler = await settler_addExp(current, session, earned_xp)
             
             if updated_settler:
-                current_settler.quote = 0
-                if current_settler.overtime_is_toggled:
-                    current_settler.target_quote = round((updated_settler.level * 0.85 + 6) + (2 * current_settler.overtime_count))
+                current.quote = 0
+                if current.overtime_is_toggled:
+                    current.target_quote = round((updated_settler.level * 0.85 + 6) + (2 * current.overtime_count))
                 else:
-                    current_settler.target_quote = round(updated_settler.level * 0.85 + 6)
+                    current.target_quote = round(updated_settler.level * 0.85 + 6)
             
             text = (
-                f"🎉 <b>{user.name if user else f'User {current_settler.user_id}'}</b> исполнил меру <b>{current_settler.target_quote}/{current_settler.target_quote}</b>!"
+                f"📄 <b>{user.name if user else f'User {current.user_id}'}</b> исполнил меру <b>{current.target_quote}/{current.target_quote}</b>!"
                 f"\n🗂: +{round(earned_xp)} | 💰: +{round(earned_money)}" if earned_xp > 0 else f"\n💰: +{round(earned_money)}"
                 f"\nℹ️ Чтоб в мудрости возрасти, доведётся каталог 🗂 до конца довести; каталог 🗂 опыт заменяет" if updated_settler.level <= 2 and user.show_hints else ""
             )
             
             await bot.send_message(settlement.chat_id, text)
-            log.debug(f"{settlement.id} | {current_settler.user_id} | ✅ Мера исполнена: {current_settler.quote}/{current_settler.target_quote}")
+            log.debug(f"{settlement.id} | {current.user_id} | ✅ Мера исполнена: {current.quote}/{current.target_quote}")
 
-    log.debug(f"{settlement.id} | {current_settler.user_id} | 🔄 Мера обновлена: {current_settler.quote}/{current_settler.target_quote}")
+    log.debug(f"{settlement.id} | {current.user_id} | 🔄 Мера обновлена: {current.quote}/{current.target_quote}")
     await session.commit()
-    await session.refresh(current_settler, ["user", "settlement"])
+    await session.refresh(current, ["user", "settlement"])
 
 def can_work_now(settler: models.Settler) -> tuple[bool, str]:
     current_time = datetime.now()

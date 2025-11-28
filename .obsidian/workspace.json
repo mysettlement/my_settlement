@@ -4,11 +4,11 @@
     "type": "split",
     "children": [
       {
-        "id": "701fbab0c902467b",
+        "id": "20eb8199d4c8be7c",
         "type": "tabs",
         "children": [
           {
-            "id": "5f768999ac3ca2e0",
+            "id": "4920410af7a09c8f",
             "type": "leaf",
             "state": {
               "type": "markdown",
@@ -20,23 +20,8 @@
               "icon": "lucide-file",
               "title": "Профессии"
             }
-          },
-          {
-            "id": "bd265fdce55fa51e",
-            "type": "leaf",
-            "state": {
-              "type": "split-diff-view",
-              "state": {
-                "aFile": ".trash/project",
-                "bFile": ".trash/project",
-                "aRef": ""
-              },
-              "icon": "diff",
-              "title": "Diff: project"
-            }
           }
-        ],
-        "currentTab": 1
+        ]
       }
     ],
     "direction": "vertical"
@@ -206,12 +191,12 @@
       "obsidian-git:Open Git source control": false
     }
   },
-  "active": "bd265fdce55fa51e",
+  "active": "4920410af7a09c8f",
   "lastOpenFiles": [
-    "События.md",
     "Ресурсы.md",
     "Профессии.md",
-    "README.md",
+    "Docker.md",
+    "События.md",
     "project/Docker.md",
     "project/tasks.py",
     "project/sync_git.ps1",

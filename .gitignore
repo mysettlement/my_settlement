@@ -5,5 +5,6 @@
 /logs
 /.vscode
 /.venv
+/.trash
 .env
 my_settlement.code-workspace

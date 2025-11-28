@@ -379,7 +379,7 @@ def catcher_shearing() -> Work:
             "exp": None
             },
         texts={
-            "step_0_status": lambda step: f"✂️ <b>Стриги овцу:</b>\Используй ножницы аккуратно!",
+            "step_0_status": lambda step: f"✂️ <b>Стриги овцу:</b>\nИспользуй ножницы аккуратно!",
             "complete": "☁️ <b>Шерсть собрана!</b>",
             "lose": "💀 <b>Овца испугалась и убежала!</b>"
         },

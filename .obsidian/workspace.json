@@ -25,14 +25,14 @@
             "id": "bd265fdce55fa51e",
             "type": "leaf",
             "state": {
-              "type": "markdown",
+              "type": "split-diff-view",
               "state": {
-                "file": "События.md",
-                "mode": "source",
-                "source": false
+                "aFile": ".trash/project",
+                "bFile": ".trash/project",
+                "aRef": ""
               },
-              "icon": "lucide-file",
-              "title": "События"
+              "icon": "diff",
+              "title": "Diff: project"
             }
           }
         ],
@@ -206,12 +206,12 @@
       "obsidian-git:Open Git source control": false
     }
   },
-  "active": "3cac7b722f1bc306",
+  "active": "bd265fdce55fa51e",
   "lastOpenFiles": [
+    "События.md",
     "Ресурсы.md",
     "Профессии.md",
     "README.md",
-    "События.md",
     "project/Docker.md",
     "project/tasks.py",
     "project/sync_git.ps1",

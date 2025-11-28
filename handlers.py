@@ -28,6 +28,8 @@ log = setup_logging(logging.getLogger(__name__))
 
 
 
+#*================= Private chats ================*#
+
 @router.my_chat_member()
 async def bot_added_to_chat_event(event: types.ChatMemberUpdated):
     #* Приветствие при добавлении бота в группу
@@ -88,7 +90,7 @@ async def me_command(message: types.Message):
     if message.chat.type == "supergroup" or message.chat.type == "group":
         settlement = await core.settlement_getOrCreate(message.chat)
         settler = await core.settler_getOrCreate(user, settlement)
-        craft_text = f"{settler.profession.emoji} {settler.profession.name}" if settler.profession else "❓ Без дела"
+        craft_text = f"{settler.profession.emoji} {settler.profession.name}" if settler.profession else "❓ Лодырь"
         can_choose, when = mfunc.can_choose_craft(settler.last_profession_change)
         can_work, work_countdown = core.can_work_now(settler)
         
@@ -255,6 +257,8 @@ async def private_handler(message: types.Message, command: CommandObject = None)
     await message.answer(text="<b>Здрав будь!</b> Я вестник для игры в 🛖 <b>Поселения</b>.\nЧтоб в сходку свою меня позвать, <b>на знак ниже ткни:</b>", reply_markup=kb.as_markup())
 
 
+
+#*================= Group chats ================*#
 
 @router.message(or_f(CommandStart(), Command("town"), F.text.lower().in_({"осмотреть город", "@mysettlementbot осмотреть город", "осмотреть поселение", "@mysettlementbot осмотреть поселение", "town", "@mysettlementbot town"})))
 async def start_command(message: types.Message):

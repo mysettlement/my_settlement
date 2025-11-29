@@ -74,6 +74,14 @@ async def main():
         coalesce=True,
         misfire_grace_time=3600
     )
+
+    tasks.scheduler.add_job(tasks.remind_overtime,
+        "cron",
+        hour=19,
+        minute=0,
+        coalesce=True,
+        misfire_grace_time=3600
+    )
     
     tasks.scheduler.add_job(tasks.availability_check,
         "interval",

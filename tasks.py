@@ -1,5 +1,4 @@
 from sqlalchemy import select, update
-from sqlalchemy.orm import selectinload
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 import logging
 import pytz
@@ -22,7 +21,7 @@ log = setup_logging(logger)
 async def availability_check():
     log.debug("🔵 Online!")
 
-async def reminder_overtime():
+async def remind_overtime():
     async with SessionLocal() as session:
         try:
             result = await session.execute(select(Settler))

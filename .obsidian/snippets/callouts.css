@@ -1,0 +1,64 @@
+/* --- Кастомные Callout-блоки для диалогов --- */
+
+/* 1. Сообщение Пользователя (MESSAGE) */
+.callout[data-callout="message"] {
+  /* Нейтральный голубоватый оттенок фона */
+  --callout-color: 100, 150, 200; 
+  /* Иконка: RiMessage2Fill */
+  --callout-icon: lucide-message-square; 
+  /* Делаем блок тонким, с легкой границей, без ярких полос */
+  border-left: 2px solid rgba(var(--callout-color), 0.5); 
+  background-color: var(--background-secondary-alt);
+  border-radius: 4px;
+}
+.callout[data-callout="message"] .callout-title {
+  font-weight: 600;
+  color: var(--text-normal);
+  background-color: transparent;
+}
+
+
+/* 2. Ответ Бота (BOT) */
+.callout[data-callout="bot"] {
+  /* Нейтральный зеленоватый оттенок фона */
+  --callout-color: 150, 200, 100; 
+  /* Иконка: RiMessage3Fill */
+  --callout-icon: lucide-bot; 
+  /* Делаем блок тонким, с легкой границей, без ярких полос */
+  border-left: 2px solid rgba(var(--callout-color), 0.5);
+  background-color: var(--background-secondary); 
+  border-radius: 4px;
+}
+.callout[data-callout="bot"] .callout-title {
+  font-weight: 600;
+  color: var(--text-normal);
+  background-color: transparent;
+}
+
+
+/* 3. Ответ на Кнопку (BUTTON) */
+.callout[data-callout="button"] {
+  /* Серый нейтральный оттенок */
+  --callout-color: 150, 150, 150; 
+  /* Иконка: RiRadioButtonLine */
+  --callout-icon: lucide-mouse-pointer-click; 
+  /* Делаем блок тонким, с легкой границей, без ярких полос */
+  border-left: 2px solid rgba(var(--callout-color), 0.5);
+  background-color: var(--background-secondary); 
+  border-radius: 4px;
+}
+.callout[data-callout="button"] .callout-title {
+  font-weight: 600;
+  color: var(--text-normal);
+  background-color: transparent;
+}
+
+/* Общее правило: убираем лишнее выделение */
+.callout[data-callout="message"],
+.callout[data-callout="bot"],
+.callout[data-callout="button"] {
+    /* Убираем жирную верхнюю строку для более нейтрального вида */
+    border-top: none;
+    border-right: none;
+    border-bottom: none;
+}

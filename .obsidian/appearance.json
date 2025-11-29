@@ -1,4 +1,8 @@
 {
   "accentColor": "#fbab50",
-  "cssTheme": "Typewriter"
+  "cssTheme": "Typewriter",
+  "enabledCssSnippets": [
+    "buttons",
+    "callouts"
+  ]
 }

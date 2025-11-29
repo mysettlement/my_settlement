@@ -4,17 +4,17 @@
     "type": "split",
     "children": [
       {
-        "id": "20eb8199d4c8be7c",
+        "id": "d950e74df2022588",
         "type": "tabs",
         "children": [
           {
-            "id": "4920410af7a09c8f",
+            "id": "74e32229b62a8ded",
             "type": "leaf",
             "state": {
               "type": "markdown",
               "state": {
                 "file": "Профессии.md",
-                "mode": "source",
+                "mode": "preview",
                 "source": false
               },
               "icon": "lucide-file",
@@ -176,7 +176,8 @@
       }
     ],
     "direction": "horizontal",
-    "width": 300
+    "width": 300,
+    "collapsed": true
   },
   "left-ribbon": {
     "hiddenItems": {
@@ -191,12 +192,20 @@
       "obsidian-git:Open Git source control": false
     }
   },
-  "active": "4920410af7a09c8f",
+  "active": "74e32229b62a8ded",
   "lastOpenFiles": [
-    "Ресурсы.md",
+    "Постройки.md",
+    "Обмен.md",
     "Профессии.md",
-    "Docker.md",
+    "Ресурсы.md",
     "События.md",
+    "Docker.md",
+    "wiki/mysettlement.github.io/README.md",
+    "wiki/mysettlement.github.io/_posts/2025-09-25-commands.md",
+    "Без названия.base",
+    "20.11.2028.md",
+    "Без названия.canvas",
+    "Без названия 1.canvas",
     "project/Docker.md",
     "project/tasks.py",
     "project/sync_git.ps1",
@@ -207,12 +216,10 @@
     "project/main.py",
     "project/handlers.py",
     "project/gamer.py",
-    "project/exceptions.py",
     "project/additional/settlement_data_model_diagram.svg",
     "project/additional/settlement_data_model_diagram.png",
     "here/additional/settlement_data_model_diagram.png",
     "here/additional/settlement_data_model_diagram.svg",
-    "Без названия.md",
     "here/README.md",
     "🗓️ События.md",
     "🪵 Ресурсы.md",
@@ -228,10 +235,6 @@
     "copilot-custom-prompts/Emojify.md",
     "copilot-custom-prompts/Explain like I am 5.md",
     "copilot-custom-prompts/Simplify.md",
-    "copilot-custom-prompts/Summarize.md",
-    "copilot-custom-prompts/Translate to Chinese.md",
-    "copilot-custom-prompts/Fix grammar and spelling.md",
-    "Без названия 1.md",
-    "создайте ссылку.md"
+    "copilot-custom-prompts/Summarize.md"
   ]
 }

@@ -449,15 +449,23 @@ async def overtime_command(message: types.Message):
         buttons.append(InlineKeyboardButton(text="🕒 Взять лишнюю меру", callback_data="overtime_take"))
 
     kb.row(*buttons)
-    await message.answer(text, reply_markup=kb.as_markup())
+    await message.reply(text, reply_markup=kb.as_markup())
 
 @router.callback_query(F.data == "overtime_take")
 async def overtime_take(callback: types.CallbackQuery):
     #* Обработка кнопки "взять лишнюю меру"
     async with SessionLocal() as session:
+        if callback.from_user.id != callback.message.reply_to_message.from_user.id:
+            await callback.answer("❌ Не тронь чужой снасти!", True)
+            return
+
         user = await core.user_getOrCreate(callback.from_user)
         settlement = await core.settlement_getOrCreate(callback.message.chat)
         settler = await core.settler_getOrCreate(user, settlement)
+
+        if settler.overtime_is_toggled and not settler.quote_is_completed:
+            await callback.answer("❌ Лишняя мера уже взята!", True)
+            return
 
         new_quote = round((settler.level * 0.85 + 6) + (2 * (settler.overtime_count + 1)))
 

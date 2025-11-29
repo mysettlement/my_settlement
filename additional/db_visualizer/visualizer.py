@@ -17,7 +17,7 @@ import config
 from models import User, Settlement, Settler, Resource, Profession
 
 try:
-    from sqlalchemy_data_model_visualizer import generate_data_model_diagram, add_web_font_and_interactivity
+    from sqlalchemy_data_model_visualizer import generate_data_model_diagram
     import cairosvg
 except ImportError as e:
     if "sqlalchemy-data-model-visualizer" in str(e):
@@ -29,7 +29,6 @@ except ImportError as e:
     sys.exit(1)
 
 try:
-    
     # Настройка логирования
     logger = logging.getLogger(__name__)
     log = config.setup_logging(logger)

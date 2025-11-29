@@ -46,7 +46,7 @@ async def reminder_overtime():
                 except Exception as e:
                     log.error(f"Ошибка при отправке напоминания поселенцу {settler.id}: {e}")
         
-        log.info("✅ Проверка поселенцев на переработку завершена.")
+        log.info(f"✅ Проверка овертайма выполнена для {len(settlers)} поселенцев.")
 
 async def day_reset():
     async with SessionLocal() as session:
@@ -58,7 +58,7 @@ async def day_reset():
             log.error(f"Ошибка при получении поселенцев для ежедневного обновления: {e}")
             return
         
-        try: # обновление квоты
+        try: #* Обновление квоты
             overtime_settlers = [s for s in settlers if s.overtime_is_toggled and not s.quote_is_completed]
             for settler in overtime_settlers:
                 fine = 20 + settler.level

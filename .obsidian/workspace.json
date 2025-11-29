@@ -13,12 +13,12 @@
             "state": {
               "type": "markdown",
               "state": {
-                "file": "Профессии.md",
-                "mode": "preview",
+                "file": "Обмен.md",
+                "mode": "source",
                 "source": false
               },
               "icon": "lucide-file",
-              "title": "Профессии"
+              "title": "Обмен"
             }
           }
         ]
@@ -194,12 +194,20 @@
   },
   "active": "74e32229b62a8ded",
   "lastOpenFiles": [
+    "additional/db_visualizer/requirements.txt",
+    "additional/git_auto_sync.bat",
+    "additional/db_visualizer/visualizer.py",
+    "additional/db_visualizer/settlement_data_model_diagram.svg",
+    "additional/db_visualizer/settlement_data_model_diagram.png",
+    "additional/db_visualizer/settlement_data_model_diagram",
+    "additional/db_visualizer/git_auto_sync.bat",
+    "additional/db_visualizer",
     "Постройки.md",
-    "Обмен.md",
     "Профессии.md",
     "Ресурсы.md",
     "События.md",
     "Docker.md",
+    "Обмен.md",
     "wiki/mysettlement.github.io/README.md",
     "wiki/mysettlement.github.io/_posts/2025-09-25-commands.md",
     "Без названия.base",
@@ -211,11 +219,6 @@
     "project/sync_git.ps1",
     "project/reset_db.py",
     "project/requirements.txt",
-    "project/models.py",
-    "project/mfunc.py",
-    "project/main.py",
-    "project/handlers.py",
-    "project/gamer.py",
     "project/additional/settlement_data_model_diagram.svg",
     "project/additional/settlement_data_model_diagram.png",
     "here/additional/settlement_data_model_diagram.png",
@@ -234,7 +237,6 @@
     "copilot-custom-prompts/Make shorter.md",
     "copilot-custom-prompts/Emojify.md",
     "copilot-custom-prompts/Explain like I am 5.md",
-    "copilot-custom-prompts/Simplify.md",
-    "copilot-custom-prompts/Summarize.md"
+    "copilot-custom-prompts/Simplify.md"
   ]
 }

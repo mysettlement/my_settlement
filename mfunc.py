@@ -31,7 +31,7 @@ GameType = Union[Harvesting, Hitting, Catch, Alternation, Timer, Workflow]
 active_games: Dict[str, GameType] = {}
 log = setup_logging(logging.getLogger(__name__))
 
-# Система ограничений
+#* Система ограничений
 work_in_progress: Dict[int, bool] = {}  # Блокировка работы по чатам
 last_work_end_time: Dict[int, float] = {}  # Время завершения последней работы по чатам
 work_start_time: Dict[int, float] = {}  # Время начала работы по чатам

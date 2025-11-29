@@ -14,7 +14,7 @@ from gamer import Step, Hitting, Timer, Workflow, Harvesting, Catch, Alternation
 Base = declarative_base()
 
 
-#* === ПЕРЕЧИСЛЕНИЯ ===
+# === ПЕРЕЧИСЛЕНИЯ ===
 class RarityLevel(str, Enum):
     COMMON = "COMMON"
     UNCOMMON = "UNCOMMON"
@@ -40,7 +40,7 @@ RARITY_QUANTITY_RANGES = {
 
 
 
-#* === СВЯЗУЮЩИЕ ТАБЛИЦЫ ===
+# === СВЯЗУЮЩИЕ ТАБЛИЦЫ ===
 user_settlements = Table(
     "user_settlements",
     Base.metadata,
@@ -58,7 +58,7 @@ settler_resources = Table(
 
 
 
-#* === МОДЕЛИ ===
+# === МОДЕЛИ ===
 class User(Base):
     __tablename__ = "users"
 
@@ -146,7 +146,7 @@ class Profession(Base):
 
 
 
-#* === РАБОТЫ ===
+# === РАБОТЫ ===
 
 @dataclass
 class Work:

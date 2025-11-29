@@ -30,7 +30,8 @@ async def resource_getByEmoji(emoji: str, session: AsyncSession) -> models.Resou
         raise ValueError(f"Ресурс с эмодзи '{emoji}' не найден")
     return resource
 
-def resource_getRandomQuantity(resource: models.Resource) -> int:
+async def resource_getRandomQuantity(resource: models.Resource) -> int:
+    #* Получение случайного количества ресурса на основе его редкости
     if random.random() > models.RARITY_DROP_PROBABILITIES[resource.rarity]:
         return 0
 
@@ -160,6 +161,7 @@ async def settler_getOrCreate(user: models.User, settlement: models.Settlement):
         raise SettlerCreationError(f"Ошибка при создании/получении поселенца {user.id} в поселении {settlement.id}: {str(e)}", user_id=user.id)
 
 async def settler_addExp(settler: models.Settler, session: AsyncSession, exp: int):
+    #* Добавление опыта поселенцу и обработка повышения уровня
     current = await session.get(models.Settler, settler.id)
     if not current:
         result = await session.execute(select(models.Settler).where(models.Settler.id == settler.id))
@@ -226,6 +228,7 @@ async def settler_addExp(settler: models.Settler, session: AsyncSession, exp: in
     return refreshed
 
 async def settler_addMoney(settler: models.Settler, settlement: models.Settlement, session: AsyncSession, money: int):
+    #* Добавление денег поселенцу
     result = await session.execute(
         select(models.Settler).where(models.Settler.id == settler.id)
     )
@@ -313,6 +316,7 @@ async def settler_withdrawResource(settler: models.Settler, session: AsyncSessio
     return True, f"{resource.emoji} {quantity}"
 
 async def settler_updateQuote(settler: models.Settler, settlement: models.Settlement, session: AsyncSession, add_quote: int = 0):
+    #* Обновление меры поселенца и обработка её выполнения
     result = await session.execute(
         select(models.Settler).where(models.Settler.id == settler.id)
     )
@@ -321,7 +325,7 @@ async def settler_updateQuote(settler: models.Settler, settlement: models.Settle
         return None
 
     if settler.overtime_is_toggled:
-        current.target_quote = round((current.level * 0.85 + 6) + (2 * settler.overtime_count))
+        current.target_quote = round((settler.level * 0.85 + 6) + (2 * (settler.overtime_count + 1)))
     else:
         current.target_quote = round(current.level * 0.85 + 6)
 
@@ -334,7 +338,6 @@ async def settler_updateQuote(settler: models.Settler, settlement: models.Settle
             )
             user = user_result.scalars().first()
             
-
             if current.level <= 16:
                 rexp = random.randint(1, 3)
                 earned_xp = current.level * 0.45 + rexp
@@ -358,7 +361,7 @@ async def settler_updateQuote(settler: models.Settler, settlement: models.Settle
             if updated_settler:
                 current.quote = 0
                 if current.overtime_is_toggled:
-                    current.target_quote = round((updated_settler.level * 0.85 + 6) + (2 * current.overtime_count))
+                    current.target_quote = round((settler.level * 0.85 + 6) + (2 * (settler.overtime_count + 1)))
                 else:
                     current.target_quote = round(updated_settler.level * 0.85 + 6)
             
@@ -375,7 +378,8 @@ async def settler_updateQuote(settler: models.Settler, settlement: models.Settle
     await session.commit()
     await session.refresh(current, ["user", "settlement"])
 
-def can_work_now(settler: models.Settler) -> tuple[bool, str]:
+def settler_canWorkNow(settler: models.Settler) -> tuple[bool, str]:
+    #* Проверка, может ли поселенец начать новую работу с учётом кулдауна
     current_time = datetime.now()
     
     if settler.last_work_time == 0:
@@ -401,17 +405,13 @@ def can_work_now(settler: models.Settler) -> tuple[bool, str]:
 
     return True, ""
 
-async def start_workflow(
-    message_or_callback: Union[types.Message, types.CallbackQuery],
-    work: models.Work,
-    user: models.User,
-    settler: models.Settler
-):
+async def settler_startWorkflow(message_or_callback: Union[types.Message, types.CallbackQuery], work: models.Work, user: models.User, settler: models.Settler):
+    #* Запуск рабочего процесса для поселенца
     is_message = True if isinstance(message_or_callback, types.Message) else False
     chat_id = message_or_callback.chat.id if is_message else message_or_callback.message.chat.id
     user_key = f"{chat_id}_{user.telegram_id}"
 
-    can_work, countdown = can_work_now(settler)
+    can_work, countdown = settler_canWorkNow(settler)
     if not can_work:
         text = f"⏳ Труд уж завершён. Новая работа появится через: {countdown}"
         await message_or_callback.answer(text) if is_message else await message_or_callback.answer(text, show_alert=True)
@@ -453,7 +453,8 @@ async def start_workflow(
     log.debug(f"{settler.settlement_id} | {user.id} | 🚧 Работа начата: {work.name}")
     return True
 
-async def apply_rewards(work: models.Work, settler: models.Settler, session: AsyncSession) -> Tuple[Dict[models.Resource, int], int]:
+async def settler_applyRewards(work: models.Work, settler: models.Settler, session: AsyncSession) -> Tuple[Dict[models.Resource, int], int]:
+    #* Применение наград за работу поселенцу
     obtained: Dict[models.Resource, int] = {}
     exp = 0
 
@@ -473,7 +474,7 @@ async def apply_rewards(work: models.Work, settler: models.Settler, session: Asy
         elif value is not None:
             qty = int(value)
         else:
-            qty = resource_getRandomQuantity(resource)
+            qty = await resource_getRandomQuantity(resource)
 
         if qty <= 0:
             continue

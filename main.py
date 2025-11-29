@@ -85,7 +85,7 @@ async def main():
 
         #! Flood control
         try:
-            smile = random.choice(["🔵", "🌀", "🫐", "🐬"])
+            smile = random.choice(["🌀", "🫐", "🐬"])
             await bot(SetMyName(name=f"🛖 Моё Поселение! {smile}", language_code="ru"))
         except Exception as e:
             log.error(f"Flood control: {e}")
@@ -93,7 +93,7 @@ async def main():
         await dp.start_polling(bot)
     finally:
         try:
-            cry = random.choice(["🔴", "㊙️", "🍒", "🏮"])
+            cry = random.choice(["㊙️", "🍒", "🏮"])
             await bot(SetMyName(name=f"🛖 Моё Поселение! {cry}", language_code="ru"))
         except Exception as e:
             log.error(f"Flood control: {e}")

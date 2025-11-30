@@ -13,8 +13,8 @@
             "state": {
               "type": "markdown",
               "state": {
-                "file": "Обмен.md",
-                "mode": "source",
+                "file": "notes/Обмен.md",
+                "mode": "preview",
                 "source": false
               },
               "icon": "lucide-file",
@@ -78,7 +78,7 @@
       }
     ],
     "direction": "horizontal",
-    "width": 300
+    "width": 299.5
   },
   "right": {
     "id": "5217e29fb2abf052",
@@ -176,8 +176,7 @@
       }
     ],
     "direction": "horizontal",
-    "width": 300,
-    "collapsed": true
+    "width": 300
   },
   "left-ribbon": {
     "hiddenItems": {
@@ -194,6 +193,13 @@
   },
   "active": "74e32229b62a8ded",
   "lastOpenFiles": [
+    "notes/Постройки.md",
+    "notes/Профессии.md",
+    "notes/Ресурсы.md",
+    "notes/Обмен.md",
+    "notes/События.md",
+    "notes/Docker.md",
+    "notes",
     "additional/db_visualizer/requirements.txt",
     "additional/git_auto_sync.bat",
     "additional/db_visualizer/visualizer.py",
@@ -202,12 +208,6 @@
     "additional/db_visualizer/settlement_data_model_diagram",
     "additional/db_visualizer/git_auto_sync.bat",
     "additional/db_visualizer",
-    "Постройки.md",
-    "Профессии.md",
-    "Ресурсы.md",
-    "События.md",
-    "Docker.md",
-    "Обмен.md",
     "wiki/mysettlement.github.io/README.md",
     "wiki/mysettlement.github.io/_posts/2025-09-25-commands.md",
     "Без названия.base",
@@ -217,8 +217,6 @@
     "project/Docker.md",
     "project/tasks.py",
     "project/sync_git.ps1",
-    "project/reset_db.py",
-    "project/requirements.txt",
     "project/additional/settlement_data_model_diagram.svg",
     "project/additional/settlement_data_model_diagram.png",
     "here/additional/settlement_data_model_diagram.png",
@@ -232,11 +230,6 @@
     "copilot-custom-prompts/Rewrite as tweet.md",
     "copilot-custom-prompts/Remove URLs.md",
     "copilot-custom-prompts/Generate glossary.md",
-    "copilot-custom-prompts/Generate table of contents.md",
-    "copilot-custom-prompts/Make longer.md",
-    "copilot-custom-prompts/Make shorter.md",
-    "copilot-custom-prompts/Emojify.md",
-    "copilot-custom-prompts/Explain like I am 5.md",
-    "copilot-custom-prompts/Simplify.md"
+    "copilot-custom-prompts/Generate table of contents.md"
   ]
 }

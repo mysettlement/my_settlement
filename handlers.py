@@ -372,7 +372,7 @@ async def cosmetics_command(message: types.Message):
                 buttons.append(InlineKeyboardButton(text=f"{emoji}{' ✅' if emoji == settler.emoji else ''}", callback_data=f"cosmetics_select_{emoji}"))
     
     kb = InlineKeyboardBuilder().row(*buttons)
-    await message.reply(text=text, reply_markup=kb.as_markup())
+    await message.reply(text=text, reply_markup=kb.as_markup(), disable_notification=True)
 
 @router.callback_query(F.data.startswith("cosmetics_select_"))
 async def cosmetics_select(callback: types.CallbackQuery):
@@ -454,7 +454,7 @@ async def overtime_command(message: types.Message):
         buttons.append(InlineKeyboardButton(text="🕒 Взять лишнюю меру", callback_data="overtime_take"))
 
     kb.row(*buttons)
-    await message.reply(text, reply_markup=kb.as_markup())
+    await message.reply(text, reply_markup=kb.as_markup(), disable_notification=True)
 
 @router.callback_query(F.data == "overtime_take")
 async def overtime_take(callback: types.CallbackQuery):

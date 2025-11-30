@@ -40,7 +40,8 @@ async def remind_overtime():
                     mention = f"<a href='tg://user?id={user.telegram_id}'>{user.name}</a>"
                     await bot.send_message(
                         settlement.chat_id,
-                        f"⏰ <b>{mention}, не забудь выполнить лишнюю меру!</b> ({settler.quote}/{settler.target_quote})"
+                        f"⏰ <b>{mention}, не забудь выполнить лишнюю меру!</b> ({settler.quote}/{settler.target_quote})",
+                        disable_notification=False
                     )
                 except Exception as e:
                     log.error(f"Ошибка при отправке напоминания поселенцу {settler.id}: {e}")
@@ -78,7 +79,7 @@ async def day_reset():
                     )
                     settlement = settlement_result.scalars().first()
                     if settlement:
-                        await bot.send_message(settlement.chat_id, f"⚠️ <b>{mention} не поспел(а) свершить лишнюю меру!</b> Вира наложена: 💰 <b>{fine}</b>. Впредь будь расторопнее!")
+                        await bot.send_message(settlement.chat_id, f"⚠️ <b>{mention} не поспел(а) свершить лишнюю меру!</b> Вира наложена: 💰 <b>{fine}</b>. Впредь будь расторопнее!", disable_notification=False)
             
             await session.execute(
                 update(Settler)

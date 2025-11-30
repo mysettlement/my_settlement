@@ -6,11 +6,11 @@
     "emojiStyle": "native",
     "iconColor": null,
     "recentlyUsedIcons": [
-      "CoHouse01",
-      "RiExchangeDollarLine",
-      "LiRemixExchangeDollarLine",
-      "LiRemixExchangeFill",
-      "LiRemixExchangeLine"
+      "🐋",
+      "TiCalendarStar",
+      "TiWood",
+      "FiBriefcase",
+      "CoHouse01"
     ],
     "recentlyUsedIconsSize": 5,
     "rules": [],
@@ -35,10 +35,10 @@
     "useInternalPlugins": false
   },
   "_resources": "LiRemixDatabase2Fill",
-  "События.md": "LiCalendarPlus",
-  "Профессии.md": "LiBriefcaseBusiness",
-  "Ресурсы.md": "LiAnvil",
-  "Docker.md": "🐋",
-  "Обмен.md": "RiExchangeDollarLine",
-  "Постройки.md": "CoHouse01"
+  "notes/Обмен.md": "RiExchangeDollarLine",
+  "notes/Постройки.md": "CoHouse01",
+  "notes/Профессии.md": "FiBriefcase",
+  "notes/Ресурсы.md": "TiWood",
+  "notes/События.md": "TiCalendarStar",
+  "notes/Docker.md": "🐋"
 }

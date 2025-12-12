@@ -6,9 +6,9 @@ from aiogram import Bot
 from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ParseMode
 
-from config import setup_logging, settings
-from db import SessionLocal
-from models import Settler, User, Settlement
+from app.config import setup_logging, settings
+from app.db import SessionLocal
+from app.models import Settler, User, Settlement
 
 bot = Bot(
     token=settings.BOT_TOKEN,

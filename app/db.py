@@ -3,9 +3,9 @@ from sqlalchemy import URL, text
 
 import logging
 
-from config import settings, setup_logging
-import models
-from models import Base
+from app.config import settings, setup_logging
+import app.models as models
+from app.models import Base
 
 
 log = setup_logging(logging.getLogger(__name__))

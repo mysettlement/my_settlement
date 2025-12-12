@@ -11,13 +11,13 @@ from sqlalchemy.orm import selectinload
 import logging
 from datetime import datetime
 
-from config import setup_logging, settings
-from db import SessionLocal
-import core
-from gamer import Workflow, Harvesting, Hitting, Catch, Alternation, ProgressBar
-import models
-from mfunc import active_games
-import mfunc
+from app.config import setup_logging, settings
+from app.db import SessionLocal
+import app.core as core
+from app.gamer import Workflow, Harvesting, Hitting, Catch, Alternation, ProgressBar
+import app.models as models
+from app.mfunc import active_games
+import app.mfunc as mfunc
 
 bot = Bot(
         token=settings.BOT_TOKEN,

@@ -8,12 +8,12 @@ from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ParseMode
 from aiogram.methods.set_my_name import SetMyName
 
-import config
-import handlers
-import db
-import mfunc
-import tasks
-from exceptions import ErrorMiddleware
+import app.config as config
+import app.handlers as handlers
+import app.db as db
+import app.mfunc as mfunc
+import app.tasks as tasks
+from app.exceptions import ErrorMiddleware
     
 bot = Bot(
     token=config.settings.BOT_TOKEN,

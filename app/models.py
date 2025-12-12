@@ -8,7 +8,7 @@ from dataclasses import dataclass, field
 import copy
 import random
 
-from gamer import Step, Hitting, Timer, Workflow, Harvesting, Catch, Alternation, ProgressBar
+from app.gamer import Step, Hitting, Timer, Workflow, Harvesting, Catch, Alternation, ProgressBar
 
 
 Base = declarative_base()

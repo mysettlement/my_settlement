@@ -8,9 +8,9 @@ import asyncio
 from sqlalchemy.ext.asyncio import create_async_engine
 from sqlalchemy import text
 
-from config import settings, setup_logging
-import models
-from db import Base
+from app.config import settings, setup_logging
+import app.models as models
+from app.db import Base
 
 import logging
 

@@ -15,10 +15,10 @@ from aiogram import Bot, types
 from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ParseMode
 
-from config import setup_logging, settings
-from gamer import Harvesting, Hitting, Timer, Catch, Alternation, Workflow
-from exceptions import GroupOwnerError
-import models
+from app.config import setup_logging, settings
+from app.gamer import Harvesting, Hitting, Timer, Catch, Alternation, Workflow
+from app.exceptions import GroupOwnerError
+import app.models as models
 
 
 

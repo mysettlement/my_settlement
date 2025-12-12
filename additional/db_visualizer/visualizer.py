@@ -13,8 +13,8 @@ import logging
 sys.path.append(str(Path(__file__).parent.parent))
 os.environ["PATH"] += os.pathsep + 'C:/Users/pcs/programs/Graphviz/bin'
 
-import config
-from models import User, Settlement, Settler, Resource, Profession
+import app.config as config
+from app.models import User, Settlement, Settler, Resource, Profession
 
 try:
     from sqlalchemy_data_model_visualizer import generate_data_model_diagram
@@ -103,7 +103,7 @@ def main():
     log.info("🚀 Запуск визуализатора SQLAlchemy моделей")
     
     try:
-        from models import User, Settlement, Settler
+        from app.models import User, Settlement, Settler
         log.info("✅ Модели успешно импортированы")
     except ImportError as e:
         log.error(f"❌ Ошибка импорта моделей: {e}")

@@ -1,5 +1,5 @@
 from aiogram import BaseMiddleware, types
-from config import setup_logging
+from app.config import setup_logging
 import logging
 
 log = setup_logging(logging.getLogger(__name__))

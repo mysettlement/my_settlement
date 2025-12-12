@@ -7,7 +7,7 @@ import asyncio
 import random
 import copy
 
-from config import setup_logging
+from app.config import setup_logging
 
 
 logger = logging.getLogger(__name__)

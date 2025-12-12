@@ -4,7 +4,7 @@ services:
       context: .
       dockerfile: Dockerfile
     image: my-settlement:latest
-    command: python main.py
+    command: python -m main
     env_file:
       - .env 
     environment:

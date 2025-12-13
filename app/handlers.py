@@ -38,7 +38,20 @@ async def bot_added_to_chat_event(event: types.ChatMemberUpdated):
 
     if event.new_chat_member.status in ["left", "kicked"]:
         log.debug(f"{chat.id} | Бот исключен из группы {chat.title}")
-        await event.answer("<b>Оставьте отзыв об игре</b>, это сильно поможет!")
+        try:
+            await bot.send_message(
+                chat_id=event.from_user.id,
+                text=(
+                    f"🏰 <b>Я покинул стены поселения «{chat.title}»...</b>\n"
+                    "Буду признателен, если расскажешь, что пошло не так.\n"
+                    "Это поможет мне стать лучше для других правителей."
+                ),
+                reply_markup=InlineKeyboardBuilder()
+                .add(InlineKeyboardButton(text="✍️ Пройти опрос (1 мин)", url="https://tally.so/r/2EXdND"))
+                .as_markup()
+            )
+        except:
+            log.debug(f"Не удалось отправить опрос пользователю {event.from_user.id}")
         return
     
     if event.old_chat_member.status not in ["member", "administrator", "restricted"] and event.new_chat_member.status in ["member", "administrator"]:
@@ -50,7 +63,7 @@ async def bot_added_to_chat_event(event: types.ChatMemberUpdated):
         )
 
         kb.add(InlineKeyboardButton(text="❓ Помощь", switch_inline_query_current_chat="Помощь"))
-        kb.add(InlineKeyboardButton(text="🚶‍➡️ Осмотреть поселение", switch_inline_query_current_chat="Осмотреть город"))
+        kb.add(InlineKeyboardButton(text="🚶‍➡️ Осмотреть поселение", switch_inline_query_current_chat="Осмотреть поселение"))
 
         if event.new_chat_member.status == "member":
             text += "\n\n⚠️ Пожалуйста, <b>назначьте меня администратором</b> с правами на <i>закрепление</i> и <i>удаление</i> сообщений, <b>чтобы я мог полноценно функционировать!</b>"

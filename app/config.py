@@ -18,7 +18,7 @@ class Settings(BaseSettings):
     
     # -- USER SETTINGS --
     BOT_TOKEN: str
-    BOT_USERNAME: str
+    BOT_USERNAME: str # Без @ или t.me/. Пример: mysettlementbot
     
     DB_HOST: str
     DB_PORT: int

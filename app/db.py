@@ -36,7 +36,7 @@ async def init_db():
                     
                     tables = [row[0] for row in result.fetchall()]
                     if not tables:
-                        log.info("🛠️ Таблицы не найдены. Пересоздание...")
+                        log.warning("🛠️ Таблицы не найдены. Пересоздание...")
                         await conn.run_sync(Base.metadata.create_all)
                         
                         result = await conn.execute(text("""

@@ -86,7 +86,6 @@ async def is_text_command(message, user, commands: dict[str, Callable], *, thres
     return FuzzyMatch(True, command_text, score)
     
 
-
 async def get_group_owner(chat_id: int) -> types.User:
     try:
         chat_admins = await bot.get_chat_administrators(chat_id)

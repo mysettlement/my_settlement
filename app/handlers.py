@@ -34,34 +34,44 @@ log = setup_logging(logging.getLogger(__name__))
 async def bot_added_to_chat_event(event: types.ChatMemberUpdated):
     #* Приветствие при добавлении бота в группу
     chat = event.chat
-    if event.new_chat_member.status in ["member", "administrator"]:
-        log.debug(f"{chat.id} | Бот добавлен в группу {chat.title}")
-        
-        
-        welcome_text = (
+    kb = InlineKeyboardBuilder()
+
+    if event.new_chat_member.status in ["left", "kicked"]:
+        log.debug(f"{chat.id} | Бот исключен из группы {chat.title}")
+        #TODO: await event.answer("<b>Оставьте отзыв об игре</b>, это сильно поможет!")
+        return
+    
+    if event.old_chat_member.status not in ["member", "administrator", "restricted"] and event.new_chat_member.status in ["member", "administrator"]:
+        text_log = (f"{chat.id} | Бот добавлен в группу {chat.title}")
+
+        text = (
             "🏰 <b>Добро пожаловать в игру «Поселения»!</b>\n\n"
             "🛖 Для начала игры используйте команду /start"
         )
-        
-        if event.new_chat_member.status == "member":
-            welcome_text += (
-                "\n\n⚠️ Пожалуйста, <b>назначьте меня администратором</b> с правами на закрепление и удаление сообщений, <b>чтобы я мог полноценно функционировать!</b>\n"
-            )
-        
-        
-        kb = InlineKeyboardBuilder()
-        buttons = []
-        buttons.append(InlineKeyboardButton(text="❓ Помощь", switch_inline_query_current_chat="Помощь"))
-        buttons.append(InlineKeyboardButton(text="🚶‍➡️ Осмотреть поселение", switch_inline_query_current_chat="Осмотреть город"))
-        kb.row(*buttons)
 
-        await event.answer(welcome_text, reply_markup=kb.as_markup())
-    if event.new_chat_member.status in ["left", "kicked"]:
-        log.debug(f"{chat.id} | Бот удален из группы {chat.title}")
+        kb.add(InlineKeyboardButton(text="❓ Помощь", switch_inline_query_current_chat="Помощь"))
+        kb.add(InlineKeyboardButton(text="🚶‍➡️ Осмотреть поселение", switch_inline_query_current_chat="Осмотреть город"))
+
+        if event.new_chat_member.status == "member":
+            text += "\n\n⚠️ Пожалуйста, <b>назначьте меня администратором</b> с правами на <i>закрепление</i> и <i>удаление</i> сообщений, <b>чтобы я мог полноценно функционировать!</b>"
+            text_log += " без прав администратора!"
+        
+    
+    elif event.new_chat_member.status == "administrator" and event.old_chat_member.status in ["member", "restricted"]:
+        text = "✅ <b>Спасибо</b>, что назначили меня администратором!"
+        text_log = f"{chat.id} | Бот назначен администратором"
+    
+    elif event.new_chat_member.status in ["member", "restricted"] and event.old_chat_member.status == "administrator":
+        text = "⚠️ Пожалуйста, <b>назначьте меня администратором</b> с правами на <i>закрепление</i> и <i>удаление</i> сообщений, <b>чтобы я мог полноценно функционировать!</b>"
+        text_log = f"{chat.id} | Бот снят с администратора"
+    
+    await event.answer(text, reply_markup=kb.as_markup())
+    log.debug(text_log)
+
 
 
 @fuzzy("мой айди", "my id", "мій айді")
-@router.message(or_f(Command("my_id"), F.text.lower().in_({"@mysettlementbot мой айди", "мой айди", "мой ид", "@mysettlementbot my id", "my id", "@mysettlementbot мій айді", "мій айді", "мій ід"})))
+@router.message(or_f(Command("my_id"), F.text.lower().in_({"мой айди", "мой ид", f"@{settings.BOT_USERNAME} мой айди", "my id", f"@{settings.BOT_USERNAME} my id", "мій айді", "мій ід", f"@{settings.BOT_USERNAME} мій айді", f"@{settings.BOT_USERNAME} мій ід"})))
 async def my_id_command(message: types.Message):
     #* Показать ID пользователя
     user = await core.user_getOrCreate(message.from_user)
@@ -81,7 +91,7 @@ async def my_id_command(message: types.Message):
     await message.answer(text)
 
 @fuzzy("профиль", "мой профиль", "my profile", "мій профіль")
-@router.message(or_f(Command("me"), F.text.lower().in_({"профиль", "@mysettlementbot профиль", "мой профиль", "@mysettlementbot мой профиль", "my profile", "@mysettlementbot my profile", "мій профіль", "@mysettlementbot мій профіль"})))
+@router.message(or_f(Command("me"), F.text.lower().in_({"профиль", f"@{settings.BOT_USERNAME} профиль", "мой профиль", f"@{settings.BOT_USERNAME} мой профиль", "my profile", f"@{settings.BOT_USERNAME} my profile", "мій профіль", f"@{settings.BOT_USERNAME} мій профіль"})))
 async def me_command(message: types.Message):
     #* Профиль поселенца
     user = await core.user_getOrCreate(message.from_user)
@@ -150,7 +160,7 @@ async def me_command(message: types.Message):
 
 
 @fuzzy("настройки", "settings", "налаштування")
-@router.message(or_f(Command("settings"), F.text.lower().in_({"настройки", "@mysettlementbot настройки", "settings", "@mysettlementbot settings", "налаштування", "@mysettlementbot налаштування"})))
+@router.message(or_f(Command("settings"), F.text.lower().in_({"настройки", f"@{settings.BOT_USERNAME} настройки", "settings", f"@{settings.BOT_USERNAME} settings", "налаштування", f"@{settings.BOT_USERNAME} налаштування"})))
 async def settings_command(message: types.Message):
     #* Настройки пользователя
     user = await core.user_getOrCreate(message.from_user)
@@ -243,7 +253,7 @@ async def settings_callback(callback: types.CallbackQuery):
         await callback.message.edit_reply_markup(reply_markup=kb.as_markup())
 
 @fuzzy("help", "помощь", "допомога")
-@router.message(or_f(Command("help"), F.text.lower().in_({"помощь", "@mysettlementbot помощь", "help", "@mysettlementbot help", "допомога", "@mysettlementbot допомога"})))
+@router.message(or_f(Command("help"), F.text.lower().in_({"помощь", f"@{settings.BOT_USERNAME} помощь", "help", f"@{settings.BOT_USERNAME} help", "допомога", f"@{settings.BOT_USERNAME} допомога"})))
 async def help_command(message: types.Message):
     #* Помощь и руководство по игре
     help_text = (
@@ -280,7 +290,7 @@ async def private_handler(message: types.Message, command: CommandObject = None)
 # ================= Group chats ================
 
 @fuzzy("осмотреть город", "осмотреть поселение", "мое поселение", "моё поселение", "town")
-@router.message(or_f(CommandStart(), Command("town"), F.text.lower().in_({"осмотреть город", "@mysettlementbot осмотреть город", "осмотреть поселение", "@mysettlementbot осмотреть поселение", "town", "@mysettlementbot town"})))
+@router.message(or_f(CommandStart(), Command("town"), F.text.lower().in_({"осмотреть город", f"@{settings.BOT_USERNAME} осмотреть город", "осмотреть поселение", f"@{settings.BOT_USERNAME} осмотреть поселение", "town", f"@{settings.BOT_USERNAME} town"})))
 async def start_command(message: types.Message):
     #* Осмотр поселения / старт игры
     user = await core.user_getOrCreate(message.from_user)
@@ -317,7 +327,7 @@ async def start_command(message: types.Message):
 
 
 # @fuzzy("назвать поселение", "name settlement")
-# @router.message(or_f(Command("name_settlement"), F.text.startswith.lower().in_({"назвать поселение", "@mysettlementbot назвать поселение", "name settlement", "@mysettlementbot name settlement"})))
+# @router.message(or_f(Command("name_settlement"), F.text.startswith.lower().in_({"назвать поселение", f"@{settings.BOT_USERNAME} назвать поселение", "name settlement", f"@{settings.BOT_USERNAME} name settlement"})))
 # async def name_settlement(message: types.Message):
 #     #* Смена имени поселения
 #     user = await core.user_getOrCreate(message.from_user)
@@ -358,7 +368,7 @@ async def start_command(message: types.Message):
 
 
 @fuzzy("косметика", "cosmetics")
-@router.message(or_f(Command("cosmetics"), F.text.lower().in_({"косметика", "@mysettlementbot косметика", "cosmetics", "@mysettlementbot cosmetics"})))
+@router.message(or_f(Command("cosmetics"), F.text.lower().in_({"косметика", f"@{settings.BOT_USERNAME} косметика", "cosmetics", f"@{settings.BOT_USERNAME} cosmetics"})))
 async def cosmetics_command(message: types.Message):
     #* Косметика поселенца
     user = await core.user_getOrCreate(message.from_user)
@@ -444,7 +454,7 @@ async def cosmetics_select(callback: types.CallbackQuery):
 
 
 @fuzzy("лишняя мера", "overtime", "зайва міра")
-@router.message(or_f(Command("overtime"), F.text.lower().in_({"лишняя мера", "@mysettlementbot лишняя мера", "overtime", "@mysettlementbot overtime", "зайва міра", "@mysettlementbot зайва міра"})))
+@router.message(or_f(Command("overtime"), F.text.lower().in_({"лишняя мера", f"@{settings.BOT_USERNAME} лишняя мера", "overtime", f"@{settings.BOT_USERNAME} overtime", "зайва міра", f"@{settings.BOT_USERNAME} зайва міра"})))
 async def overtime_command(message: types.Message):
     #* Лишняя мера поселенца
     user = await core.user_getOrCreate(message.from_user)
@@ -516,7 +526,7 @@ async def overtime_take(callback: types.CallbackQuery):
 
 
 @fuzzy("инвентарь", "inventory", "інвентар")
-@router.message(or_f(Command("inventory"), F.text.lower().in_({"инвентарь", "@mysettlementbot инвентарь", "inventory", "@mysettlementbot inventory", "інвентар", "@mysettlementbot інвентар"})))
+@router.message(or_f(Command("inventory"), F.text.lower().in_({"инвентарь", f"@{settings.BOT_USERNAME} инвентарь", "inventory", f"@{settings.BOT_USERNAME} inventory", "інвентар", f"@{settings.BOT_USERNAME} інвентар"})))
 async def inventory_command(message: types.Message):
     #* Инвентарь поселенца
     user = await core.user_getOrCreate(message.from_user)
@@ -558,7 +568,7 @@ async def inventory_command(message: types.Message):
 
 
 @fuzzy("выбрать ремесло", "choose craft", "вибрати ремесло")
-@router.message(or_f(Command("choose_craft"), F.text.lower().in_({"выбрать ремесло", "@mysettlementbot выбрать ремесло", "choose craft", "@mysettlementbot choose craft"})))
+@router.message(or_f(Command("choose_craft"), F.text.lower().in_({"выбрать ремесло", f"@{settings.BOT_USERNAME} выбрать ремесло", "choose craft", f"@{settings.BOT_USERNAME} choose craft"})))
 async def choose_craft_command(message: types.Message):
     #* Выбор ремесла поселенца
     user = await core.user_getOrCreate(message.from_user)
@@ -639,8 +649,8 @@ async def select_craft_callback(callback: types.CallbackQuery):
         await callback.message.edit_text(f"✅ <b>{callback.from_user.full_name}</b> ремесло себе избрал: {profession.emoji} <b>{profession.name}!</b>", reply_markup=kb.as_markup())
         log.debug(f"{callback.message.chat.id} | {settler.user_id} | 💼 Выбрано ремесло: {profession.name}")
 
-@fuzzy("трудиться", "craft", "трудитися")
-@router.message(or_f(Command("craft"), F.text.lower().in_({"трудиться", "@mysettlementbot трудиться", "craft", "@mysettlementbot craft", "трудитися", "@mysettlementbot трудитися"})))
+@fuzzy("трудиться", "craft", "трудитися", "працювати")
+@router.message(or_f(Command("craft"), F.text.lower().in_({"трудиться", f"@{settings.BOT_USERNAME} трудиться", "craft", f"@{settings.BOT_USERNAME} craft", "трудитися", f"@{settings.BOT_USERNAME} трудитися", "працювати", f"@{settings.BOT_USERNAME} працювати"})))
 async def craft_command(message: types.Message):
     #* Начало труда поселенца
     user = await core.user_getOrCreate(message.from_user)

@@ -92,22 +92,18 @@ async def main():
         tasks.scheduler.start()
 
         await dp.start_polling(bot)
-        # try:
-        #     smile = random.choice(["🌀", "🫐", "🐬"])
-        #     await bot(SetMyName(name=f"🛖 Моё Поселение! {smile}", language_code="ru"))
-        # except:
-        #     log.error(f"Flood control")
+        if config.settings.BOT_USERNAME == "mysettlementbot":
+            smile = random.choice(["🌀", "🫐", "🐬"])
+            await bot.set_my_name(name=f"🛖 Моё Поселение! {smile}", language_code="ru")
         log.info("🟢 Бот запущен!")
     finally:
         for task in mfunc.work_timeout_tasks.values():
             task.cancel()
         mfunc.work_timeout_tasks.clear()
         tasks.scheduler.shutdown()
-        # try:
-        #     cry = random.choice(["㊙️", "🍒", "🏮"])
-        #     await bot(SetMyName(name=f"🛖 Моё Поселение! {cry}", language_code="ru"))
-        # except:
-        #     log.error(f"Flood control")
+        if config.settings.BOT_USERNAME == "mysettlementbot":
+            cry = random.choice(["㊙️", "🍒", "🏮"])
+            await bot.set_my_name(name=f"🛖 Моё Поселение! {cry}", language_code="ru")
         await bot.session.close()
         log.info("🔴 Бот остановлен!")
 

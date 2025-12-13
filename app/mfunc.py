@@ -3,11 +3,12 @@ import time
 import asyncio
 import pytz
 import re
-from typing import Optional
+from typing import Optional, NamedTuple
 from wordfreq import zipf_frequency
 from langdetect import detect, DetectorFactory
+from rapidfuzz import process, fuzz
 from functools import lru_cache
-from typing import Dict, Union
+from typing import Dict, Union, Callable
 from datetime import datetime, timedelta
 from sqlalchemy import update
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -26,10 +27,10 @@ bot = Bot(
     token=settings.BOT_TOKEN,
     default=DefaultBotProperties(parse_mode=ParseMode.HTML)
 )
-
 GameType = Union[Harvesting, Hitting, Catch, Alternation, Timer, Workflow]
 active_games: Dict[str, GameType] = {}
 log = setup_logging(logging.getLogger(__name__))
+
 
 #* Система ограничений
 work_in_progress: Dict[int, bool] = {}  # Блокировка работы по чатам
@@ -37,6 +38,7 @@ last_work_end_time: Dict[int, float] = {}  # Время завершения п�
 work_start_time: Dict[int, float] = {}  # Время начала работы по чатам
 work_timeout_tasks: Dict[int, asyncio.Task] = {}  # Задачи таймаута работы по чатам
 user_last_click_time: Dict[str, float] = {}  # Последнее нажатие кнопки для каждого пользователя
+
 
 DetectorFactory.seed = 0
 
@@ -46,6 +48,43 @@ SUPPORTED_LANGS = {
     'mr', 'ur', 'th', 'ko', 'ja', 'zh'
 }
 
+
+class FuzzyMatch(NamedTuple):
+    matched: bool
+    command: Optional[str]
+    score: int
+
+def fuzzy(*aliases: str):
+    def wrapper(func: Callable):
+        func.__fuzzy_aliases__ = tuple(a.lower() for a in aliases)
+        return func
+    return wrapper
+
+async def is_text_command(message, user, commands: dict[str, Callable], *, threshold: int = 90.1) -> FuzzyMatch:
+    if not message.text or message.text.startswith("/"):
+        return FuzzyMatch(False, None, 0)
+
+    if not getattr(user, "allow_typos", False):
+        return FuzzyMatch(False, None, 0)
+
+    text = message.text.lower().strip()
+
+    match = process.extractOne(
+        text,
+        commands.keys(),
+        scorer=fuzz.WRatio
+    )
+
+    if not match:
+        return FuzzyMatch(False, None, 0)
+
+    command_text, score, _ = match
+
+    if score < threshold:
+        return FuzzyMatch(False, command_text, score)
+
+    return FuzzyMatch(True, command_text, score)
+    
 
 
 async def get_group_owner(chat_id: int) -> types.User:

@@ -91,25 +91,24 @@ async def main():
     try:
         tasks.scheduler.start()
 
-        #! Flood control
-        try:
-            smile = random.choice(["🌀", "🫐", "🐬"])
-            await bot(SetMyName(name=f"🛖 Моё Поселение! {smile}", language_code="ru"))
-        except Exception as e:
-            log.error(f"Flood control: {e}")
-        log.info("🟢 Бот запущен!")
         await dp.start_polling(bot)
+        # try:
+        #     smile = random.choice(["🌀", "🫐", "🐬"])
+        #     await bot(SetMyName(name=f"🛖 Моё Поселение! {smile}", language_code="ru"))
+        # except:
+        #     log.error(f"Flood control")
+        log.info("🟢 Бот запущен!")
     finally:
-        try:
-            cry = random.choice(["㊙️", "🍒", "🏮"])
-            await bot(SetMyName(name=f"🛖 Моё Поселение! {cry}", language_code="ru"))
-        except Exception as e:
-            log.error(f"Flood control: {e}")
         for task in mfunc.work_timeout_tasks.values():
             task.cancel()
         mfunc.work_timeout_tasks.clear()
-        await bot.session.close()
         tasks.scheduler.shutdown()
+        # try:
+        #     cry = random.choice(["㊙️", "🍒", "🏮"])
+        #     await bot(SetMyName(name=f"🛖 Моё Поселение! {cry}", language_code="ru"))
+        # except:
+        #     log.error(f"Flood control")
+        await bot.session.close()
         log.info("🔴 Бот остановлен!")
 
 

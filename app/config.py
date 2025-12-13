@@ -108,12 +108,12 @@ class ColoredFormatter(logging.Formatter):
         log_message = super().format(record)
         
         # Добавляем цвета для консольного вывода
-        if hasattr(record, 'levelname') and record.levelname in self.COLORS:
+        if hasattr(record, 'levelname') and record.levelname in Changeable.COLORS:
             color = Changeable.COLORS[record.levelname]
             reset = Colors.RESET
 
             # Эмодзи для разных уровней
-            if settings.EMOJIS:
+            if Changeable.EMOJIS:
                 emoji = Changeable.EMOJIS.get(record.levelname, '')
             else:
                 emoji = ''

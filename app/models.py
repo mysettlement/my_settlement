@@ -67,6 +67,7 @@ class User(Base):
     name = Column(String)
     compact_style = Column(Boolean, server_default="False")
     show_hints = Column(Boolean, server_default="True")
+    allow_typos = Column(Boolean, server_default="False")
 
     owned = relationship("Settlement", back_populates="owner")
     memberships = relationship("Settler", back_populates="user")

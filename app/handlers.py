@@ -16,7 +16,7 @@ from app.db import SessionLocal
 import app.core as core
 from app.gamer import Workflow, Harvesting, Hitting, Catch, Alternation, ProgressBar
 import app.models as models
-from app.mfunc import active_games
+from app.mfunc import active_games, fuzzy
 import app.mfunc as mfunc
 
 bot = Bot(
@@ -60,7 +60,8 @@ async def bot_added_to_chat_event(event: types.ChatMemberUpdated):
         log.debug(f"{chat.id} | Бот удален из группы {chat.title}")
 
 
-@router.message(or_f(Command("my_id"), F.text.lower().in_({"@mysettlementbot мой айди", "мой айди", "my id", "@mysettlementbot my id"})))
+@fuzzy("мой айди", "my id", "мій айді")
+@router.message(or_f(Command("my_id"), F.text.lower().in_({"@mysettlementbot мой айди", "мой айди", "мой ид", "@mysettlementbot my id", "my id", "@mysettlementbot мій айді", "мій айді", "мій ід"})))
 async def my_id_command(message: types.Message):
     #* Показать ID пользователя
     user = await core.user_getOrCreate(message.from_user)
@@ -79,6 +80,7 @@ async def my_id_command(message: types.Message):
         )
     await message.answer(text)
 
+@fuzzy("профиль", "мой профиль", "my profile", "мій профіль")
 @router.message(or_f(Command("me"), F.text.lower().in_({"профиль", "@mysettlementbot профиль", "мой профиль", "@mysettlementbot мой профиль", "my profile", "@mysettlementbot my profile", "мій профіль", "@mysettlementbot мій профіль"})))
 async def me_command(message: types.Message):
     #* Профиль поселенца
@@ -147,7 +149,8 @@ async def me_command(message: types.Message):
         await message.answer(text)
 
 
-@router.message(or_f(Command("settings"), F.text.lower().in_({"настройки", "@mysettlementbot настройки", "settings", "@mysettlementbot settings"})))
+@fuzzy("настройки", "settings", "налаштування")
+@router.message(or_f(Command("settings"), F.text.lower().in_({"настройки", "@mysettlementbot настройки", "settings", "@mysettlementbot settings", "налаштування", "@mysettlementbot налаштування"})))
 async def settings_command(message: types.Message):
     #* Настройки пользователя
     user = await core.user_getOrCreate(message.from_user)
@@ -156,17 +159,22 @@ async def settings_command(message: types.Message):
 
     compact_style = user.compact_style
     show_hints = user.show_hints
+    allow_typos = user.allow_typos
     #TODO: XXX = user.XXX
 
-    buttons.append(InlineKeyboardButton(text=f"{"🎩" if compact_style else '🎩 Стиль'}: {'🤏' if compact_style else '🤲'}", callback_data="settings:compact_style"))
-    buttons.append(InlineKeyboardButton(text=f"{"ℹ️" if compact_style else 'ℹ️ Подсказки'}: {'✅' if show_hints else '❌'}", callback_data="settings:show_hints"))
+    buttons.append(InlineKeyboardButton(text=f"{'🎩' if compact_style else '🎩 Стиль'}: {'🤏' if compact_style else '🤲'}", callback_data="settings:compact_style"))
+    buttons.append(InlineKeyboardButton(text=f"{'ℹ️' if compact_style else 'ℹ️ Подсказки'}: {'✅' if show_hints else '❌'}", callback_data="settings:show_hints"))
+    buttons.append(InlineKeyboardButton(text=f"{'✍️' if compact_style else '✍️ Опечатки'}: {'✅' if allow_typos else '❌'}", callback_data="settings:allow_typos"))
+    #TODO: buttons.append(InlineKeyboardButton(text=f"{'' if compact_style else ''}: {'✅' if XXX else '❌'}", callback_data="settings:XXX"))
     kb.row(*buttons, width=2)
     
     text = f"⚙️ <b>Настройки</b>"
-    text += f"\n🎩 Стиль сообщений: <b>{'🤏 Компактный' if compact_style else '🤲 Развёрнутый'}</b>"
+    text += f"\n🎩 Стиль: <b>{'🤏 Компактный' if compact_style else '🤲 Развёрнутый'}</b>"
     text += f"\nℹ️ Подсказки: <b>{'✅ Включены' if show_hints else '❌ Выключены'}</b>"
-    #TODO: text += f"\n"
+    text += f"\n✍️ Опечатки: <b>{'✅ Учитывать' if allow_typos else '❌ Не учитывать'}</b>"
+    #TODO: text += f"\n XXX: <b>{'✅' if XXX else '❌'}</b>"
     text += "\n\nℹ️ Настройки сохраняются для каждого пользователя отдельно." if user.show_hints else ""
+    #TODO: text += '<a href="https://">📖 Подробнее о настройках</a>'
     
     await message.reply(text=text, reply_markup=kb.as_markup(), disable_notification=True)
 
@@ -193,31 +201,40 @@ async def settings_callback(callback: types.CallbackQuery):
         
         compact_style = user.compact_style
         show_hints = user.show_hints
+        allow_typos = user.allow_typos
+        #TODO: XXX = user.XXX
         
         if action == "compact_style":
-            user.compact_style = not user.compact_style
-            await session.commit()
-            compact_style = user.compact_style
+            user.compact_style = not compact_style; compact_style = not compact_style
             log.debug(f"{user.telegram_id} | 🎩 compact_style > {compact_style}")
-            await callback.answer(f"🎩 Стиль сообщений > {"🤏 Компактный" if compact_style else "🤲 Развёрнутый"}")
+            await callback.answer(f"🎩 Стиль > {"🤏 Компактный" if compact_style else "🤲 Развёрнутый"}")
 
         elif action == "show_hints":
-            user.show_hints = not user.show_hints
-            await session.commit()
-            show_hints = user.show_hints
+            user.show_hints = not show_hints; show_hints = not show_hints
             log.debug(f"{user.telegram_id} | ℹ️ show_hints > {show_hints}")
             await callback.answer(f"ℹ️ Подсказки > {'✅ Включены' if show_hints else '❌ Выключены'}")
         
-        #TODO: if action == "XXX":
+        elif action == "allow_typos":
+            user.allow_typos = not allow_typos; allow_typos = not allow_typos
+            log.debug(f"{user.telegram_id} | 🎩 allow_typos > {allow_typos}")
+            await callback.answer(f"✍️ Опечатки > {'✅ Учитывать' if allow_typos else '❌ Не учитывать'}")
         
-    buttons.append(InlineKeyboardButton(text=f"{"🎩" if compact_style else '🎩 Стиль'}: {'🤏' if compact_style else '🤲'}", callback_data="settings:compact_style"))
-    buttons.append(InlineKeyboardButton(text=f"{"ℹ️" if compact_style else 'ℹ️ Подсказки'}: {'✅' if show_hints else '❌'}", callback_data="settings:show_hints"))
+        #TODO: elif action == "XXX":
+
+        await session.commit()
+
+    buttons.append(InlineKeyboardButton(text=f"{'🎩' if compact_style else '🎩 Стиль'}: {'🤏' if compact_style else '🤲'}", callback_data="settings:compact_style"))
+    buttons.append(InlineKeyboardButton(text=f"{'ℹ️' if compact_style else 'ℹ️ Подсказки'}: {'✅' if show_hints else '❌'}", callback_data="settings:show_hints"))
+    buttons.append(InlineKeyboardButton(text=f"{'✍️' if compact_style else '✍️ Опечатки'}: {'✅' if allow_typos else '❌'}", callback_data="settings:allow_typos"))
+    #TODO: buttons.append(InlineKeyboardButton(text=f"{'' if compact_style else ''}: {'✅' if XXX else '❌'}", callback_data="settings:XXX"))
     
     text = f"⚙️ <b>Настройки</b>"
-    text += f"\n🎩 Стиль сообщений: <b>{"🤏 Компактный" if compact_style else "🤲 Развёрнутый"}</b>"
+    text += f"\n🎩 Стиль: <b>{'🤏 Компактный' if compact_style else '🤲 Развёрнутый'}</b>"
     text += f"\nℹ️ Подсказки: <b>{'✅ Включены' if show_hints else '❌ Выключены'}</b>"
-    #TODO: text += f"\n"
+    text += f"\n✍️ Опечатки: <b>{'✅ Учитывать' if allow_typos else '❌ Не учитывать'}</b>"
+    #TODO: text += f"\n XXX: <b>{'✅' if XXX else '❌'}</b>"
     text += "\n\nℹ️ Настройки сохраняются для каждого пользователя отдельно." if user.show_hints else ""
+    #TODO: text += '<a href="https://">📖 Подробнее о настройках</a>'
 
     kb.row(*buttons, width=2)
     try:
@@ -225,7 +242,8 @@ async def settings_callback(callback: types.CallbackQuery):
     except Exception as e:
         await callback.message.edit_reply_markup(reply_markup=kb.as_markup())
 
-@router.message(or_f(Command("help"), F.text.lower().in_({"помощь", "@mysettlementbot помощь", "help", "@mysettlementbot help"})))
+@fuzzy("help", "помощь", "допомога")
+@router.message(or_f(Command("help"), F.text.lower().in_({"помощь", "@mysettlementbot помощь", "help", "@mysettlementbot help", "допомога", "@mysettlementbot допомога"})))
 async def help_command(message: types.Message):
     #* Помощь и руководство по игре
     help_text = (
@@ -261,6 +279,7 @@ async def private_handler(message: types.Message, command: CommandObject = None)
 
 # ================= Group chats ================
 
+@fuzzy("осмотреть город", "осмотреть поселение", "мое поселение", "моё поселение", "town")
 @router.message(or_f(CommandStart(), Command("town"), F.text.lower().in_({"осмотреть город", "@mysettlementbot осмотреть город", "осмотреть поселение", "@mysettlementbot осмотреть поселение", "town", "@mysettlementbot town"})))
 async def start_command(message: types.Message):
     #* Осмотр поселения / старт игры
@@ -297,6 +316,7 @@ async def start_command(message: types.Message):
     await message.answer(text, reply_markup=kb.as_markup())
 
 
+# @fuzzy("назвать поселение", "name settlement")
 # @router.message(or_f(Command("name_settlement"), F.text.startswith.lower().in_({"назвать поселение", "@mysettlementbot назвать поселение", "name settlement", "@mysettlementbot name settlement"})))
 # async def name_settlement(message: types.Message):
 #     #* Смена имени поселения
@@ -337,6 +357,7 @@ async def start_command(message: types.Message):
 
 
 
+@fuzzy("косметика", "cosmetics")
 @router.message(or_f(Command("cosmetics"), F.text.lower().in_({"косметика", "@mysettlementbot косметика", "cosmetics", "@mysettlementbot cosmetics"})))
 async def cosmetics_command(message: types.Message):
     #* Косметика поселенца
@@ -422,7 +443,8 @@ async def cosmetics_select(callback: types.CallbackQuery):
     await callback.message.edit_text(text=f"🪭 <b>Доступная косметика</b>\n\n🎭 <b>Текущий эмодзи</b>: {db_settler.emoji}", reply_markup=kb)
 
 
-@router.message(or_f(Command("overtime"), F.text.lower().in_({"лишняя мера", "@mysettlementbot лишняя мера", "overtime", "@mysettlementbot overtime"})))
+@fuzzy("лишняя мера", "overtime", "зайва міра")
+@router.message(or_f(Command("overtime"), F.text.lower().in_({"лишняя мера", "@mysettlementbot лишняя мера", "overtime", "@mysettlementbot overtime", "зайва міра", "@mysettlementbot зайва міра"})))
 async def overtime_command(message: types.Message):
     #* Лишняя мера поселенца
     user = await core.user_getOrCreate(message.from_user)
@@ -493,7 +515,8 @@ async def overtime_take(callback: types.CallbackQuery):
         await callback.message.edit_text(f"⏳ <b>Лишняя мера взята!</b> (📄 0/{new_quote})\nТебе осталось 🕒 <b>{reset_countdown}</b> чтоб новую меру исполнить!")
 
 
-@router.message(or_f(Command("inventory"), F.text.lower() == "инвентарь", F.text.lower() == "@mysettlementbot инвентарь", F.text.lower() == "inventory", F.text.lower() == "@mysettlementbot inventory"))
+@fuzzy("инвентарь", "inventory", "інвентар")
+@router.message(or_f(Command("inventory"), F.text.lower().in_({"инвентарь", "@mysettlementbot инвентарь", "inventory", "@mysettlementbot inventory", "інвентар", "@mysettlementbot інвентар"})))
 async def inventory_command(message: types.Message):
     #* Инвентарь поселенца
     user = await core.user_getOrCreate(message.from_user)
@@ -534,6 +557,7 @@ async def inventory_command(message: types.Message):
     await message.answer(text=text)
 
 
+@fuzzy("выбрать ремесло", "choose craft", "вибрати ремесло")
 @router.message(or_f(Command("choose_craft"), F.text.lower().in_({"выбрать ремесло", "@mysettlementbot выбрать ремесло", "choose craft", "@mysettlementbot choose craft"})))
 async def choose_craft_command(message: types.Message):
     #* Выбор ремесла поселенца
@@ -615,7 +639,8 @@ async def select_craft_callback(callback: types.CallbackQuery):
         await callback.message.edit_text(f"✅ <b>{callback.from_user.full_name}</b> ремесло себе избрал: {profession.emoji} <b>{profession.name}!</b>", reply_markup=kb.as_markup())
         log.debug(f"{callback.message.chat.id} | {settler.user_id} | 💼 Выбрано ремесло: {profession.name}")
 
-@router.message(or_f(Command("craft"), F.text.lower().in_({"трудиться", "@mysettlementbot трудиться", "craft", "@mysettlementbot craft"})))
+@fuzzy("трудиться", "craft", "трудитися")
+@router.message(or_f(Command("craft"), F.text.lower().in_({"трудиться", "@mysettlementbot трудиться", "craft", "@mysettlementbot craft", "трудитися", "@mysettlementbot трудитися"})))
 async def craft_command(message: types.Message):
     #* Начало труда поселенца
     user = await core.user_getOrCreate(message.from_user)
@@ -803,10 +828,36 @@ async def work_callback(callback: types.CallbackQuery):
 
 
 
+def collect_commands(router) -> dict[str, callable]:
+    result = {}
+    for handler in router.message.handlers:
+        cb = handler.callback
+        aliases = getattr(cb, "__fuzzy_aliases__", None)
+        if not aliases:
+            continue
+        for alias in aliases:
+            result[alias] = cb
+    return result
+FUZZY_COMMANDS = collect_commands(router)
+
 
 @router.message(or_f(F.chat.type == "supergroup", F.chat.type == "group"))
 async def quote_handler(message: types.Message):
     #* Обработка сообщений для меры
+    user = await core.user_getOrCreate(message.from_user)
+    match = await mfunc.is_text_command(
+        message,
+        user,
+        FUZZY_COMMANDS,
+        threshold=90.1
+    )
+
+    if match.matched:
+        handler = FUZZY_COMMANDS[match.command]
+        await handler(message)
+        log.debug(f"{message.chat.id} | {user.telegram_id} | 🔍 {message.text} → {match.command} ({match.score}%)")
+        return
+    
     async with SessionLocal() as session:
         result = await session.execute(
             select(models.Settlement).where(models.Settlement.chat_id == message.chat.id)
@@ -816,7 +867,6 @@ async def quote_handler(message: types.Message):
         if not settlement:
             return
             
-        user = await core.user_getOrCreate(message.from_user)
         settler = await core.settler_getOrCreate(user, settlement)
         
         if not settler:
@@ -830,3 +880,4 @@ async def quote_handler(message: types.Message):
         except Exception as e:
             log.error(f"Ошибка в функции quote_handler(): {e}")
             return
+

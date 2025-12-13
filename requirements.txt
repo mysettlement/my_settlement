@@ -7,3 +7,4 @@ SQLAlchemy
 wordfreq
 pytz
 tzdata
+rapidfuzz

@@ -8,6 +8,7 @@ wiki/
 logs/
 .git/
 .vscode/
+app/__pycache__
 
 example.env
 

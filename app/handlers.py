@@ -38,7 +38,7 @@ async def bot_added_to_chat_event(event: types.ChatMemberUpdated):
 
     if event.new_chat_member.status in ["left", "kicked"]:
         log.debug(f"{chat.id} | Бот исключен из группы {chat.title}")
-        #TODO: await event.answer("<b>Оставьте отзыв об игре</b>, это сильно поможет!")
+        await event.answer("<b>Оставьте отзыв об игре</b>, это сильно поможет!")
         return
     
     if event.old_chat_member.status not in ["member", "administrator", "restricted"] and event.new_chat_member.status in ["member", "administrator"]:
@@ -273,12 +273,18 @@ async def help_command(message: types.Message):
 async def private_handler(message: types.Message, command: CommandObject = None):
     #* Личные сообщения и рефералы
     if command and command.args:
-        payload = command.args
+        args = command.args
         
-        if payload.startswith("ref_"):
-            referrer_id = payload.split("_")[1]
+        if args.startswith("ref_"):
+            referrer_id = args.split("_")[1]
             await message.answer(f"👋 Тебя пригласил поселенец с ID: {referrer_id}")
             return
+        
+        if args.startswith("survey_"):
+            chat_id = args.split("_")[1]
+        
+        # elif args.startswith("work_"):
+        # _, work_id,  = args.split("_")
 
     kb = InlineKeyboardBuilder()
     kb.add(InlineKeyboardButton(text="➕ Добавить", url=f"https://t.me/{settings.BOT_USERNAME}?startgroup=new"))
@@ -859,14 +865,14 @@ async def quote_handler(message: types.Message):
         message,
         user,
         FUZZY_COMMANDS,
-        threshold=90.1
+        threshold=settings.TYPOS_PERCENT
     )
 
     if match.matched:
         handler = FUZZY_COMMANDS[match.command]
         await handler(message)
-        log.debug(f"{message.chat.id} | {user.telegram_id} | 🔍 {message.text} → {match.command} ({match.score}%)")
         return
+    log.debug(f"{message.chat.id} | {user.telegram_id} | 🔍 {message.text} → {match.command} ({match.score}%)")
     
     async with SessionLocal() as session:
         result = await session.execute(

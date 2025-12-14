@@ -91,10 +91,10 @@ async def main():
     try:
         tasks.scheduler.start()
 
-        await dp.start_polling(bot)
         if config.settings.BOT_USERNAME == "mysettlementbot":
             smile = random.choice(["🌀", "🫐", "🐬"])
             await bot.set_my_name(name=f"🛖 Моё Поселение! {smile}", language_code="ru")
+        await dp.start_polling(bot)
         log.info("🟢 Бот запущен!")
     finally:
         for task in mfunc.work_timeout_tasks.values():

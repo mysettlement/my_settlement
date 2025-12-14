@@ -83,7 +83,7 @@ async def bot_added_to_chat_event(event: types.ChatMemberUpdated):
 
 
 
-@fuzzy("мой айди", "my id", "мій айді")
+@fuzzy("мой айди", "my id", "мій айді", "мой ид", "мій ід")
 @router.message(or_f(Command("my_id"), F.text.lower().in_({"мой айди", "мой ид", f"@{settings.BOT_USERNAME} мой айди", "my id", f"@{settings.BOT_USERNAME} my id", "мій айді", "мій ід", f"@{settings.BOT_USERNAME} мій айді", f"@{settings.BOT_USERNAME} мій ід"})))
 async def my_id_command(message: types.Message):
     #* Показать ID пользователя
@@ -881,11 +881,15 @@ async def quote_handler(message: types.Message):
         threshold=settings.TYPOS_PERCENT
     )
 
+    if not match.log_text:
+        log.debug(f"{message.chat.id} | {user.telegram_id} | 🔍 {message.text} → {match.command} ({match.score}%)")
+    else:
+        log.debug(f"{message.chat.id} | {user.telegram_id} | 🔍 {message.text} / {match.log_text}")
+
     if match.matched:
         handler = FUZZY_COMMANDS[match.command]
         await handler(message)
         return
-    log.debug(f"{message.chat.id} | {user.telegram_id} | 🔍 {message.text} → {match.command} ({match.score}%)")
     
     async with SessionLocal() as session:
         result = await session.execute(

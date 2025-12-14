@@ -6,7 +6,7 @@ import re
 from typing import Optional, NamedTuple
 from wordfreq import zipf_frequency
 from langdetect import detect, DetectorFactory
-from rapidfuzz import process, fuzz
+from rapidfuzz import process, fuzz, utils
 from functools import lru_cache
 from typing import Dict, Union, Callable
 from datetime import datetime, timedelta
@@ -48,11 +48,16 @@ SUPPORTED_LANGS = {
     'mr', 'ur', 'th', 'ko', 'ja', 'zh'
 }
 
+KNOWN_TYPOS: Dict[str, str] = {
+    
+}
+
 
 class FuzzyMatch(NamedTuple):
     matched: bool
-    command: Optional[str]
-    score: int
+    command: Optional[str] = None
+    score: int = 0
+    log_text: Optional[str] = None
 
 def fuzzy(*aliases: str):
     def wrapper(func: Callable):
@@ -60,31 +65,36 @@ def fuzzy(*aliases: str):
         return func
     return wrapper
 
-async def is_text_command(message, user, commands: dict[str, Callable], *, threshold: int = 90.1) -> FuzzyMatch:
+async def is_text_command(message, user, commands: dict[str, callable], *, threshold: int = 84) -> FuzzyMatch:
     if not message.text or message.text.startswith("/"):
-        return FuzzyMatch(False, None, 0)
+        return FuzzyMatch(False, None, 0, "Не текстовая команда")
 
     if not getattr(user, "allow_typos", False):
-        return FuzzyMatch(False, None, 0)
+        return FuzzyMatch(False, None, 0, "Пользователь включил учет опечаток")
 
-    text = message.text.lower().strip()
+    text = utils.default_process(message.text)
+
+    if text in KNOWN_TYPOS:
+        command_text = KNOWN_TYPOS[text]
+        return FuzzyMatch(True, command_text, 100)
 
     match = process.extractOne(
         text,
         commands.keys(),
-        scorer=fuzz.WRatio
+        scorer=fuzz.QRatio
     )
 
     if not match:
-        return FuzzyMatch(False, None, 0)
+        return FuzzyMatch(False, None, 0, "Нет совпадений")
 
-    command_text, score, _ = match
+    command, score, _ = match
 
-    if score < threshold:
-        return FuzzyMatch(False, command_text, score)
+    len_ratio = len(text) / len(command)
+    if len_ratio < 0.7 or len_ratio > 1.3:
+        return FuzzyMatch(False, command, score, "За рамками по длине")
 
-    return FuzzyMatch(True, command_text, score)
-    
+    return FuzzyMatch(True, command, score, None) if score >= threshold else FuzzyMatch(False, command, score, f"Низкий балл ({round(score, 2)}%)")
+
 
 async def get_group_owner(chat_id: int) -> types.User:
     try:

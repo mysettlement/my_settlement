@@ -1,6 +1,6 @@
 $ProjectDir = $PSScriptRoot
 $LogFile = "$ProjectDir\logs\sync.log"
-$Interval = 300
+$Interval = 60
 
 # Create logs folder
 if (!(Test-Path "$ProjectDir\logs")) {
@@ -14,7 +14,7 @@ function Log {
     Write-Host "$t - $msg"
 }
 
-Log "This script tracks project files from https://github.com/mysettlement/my_settlement every $Interval seconds and updates it if needed."
+Log "This script tracks project files every $Interval seconds and updates it if needed."
 
 while ($true) {
     try {
@@ -35,22 +35,17 @@ while ($true) {
             Log "Changes detected:"
             $status | ForEach-Object { Log "  $_" }
             git restore . 2>&1 | ForEach-Object { Log $_ }
-            Log "Files restored."
-        } else {
-            Log "All tracked files are present."
         }
 
         # === GIT SYNC ===
-        Log "Running git fetch..."
         git fetch origin main 2>&1 | ForEach-Object { Log $_ }
 
         $local = git rev-parse HEAD 2>$null
         $remote = git rev-parse origin/main 2>$null
 
-        Log "Local:  $local"
-        Log "Remote: $remote"
-
         if ($local -and $remote -and $local -ne $remote) {
+            Log "Local:  $local"
+            Log "Remote: $remote"
             Log "Update found. Pulling..."
             git pull origin main 2>&1 | ForEach-Object { Log $_ }
 
@@ -61,8 +56,6 @@ while ($true) {
             docker compose -p my_settlement up --build -d 2>&1 | ForEach-Object { Log $_ }
 
             Log "Update complete."
-        } else {
-            Log "No new commits."
         }
     }
     catch {

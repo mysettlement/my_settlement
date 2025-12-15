@@ -880,16 +880,14 @@ async def quote_handler(message: types.Message):
         FUZZY_COMMANDS,
         threshold=settings.TYPOS_PERCENT
     )
-
-    if not match.log_text:
-        log.debug(f"{message.chat.id} | {user.telegram_id} | 🔍 {message.text} → {match.command} ({match.score}%)")
-    else:
-        log.debug(f"{message.chat.id} | {user.telegram_id} | 🔍 {message.text} / {match.log_text}")
-
+    
     if match.matched:
         handler = FUZZY_COMMANDS[match.command]
         await handler(message)
+        log.debug(f"{message.chat.id} | {user.telegram_id} | 🔍 {message.text} → {match.command} ({match.score}%)")
         return
+    
+    log.debug(f"{message.chat.id} | {user.telegram_id} | 🔍 {message.text} / {match.log_text}")
     
     async with SessionLocal() as session:
         result = await session.execute(

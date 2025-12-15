@@ -70,7 +70,7 @@ async def is_text_command(message, user, commands: dict[str, callable], *, thres
         return FuzzyMatch(False, None, 0, "Не текстовая команда")
 
     if not getattr(user, "allow_typos", False):
-        return FuzzyMatch(False, None, 0, "Пользователь включил учет опечаток")
+        return FuzzyMatch(False, None, 0, "Настройка выключена")
 
     text = utils.default_process(message.text)
 

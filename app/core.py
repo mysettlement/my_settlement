@@ -20,14 +20,12 @@ session = SessionLocal()
 log = setup_logging(logging.getLogger(__name__))
 
 
-async def resource_getByEmoji(emoji: str, session: AsyncSession) -> models.Resource:
+async def resource_getByEmoji(session: AsyncSession, emoji: str) -> models.Resource:
     #* Получение ресурса по эмодзи
     result = await session.execute(
         select(models.Resource).where(models.Resource.emoji == emoji)
     )
     resource = result.scalars().first()
-    if not resource:
-        raise ValueError(f"Ресурс с эмодзи '{emoji}' не найден")
     return resource
 
 async def resource_getRandomQuantity(resource: models.Resource) -> int:
@@ -37,6 +35,7 @@ async def resource_getRandomQuantity(resource: models.Resource) -> int:
 
     min_qty, max_qty = models.RARITY_QUANTITY_RANGES[resource.rarity]
     return random.randint(min_qty, max_qty)
+
 
 async def user_getOrCreate(telegram_user: types.User):
     #* Получение или создание пользователя
@@ -66,6 +65,7 @@ async def user_getOrCreate(telegram_user: types.User):
                 return user
     except Exception as e:
         raise UserCreationError(f"Ошибка при создании/получении пользователя {telegram_user.id}: {str(e)}", telegram_user_id=telegram_user.id)
+
 
 async def settlement_getOrCreate(chat: types.Chat):
     #* Получение или создание поселения
@@ -132,6 +132,7 @@ async def settlement_getOrCreate(chat: types.Chat):
     except Exception as e:
         raise SettlementCreationError(f"Неожиданная ошибка при создании/получении поселения {chat.id}: {str(e)}", chat_id=chat.id)
 
+
 async def settler_getOrCreate(user: models.User, settlement: models.Settlement):
     #* Получение или создание поселенца
     try:
@@ -162,89 +163,87 @@ async def settler_getOrCreate(user: models.User, settlement: models.Settlement):
 
 async def settler_addExp(settler: models.Settler, session: AsyncSession, exp: int):
     #* Добавление опыта поселенцу и обработка повышения уровня
-    current = await session.get(models.Settler, settler.id)
-    if not current:
-        result = await session.execute(select(models.Settler).where(models.Settler.id == settler.id))
-        current = result.scalars().first()
-        if not current:
-            raise ValueError(f"Settler with id={settler.id} not found in DB")
+    settler = await session.get(models.Settler, settler.id)
 
-    current.exp += exp
-    log.debug(f"{current.settlement_id} | {current.user_id} | 🗂 Опыт увеличен: +{exp} ({current.exp}/{current.target_exp})")
+    user_result = await session.execute(
+        select(models.User).where(models.User.id == settler.user_id)
+    )
+    user = user_result.scalars().first()
+
+    settler.exp += exp
+    log.debug(f"{settler.settlement_id} | {settler.user_id} | 🗂 Опыт увеличен: +{exp} ({settler.exp}/{settler.target_exp})")
 
     text = None
-    while current.exp >= current.target_exp:
-        old_rank = current.rank
-        old_emoji = current.rank_emoji_available[0] if current.rank_emoji_available else "❓"
-        current.level += 1
-        current.exp -= current.target_exp
+    old_rank = settler.rank
+    old_emoji = settler.rank_emoji_available[0] if settler.rank_emoji_available else "❓"
 
-        # перерасчёт опыта и ранга
-        if current.level < 15:
-            current.target_exp = 2 * current.level + 7
-            current.rank = "Крестьянин"
-        elif current.level < 30:
-            current.target_exp = 5 * current.level - 38
-            current.rank = "Вольный"
-        elif current.level < 45:
-            current.target_exp = 9 * current.level - 158
-            current.rank = "Старейшина"
-        elif current.level < 60:
-            current.rank = "Дворянин"
+    while settler.exp >= settler.target_exp:
+        # перерасчет target_exp и ранга
+        if settler.level < 15:
+            settler.target_exp = 2 * settler.level + 7
+            settler.rank = "Крестьянин"
+        elif settler.level < 30:
+            settler.target_exp = 5 * settler.level - 38
+            settler.rank = "Вольный"
+        elif settler.level < 45:
+            settler.target_exp = 9 * settler.level - 158
+            settler.rank = "Старейшина"
+        elif settler.level < 60:
+            settler.target_exp = 9 * settler.level - 320
+            settler.rank = "Дворянин"
         else:
-            current.rank = "Лорд"
+            settler.target_exp = 9 * settler.level - 450
+            settler.rank = "Лорд"
 
-        user_result = await session.execute(
-            select(models.User).where(models.User.id == current.user_id)
-        )
-        user = user_result.scalars().first()
-        user_name = user.name if user else f"User {current.user_id}"
+        settler.level += 1
+        settler.exp -= settler.target_exp
 
-        text = f"🎉 <b>{user_name}</b> повысил(а) уровень до <b>{current.level}</b>!\n"
-        log.debug(f"{current.settlement_id} | {current.user_id} | ⬆️ Новый уровень: {current.level}")
+        text = f"🎉 <b>{user.name if user else f"User {settler.user_id}"}</b> повысил(а) уровень до <b>{settler.level}</b>! ({settler.exp}/{settler.target_exp})\n"
+        log.debug(f"{settler.settlement_id} | {settler.user_id} | ⬆️ Новый уровень: {settler.level}")
+    
 
-        if old_rank != current.rank:
-            rank_emojis = {
-                "Крестьянин": ["🧑‍🌾", "👨‍🌾", "👩‍🌾"],
-                "Вольный": ["🌾", "🌱", "🍃"],
-                "Старейшина": ["🕍", "⛩", "🏺"],
-                "Дворянин": ["🏰", "🏯", "🏛"],
-                "Лорд": ["👑", "🏰", "⚔️", "🛡"]
-            }
-            new_rank_emojis = rank_emojis.get(current.rank, [])
-            current.rank_emoji_available = new_rank_emojis
-            flag_modified(current, 'rank_emoji_available')
+    if old_rank != settler.rank:
+        rank_emojis = {
+            "Крестьянин": ["🧑‍🌾", "👨‍🌾", "👩‍🌾"],
+            "Вольный": ["🌾", "🌱", "🍃"],
+            "Старейшина": ["🕍", "⛩", "🏺"],
+            "Дворянин": ["🏰", "🏯", "🏛"],
+            "Лорд": ["👑", "🏰", "⚔️", "🛡"]
+        }
+        new_rank_emojis = rank_emojis.get(settler.rank, [])
+        settler.rank_emoji_available = new_rank_emojis
+        flag_modified(settler, 'rank_emoji_available')
 
-            text += f"<b>🔼 Новый ранг:</b> {old_emoji} {old_rank} → {new_rank_emojis[0] if new_rank_emojis else '❓'} <b>{current.rank}</b>!"
-            log.debug(f"{current.settlement_id} | {current.user_id} | 🔼 Новый ранг: {current.rank}")
+        text += f"<b>🔼 Новый ранг:</b> {old_emoji} {old_rank} → {new_rank_emojis[0] if new_rank_emojis else '❓'} <b>{settler.rank}</b>!"
+        log.debug(f"{settler.settlement_id} | {settler.user_id} | 🔼 Новый ранг: {settler.rank}")
+
 
     await session.flush()
-    refreshed = await session.get(models.Settler, current.id)
-    await session.refresh(refreshed, ["user", "settlement"])
+    await session.refresh(settler, ["settlement"])
 
     if text:
-        await bot.send_message(refreshed.settlement.chat_id, text)
+        await bot.send_message(settler.settlement.chat_id, text)
 
-    return refreshed
+    return settler
 
-async def settler_addMoney(settler: models.Settler, settlement: models.Settlement, session: AsyncSession, money: int):
+async def settler_addMoney(settler: models.Settler, session: AsyncSession, quantity: int):
     #* Добавление денег поселенцу
     result = await session.execute(
         select(models.Settler).where(models.Settler.id == settler.id)
     )
-    current_settler = result.scalars().first()
-    if not current_settler:
+    current = result.scalars().first()
+    if not current:
         return None
 
-    current_settler.balance += money
-    await session.commit()
-    await session.refresh(current_settler, ["user", "settlement"])
-    log.debug(f"{settlement.id} | {current_settler.user_id} | 💰 Деньги получены: +{money} ({current_settler.balance})")
-    return current_settler
+    current.balance += quantity
+    await session.flush()
+    await session.refresh(current, ["settlement"])
+    log.debug(f"{settler.settlement_id} | {current.user_id} | 💰 Деньги получены: +{quantity} ({current.balance})")
+    return quantity
 
 async def settler_addResource(settler: models.Settler, session: AsyncSession, quantity: int = None, resource: models.Resource = None, emoji: str = None) -> Tuple[models.Resource, int]:
     #* Добавление ресурса поселенцу
-    resource = await resource_getByEmoji(emoji, session) if not resource else resource
+    resource = await resource_getByEmoji(session, emoji) if not resource else resource
     
     if quantity is None:
         min_qty, max_qty = models.RARITY_QUANTITY_RANGES.get(resource.rarity, (1, 1))
@@ -280,13 +279,15 @@ async def settler_addResource(settler: models.Settler, session: AsyncSession, qu
         )
     )
     
+    await session.flush()
+    await session.refresh(settler, ["settlement"])
     log.debug(f"{settler.settlement_id} | {settler.user_id} | 📥 Ресурс получен: {resource.emoji} x{quantity}")
 
     return resource, quantity
 
 async def settler_withdrawResource(settler: models.Settler, session: AsyncSession, emoji: str, quantity: int):
     #* Изъятие ресурса у поселенца
-    resource = await resource_getByEmoji(emoji, session)
+    resource = await resource_getByEmoji(session, emoji)
     
     existing_result = await session.execute(
         select(models.settler_resources.c.quantity).where(
@@ -312,15 +313,35 @@ async def settler_withdrawResource(settler: models.Settler, session: AsyncSessio
         )
     )
     
+    await session.flush()
     log.debug(f"{settler.settlement_id} | {settler.user_id} | 📤 Ресурс снят: {resource.emoji} x{quantity}")
+
     return True, f"{resource.emoji} {quantity}"
+
+async def settler_add(settler: models.Settler, session: AsyncSession, emoji: str, quantity: int = None) -> Dict[str, int]:
+    #* Добавление ресурса/денег/опыта поселенцу
+    earned: Dict[str, int] = {}
+
+    if emoji == "💰":
+        await settler_addMoney(settler, session, quantity)
+    
+    elif emoji == "🗂":
+        await settler_addExp(settler, session, quantity)
+
+    else:
+        resource = await resource_getByEmoji(session, emoji)
+        if not resource:
+            log.debug(f'{settler.settlement_id} | {settler.user_id} | ⚠️ Ресурс с эмодзи "{emoji}" не найден')
+            return None
+        
+        await settler_addResource(settler, session, quantity, resource)
+    
+    earned[emoji] = quantity
+    return earned
 
 async def settler_updateQuote(settler: models.Settler, settlement: models.Settlement, session: AsyncSession, add_quote: int = 0):
     #* Обновление меры поселенца и обработка её выполнения
-    result = await session.execute(
-        select(models.Settler).where(models.Settler.id == settler.id)
-    )
-    current = result.scalars().first()
+    current = await session.get(models.Settler, settler.id)
     if not current:
         return None
 
@@ -353,22 +374,22 @@ async def settler_updateQuote(settler: models.Settler, settlement: models.Settle
                 
             earned_money = current.level + rmoney
 
-            await settler_addMoney(current, settlement, session, earned_money)
+            await settler_addMoney(current, session, earned_money)
             if current.overtime_is_toggled:
                 earned_xp *= 0.2
-            updated_settler = await settler_addExp(current, session, earned_xp)
+            await settler_addExp(current, session, earned_xp)
             
-            if updated_settler:
+            if current:
                 current.quote = 0
                 if current.overtime_is_toggled:
                     current.target_quote = round((settler.level * 0.85 + 6) + (2 * (settler.overtime_count + 1)))
                 else:
-                    current.target_quote = round(updated_settler.level * 0.85 + 6)
+                    current.target_quote = round(current.level * 0.85 + 6)
             
             text = (
                 f"📄 <b>{user.name if user else f'User {current.user_id}'}</b> исполнил меру <b>{current.target_quote}/{current.target_quote}</b>!"
                 f"\n🗂: +{round(earned_xp)} | 💰: +{round(earned_money)}" if earned_xp > 0 else f"\n💰: +{round(earned_money)}"
-                f"\nℹ️ Чтоб в мудрости возрасти, доведётся каталог 🗂 до конца довести; каталог 🗂 опыт заменяет" if updated_settler.level <= 2 and user.show_hints else ""
+                f"\nℹ️ Чтоб в мудрости возрасти, доведётся каталог 🗂 до конца довести; каталог 🗂 опыт заменяет" if current.level <= 2 and user.show_hints else ""
             )
             
             await bot.send_message(settlement.chat_id, text)
@@ -455,32 +476,35 @@ async def settler_startWorkflow(message_or_callback: Union[types.Message, types.
 
 async def settler_applyRewards(work: models.Work, settler: models.Settler, session: AsyncSession) -> Tuple[Dict[models.Resource, int], int]:
     #* Применение наград за работу поселенцу
-    obtained: Dict[models.Resource, int] = {}
-    exp = 0
+    obtained: Dict[str, int] = {}
+    log.debug("1")
+    settler = await session.get(models.Settler, settler.id)
 
     for key, value in work.rewards.items():
         if key == "exp":
-            exp = value() if callable(value) else int(value) if value is not None else random.randint(1, 3)
-            if exp > 0:
-                await settler_addExp(settler, session, exp)
+            qty = value() if callable(value) else int(value) if value is not None else random.randint(1, 3)
+            if qty > 0:
+                await settler_addExp(settler, session, qty)
+                obtained["🗂"] = qty
             continue
-
-        resource = await resource_getByEmoji(key, session)
+        
+        log.debug("2")
+        resource = await resource_getByEmoji(session, key)
         if not resource:
             continue
 
-        if callable(value):
-            qty = value()
-        elif value is not None:
-            qty = int(value)
-        else:
-            qty = await resource_getRandomQuantity(resource)
+        qty = value() if callable(value) else int(value) if value is not None else await resource_getRandomQuantity(resource)
+        log.debug("3")
 
         if qty <= 0:
             continue
-
+        
+        log.debug("4")
         added_resource, added_qty = await settler_addResource(settler, session, qty, resource)
-        obtained[added_resource] = added_qty
+        log.debug("5")
+        obtained[added_resource.emoji] = added_qty
 
-    await session.commit()
-    return obtained, exp
+    await session.flush()
+    await session.refresh(settler, ["settlement"])
+    log.debug("6")
+    return obtained

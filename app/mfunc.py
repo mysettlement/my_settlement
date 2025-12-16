@@ -102,8 +102,6 @@ async def get_group_owner(chat_id: int) -> types.User:
         for admin in chat_admins:
             if admin.status == "creator":
                 return admin.user
-        if chat_admins:
-            return chat_admins[0].user
         raise GroupOwnerError(f"Не удалось найти владельца группы {chat_id}", chat_id=chat_id)
     except GroupOwnerError:
         raise
@@ -162,19 +160,13 @@ async def is_meaningful(text: str, length: int = 3, words_amount: int = 1) -> bo
 
     return (meaningful / total) >= 0.4
 
-def format_reward_text(earned: dict, exp_gained: int = 0) -> str:
-    if not earned and exp_gained == 0:
-        return ""
+async def format_reward_text(earned: dict) -> str:
+    if not earned:
+        return "✖️ Пусто"
     
-    parts = []
-    if earned:
-        earned_text = " | ".join(f"{resource.emoji}: +{quantity}" for resource, quantity in earned.items())
-        parts.append(earned_text)
+    text = " | ".join(f"{resource}: +{quantity}" for resource, quantity in earned.items())
     
-    if exp_gained > 0:
-        parts.append(f"🗂: +{exp_gained}")
-    
-    return f"📦 <b>Получено:</b>\n" + "\n".join(parts)
+    return text
 
 async def format_relative_time(target: datetime, now: Optional[datetime] = None) -> str:
     """

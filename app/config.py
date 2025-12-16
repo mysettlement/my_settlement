@@ -26,7 +26,7 @@ class Settings(BaseSettings):
     DB_PASS: str
     DB_NAME: str
 
-    ADMIN_IDS: list[int]
+    DEVELOPER_IDS: list[int]
     TYPOS_PERCENT: int = 80 # Процент допустимых опечаток в командах. Меньше 60 не рекомендуется.
     WORK_COOLDOWN_HOURS: float = 0.03 # Кулдаун на работу
     WORK_TIMEOUT_SECONDS: int = 180 # Таймаут выполнения работы

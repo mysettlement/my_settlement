@@ -1,5 +1,6 @@
 services:
   app:
+    container_name: app
     build:
       context: .
       dockerfile: Dockerfile
@@ -21,6 +22,7 @@ services:
     restart: unless-stopped
 
   db:
+    container_name: db
     image: postgres:16
     env_file:
       - .env
@@ -40,8 +42,48 @@ services:
     networks:
       - app-net
     restart: unless-stopped
-    
+
+  db-dumper:
+    image: prodrigestivill/postgres-backup-local
+    container_name: db-dumper
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      - POSTGRES_HOST=db
+      - POSTGRES_DB=${DB_NAME}
+      - POSTGRES_USER=${DB_USER}
+      - POSTGRES_PASSWORD=${DB_PASS}
+      - SCHEDULE=0 */12 * * *
+      - BACKUP_KEEP_DAYS=3
+      - BACKUP_KEEP_WEEKS=4
+      - BACKUP_KEEP_MONTHS=1
+    volumes:
+      - ./backups/postgres:/backups
+    networks:
+      - app-net
+    depends_on:
+      db:
+        condition: service_healthy
+
+  # backup:
+  #   image: ghcr.io/nicotsx/zerobyte:v0.18
+  #   container_name: backup
+  #   restart: unless-stopped
+  #   cap_add:
+  #     - SYS_ADMIN
+  #   ports:
+  #     - "4096:4096"
+  #   devices:
+  #     - /dev/fuse:/dev/fuse
+  #   environment:
+  #     - TZ=Europe/Berlin
+  #   volumes:
+  #     - /etc/localtime:/etc/localtime:ro
+  #     - /var/lib/zerobyte:/var/lib/zerobyte
+
   docs:
+    container_name: docs
     build:
       context: ./docs
       target: serve

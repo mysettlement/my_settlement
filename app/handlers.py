@@ -802,9 +802,9 @@ async def work_callback(callback: types.CallbackQuery):
     if result == "win" and workflow.completed:
         status_text = workflow.get_status_text()
         async with SessionLocal() as session:
-            earned, exp = await core.settler_applyRewards(work, settler, session)
-            reward_text = mfunc.format_reward_text(earned, exp)
-            await callback.message.edit_text(f"{status_text}\n\n{reward_text}", reply_markup=None)
+            earned = await core.settler_applyRewards(work, settler, session)
+            reward_text = await mfunc.format_reward_text(earned)
+            await callback.message.edit_text(f"{status_text}\n\n📦 <b>Получено:</b>\n{reward_text}", reply_markup=None)
             await mfunc.mark_work_completed(settler, session, callback.message.chat.id)
         
         active_games.pop(user_key, None)
@@ -855,6 +855,36 @@ async def work_callback(callback: types.CallbackQuery):
         await callback.message.edit_text(status_text, reply_markup=kb)
 
 
+@router.message(F.text.lower().startswith("!дать"))
+async def promo_command(message: types.Message):
+    #* Выдача ресурса разработчиком
+    if message.from_user.id not in settings.DEVELOPER_IDS:
+        await message.answer("⚠️ Только разработчики могут выдавать ресурсы.")
+        return
+
+    try:
+        _ , emoji, qty = message.text.split(" ")
+        qty = int(qty)
+    except:
+        await message.answer(f"⚠️ Неверный формат команды.\n{emoji}: +{qty}\n<code>!дать эмодзи количество</code> (в ответ)")
+        return
+    
+    try:
+        recipient = message.reply_to_message.from_user
+    except:
+        recipient = message.from_user
+
+    user = await core.user_getOrCreate(recipient)
+    settlement = await core.settlement_getOrCreate(message.chat)
+    settler = await core.settler_getOrCreate(user, settlement)
+    
+    async with SessionLocal() as session:
+        obtained = await core.settler_add(settler, session, emoji, qty)
+        text = await mfunc.format_reward_text(obtained)
+
+        await session.commit()
+    
+    await message.answer(f"🌟 <b>{message.from_user.full_name} получил(а):</b>\n{text}")
 
 
 def collect_commands(router) -> dict[str, callable]:

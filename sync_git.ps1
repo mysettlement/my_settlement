@@ -49,11 +49,8 @@ while ($true) {
             Log "Update found. Pulling..."
             git pull origin main 2>&1 | ForEach-Object { Log $_ }
 
-            Log "Stopping app container..."
-            docker compose -p my_settlement down app 2>&1 | ForEach-Object { Log $_ }
-
             Log "Rebuilding containers..."
-            docker compose -p my_settlement up --build -d 2>&1 | ForEach-Object { Log $_ }
+            docker compose up -d --build 2>&1 | ForEach-Object { Log $_ }
 
             Log "Update complete."
         }

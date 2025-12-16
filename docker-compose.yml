@@ -40,6 +40,18 @@ services:
     networks:
       - app-net
     restart: unless-stopped
+    
+  docs:
+    build:
+      context: ./docs
+      target: serve
+    ports:
+      - "3333:3000"
+    environment:
+      - CHOKIDAR_USEPOLLING=true
+    networks:
+      - app-net
+    restart: unless-stopped
 
 volumes:
   db-data:

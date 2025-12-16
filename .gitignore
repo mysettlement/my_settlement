@@ -10,3 +10,4 @@
 /.obsidian
 .env
 my_settlement.code-workspace
+docker-compose.override.yml

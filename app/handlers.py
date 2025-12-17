@@ -1,3 +1,4 @@
+import html
 from aiogram import Router, types, F, Bot
 from aiogram.filters import Command, CommandObject, CommandStart, or_f, and_f
 from aiogram.types import InlineKeyboardButton
@@ -9,7 +10,7 @@ from sqlalchemy import select, update
 from sqlalchemy.orm import selectinload
 
 import logging
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from app.config import setup_logging, settings
 from app.db import SessionLocal
@@ -344,46 +345,79 @@ async def start_command(message: types.Message):
     )
     await message.answer(text, reply_markup=kb.as_markup())
 
-
-# @fuzzy("назвать поселение", "name settlement")
-# @router.message(or_f(Command("name_settlement"), F.text.startswith.lower().in_({"назвать поселение", f"@{settings.BOT_USERNAME} назвать поселение", "name settlement", f"@{settings.BOT_USERNAME} name settlement"})))
-# async def name_settlement(message: types.Message):
-#     #* Смена имени поселения
-#     user = await core.user_getOrCreate(message.from_user)
-#     settlement = await core.settlement_getOrCreate(message.chat)
-#     settler = await core.settler_getOrCreate(user, settlement)
-#     if not settler:
-#         log.error(f"Не удалось получить или создать поселенца для пользователя {message.from_user.id} в функции name_settlement()")
-#         await message.answer("⚠️ Беда приключилась, вести о тебе не сысканы. Погоди малость, опосля пытай снова.")
-#         return
+@router.message(or_f(Command("name_settlement"), F.text.lower().startswith(("назвать поселение", f"@{settings.BOT_USERNAME} назвать поселение", "name settlement", f"@{settings.BOT_USERNAME} name settlement", "назвати поселення", f"@{settings.BOT_USERNAME} назвати поселення"))))
+async def name_settlement(message: types.Message, command: CommandObject = None):
+    #* Смена имени поселения
+    raw_new_name = ""
+    if command:
+        raw_new_name = command.args
+    else:
+        txt = message.text
+        for trigger in ["назвать поселение", f"@{settings.BOT_USERNAME} назвать поселение", "name settlement", f"@{settings.BOT_USERNAME} name settlement", "назвати поселення", f"@{settings.BOT_USERNAME} назвати поселення"]:
+            if txt.lower().startswith(trigger):
+                raw_new_name = txt[len(trigger):].strip()
+                break
     
-#     owner = settlement.owner
-#     if not owner:
-#         log.error(f"Не удалось получить владельца поселения чата {message.chat.id} в функции name_settlement()")
-#         await message.answer("⚠️ Беда приключилась, вести мэре не сысканы. Погоди малость, опосля пытай снова.")
-#         return
-    
-#     if owner.telegram_id != message.from_user.id:
-#         await message.answer("⚠️ Управлять поселением токмо мэр может! Иди своим путём, простолюдин.")
-#         return
-    
-#     delta = datetime.now() - settlement.last_name_change
-#     hours = delta.seconds // 3600
-#     if hours < config.SETTLEMENT_NAME_CHANGE_COOLDOWN_HOURS:
-#         await message.answer(f"📜<b>Встань, {owner}, но не радуйся прежде времени.</b>\n\nСлово твоё услышано, однако милости на этот раз не будет.\nЯ вижу, что прошение о новом имени ты принёс, но <b>отказываю тебе твёрдо и окончательно</b>:📌\nПоселение твоё лишь недавно, по моей же воле, получило имя <b>{new_name}</b>, и древний обычай велит ждать ещё <b>{mfunc.format_relative_time(settlement.last_name_change)}</b>, прежде чем вновь тревожить печати, грамоты и память народную. Пусть имя это остаётся нерушимым, как скала, и служит людям многие лета без новых перемен.\nПусть под нынешним знаменем <b>{new_name}</b> град наш крепнет и цветёт, а не мечется меж новых слов, словно лист на ветру.\n\n<b>Да здравствует {new_name} — и да пребудет оно неизменным!</b>💪\n🏰Возвращайся в свой град с миром и передай всем: воля моя такова, и точка.")
-#         return
+    if not raw_new_name:
+        await message.answer("⚠️ <b>Укажите название!</b>\nПример: <code>/name_settlement Новый Град</code>")
+        return
 
-#     new_name = message.text.split("")[1] #! Исправить!
-#     old_name = settlement.name
-#     if new_name == old_name:
-#         message.answer(f"📜<b>Что за шутки, мэр?</b>\n\nТы просишь переименовать град из <b>{old_name}</b> в… <b>{new_name}</b>? Но ведь это одно и то же имя!\nМенять его на то же самое — всё равно что воду в ступе толочь.\n\n❌<b>Отказываю!</b> Пусть остаётся как есть.\n\n<b>Да здравствует {new_name} — и без лишних бумаг!</b>💪\n🏰Иди с миром и больше не трать пергамент понапрасну.")
-#         return
+    if len(raw_new_name) > 30 or len(raw_new_name) < 3:
+        await message.answer("⚠️ Название должно быть от 3 до 30 символов.")
+        return
+
+    new_name = html.escape(raw_new_name)
+
+    user = await core.user_getOrCreate(message.from_user)
     
-#     settlement.name = new_name
-#     settlement.last_name_change = datetime.now()
+    async with SessionLocal() as session:
+        result = await session.execute(
+            select(models.Settlement)
+            .options(selectinload(models.Settlement.owner))
+            .where(models.Settlement.chat_id == message.chat.id)
+        )
+        settlement = result.scalars().first()
 
-#     await message.answer(f"📜<b>Добро, верный мэр!</b>\n\nВстань с колен и подними чело своё — милость моя к тебе велика, а слово твоё услышано и принято с радостью.\nВижу я, что воля моя исполнена точно и в срок: отныне и во веки веков <b>поселение моё, прежде звавшееся {old_name}, носит новое славное имя — {new_name}!</b>📌\n🌄Пусть же это имя гремит от края до края земли моей, пусть в летописях золотом будет вписано, а в сердцах подданных моих — выжжено огнём вечной верности.\n🔔Люди ликуют, колокола гудят, а враги наши да трепещут, ибо под новым знаменем град наш станет ещё крепче и славнее!\n\n<b>Да здравствует {new_name}!</b>💪\nДа цветёт оно под дланью моей многие лета!🏞\nИди с миром и неси славу новую по всей земле!</b>")
+        if not settlement:
+            return
 
+        if not settlement.owner or settlement.owner.telegram_id != message.from_user.id:
+            await message.answer("⚠️ Управлять именем поселения токмо <b>мэр</b> (владелец чата) может! Иди своим путём, простолюдин.")
+            return
+
+        last_change = settlement.last_name_change or datetime.min
+        delta = datetime.now() - last_change
+        
+        
+        if delta.total_seconds() < settings.SETTLEMENT_NAME_CHANGE_COOLDOWN_HOURS * 3600:
+            remaining_time = await mfunc.format_relative_time(last_change + timedelta(hours=settings.SETTLEMENT_NAME_CHANGE_COOLDOWN_HOURS))
+            await message.answer(
+                f"📜 <b>Не спеши, правитель.</b>\n"
+                f"Чернила на прошлом указе ещё не высохли. Негоже так часто имена менять.\n\n"
+                f"⏳ Новую грамоту сможешь подать <b>{remaining_time}</b>."
+            )
+            return
+
+        old_name = settlement.name
+        if new_name == old_name:
+            await message.answer(
+                f"📜 <b>К чему тратить чернила?</b>\n"
+                f"Писарь не станет марать пергамент понапрасну.\n\n"
+                f"Ты меняешь <b>{old_name}</b> на <b>{new_name}</b>. Суть едина."
+            )
+            return
+        
+        settlement.name = new_name
+        settlement.last_name_change = datetime.now()
+        
+        await session.commit()
+        
+        await message.answer(
+            f"📜 <b>Быть по сему!</b>\n\n"
+            f"Имя <b>{old_name}</b> уходит в легенды. Отныне и впредь владения сии величаются <b>{new_name}</b>! 📌\n\n"
+            f"<b>Да здравствует {new_name}!</b> 💪"
+        )
+        log.debug(f"{message.chat.id} | Переименовано поселение {old_name} -> {new_name}")
 
 
 @fuzzy("косметика", "cosmetics")

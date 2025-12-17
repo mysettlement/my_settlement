@@ -66,9 +66,9 @@ services:
       db:
         condition: service_healthy
 
-  # backup:
+  # remote-backup:
   #   image: ghcr.io/nicotsx/zerobyte:v0.18
-  #   container_name: backup
+  #   container_name: remote-backup
   #   restart: unless-stopped
   #   cap_add:
   #     - SYS_ADMIN

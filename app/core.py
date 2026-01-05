@@ -153,10 +153,11 @@ async def settler_getOrCreate(user: models.User, settlement: models.Settlement):
                 )
                 session.add(settler)
                 settler.rank_emoji_available = ["🧑‍🌾", "👨‍🌾", "👩‍🌾"]
+
+                log.debug(f"{settlement.id} | ✅ Создан поселец: {settler.id}")
+                
                 await session.commit()
                 await session.refresh(settler, ['user', 'settlement', 'profession'])
-                
-                log.debug(f"{settlement.id} | ✅ Создан поселец: {settler.id}")
                 return settler
     except Exception as e:
         raise SettlerCreationError(f"Ошибка при создании/получении поселенца {user.id} в поселении {settlement.id}: {str(e)}", user_id=user.id)
@@ -174,6 +175,7 @@ async def settler_addExp(settler: models.Settler, session: AsyncSession, exp: in
     log.debug(f"{settler.settlement_id} | {settler.user_id} | 🗂 Опыт увеличен: +{exp} ({settler.exp}/{settler.target_exp})")
 
     text = None
+    old_level = settler.level
     old_rank = settler.rank
     old_emoji = settler.rank_emoji_available[0] if settler.rank_emoji_available else "❓"
 
@@ -198,10 +200,8 @@ async def settler_addExp(settler: models.Settler, session: AsyncSession, exp: in
         settler.level += 1
         settler.exp -= settler.target_exp
 
-        text = f"🎉 <b>{user.name if user else f"User {settler.user_id}"}</b> повысил(а) уровень до <b>{settler.level}</b>! ({settler.exp}/{settler.target_exp})\n"
-        log.debug(f"{settler.settlement_id} | {settler.user_id} | ⬆️ Новый уровень: {settler.level}")
+        text = f"🎉 <b>{user.name if user else f"User {settler.user_id}"}</b> повысил(а) уровень до <b>{settler.level}</b>! (🗂 {settler.exp}/{settler.target_exp})\n"
     
-
     if old_rank != settler.rank:
         rank_emojis = {
             "Крестьянин": ["🧑‍🌾", "👨‍🌾", "👩‍🌾"],
@@ -215,13 +215,13 @@ async def settler_addExp(settler: models.Settler, session: AsyncSession, exp: in
         flag_modified(settler, 'rank_emoji_available')
 
         text += f"<b>🔼 Новый ранг:</b> {old_emoji} {old_rank} → {new_rank_emojis[0] if new_rank_emojis else '❓'} <b>{settler.rank}</b>!"
-        log.debug(f"{settler.settlement_id} | {settler.user_id} | 🔼 Новый ранг: {settler.rank}")
-
+        log.debug(f"{settler.settlement_id} | {settler.user_id} | 🔼 Повышение ранга: {settler.rank}")
 
     await session.flush()
     await session.refresh(settler, ["settlement"])
 
     if text:
+        log.debug(f"{settler.settlement_id} | {settler.user_id} | ⬆️ Повышение уровня: {old_level} → {settler.level} (🗂 {settler.exp}/{settler.target_exp})")
         await bot.send_message(settler.settlement.chat_id, text)
 
     return settler

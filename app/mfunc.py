@@ -200,7 +200,7 @@ async def format_relative_time(target: datetime, now: Optional[datetime] = None)
 
     parts = []
 
-    # Годы
+    # годы
     if years > 0:
         if years == 1:
             parts.append("1 год")
@@ -209,7 +209,7 @@ async def format_relative_time(target: datetime, now: Optional[datetime] = None)
         else:
             parts.append(f"{years} лет")
 
-    # Дни
+    # дни
     if days > 0:
         if days == 1:
             parts.append("1 день")
@@ -218,7 +218,7 @@ async def format_relative_time(target: datetime, now: Optional[datetime] = None)
         else:
             parts.append(f"{days} дней")
 
-    # Часы
+    # часы
     if hours > 0:
         if hours == 1:
             parts.append("1 час")
@@ -227,8 +227,8 @@ async def format_relative_time(target: datetime, now: Optional[datetime] = None)
         else:
             parts.append(f"{hours} часов")
 
-    # Минуты
-    if minutes > 0 and (total_seconds < 365 * 24 * 3600 or years == 0):
+    # минуты
+    if minutes > 0 and (total_seconds < 24 * 3600 or years == 0):
         if minutes == 1:
             parts.append("1 минуту")
         elif 2 <= minutes <= 4:
@@ -238,7 +238,7 @@ async def format_relative_time(target: datetime, now: Optional[datetime] = None)
         else:
             parts.append(f"{minutes} минут")
 
-    # Менее минуты
+    # менее минуты
     if not parts:
         result = "через несколько секунд" if is_future else "только что"
     else:

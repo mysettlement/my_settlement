@@ -119,6 +119,7 @@ class Settler(Base):
     settlement = relationship("Settlement", back_populates="members")
     resources = relationship("Resource", secondary=settler_resources, backref="settlers")
     profession = relationship("Profession", backref="settlers")
+    # buildings = relationship("Building", backref="owner")
 
 class Resource(Base):
     __tablename__ = "resources"
@@ -128,9 +129,11 @@ class Resource(Base):
     emoji = Column(String, nullable=True)
     description = Column(String, nullable=True)
     category = Column(String)
+    rarity = Column(SAEnum(RarityLevel), default=RarityLevel.COMMON, nullable=False)
+    
     from_resource = Column(String, nullable=True, default=None)
     for_resource = Column(String, nullable=True, default=None)
-    rarity = Column(SAEnum(RarityLevel), default=RarityLevel.COMMON, nullable=False)
+
     received = Column(Integer, server_default="0")
     spent = Column(Integer, server_default="0")
 
@@ -145,6 +148,25 @@ class Profession(Base):
     collects = Column(String, nullable=True, default=None)
     required_level = Column(Integer)
 
+# class Building(Base):
+#     __tablename__ = "buildings"
+
+#     id = Column(BigInteger, primary_key=True, index=True)
+#     name = Column(String, unique=True)
+#     emoji = Column(String, nullable=True)
+#     description = Column(String, nullable=True)
+#     category = Column(String)
+#     is_private = Column(Boolean)
+
+#     build_time = Column(Integer, server_default="0")
+#     cost = Column(MutableList.as_mutable(PickleType), default=[])  # [{"resource": "🌾", "quantity": 5}, ...]
+#     required_profession_id = Column(BigInteger, ForeignKey("professions.id"), nullable=True)
+#     max_level = Column(Integer, server_default="1")
+
+#     level = Column(Integer, server_default="1")
+
+#     required_profession = relationship("Profession", backref="buildings")
+#     owner = relationship("Settler", backref="buildings")
 
 
 # === РАБОТЫ ===

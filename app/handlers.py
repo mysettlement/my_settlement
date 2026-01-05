@@ -317,12 +317,6 @@ async def start_command(message: types.Message):
     settlement = await core.settlement_getOrCreate(message.chat)
     settler = await core.settler_getOrCreate(user, settlement)
     
-    
-    if not settler:
-        log.error(f"Не удалось получить или создать поселенца для пользователя {message.from_user.id} в функции start_command()")
-        await message.answer("❌ Беда приключилась, вести о тебе не сысканы. Погоди малость, опосля пытай снова.")
-        return
-    
     async with SessionLocal() as session:
         result = await session.execute(
             select(models.Settlement)
@@ -335,9 +329,10 @@ async def start_command(message: types.Message):
             settlement.owner = updated_settlement.owner
     
     kb = InlineKeyboardBuilder()
-    buttons = []
-    buttons.append(InlineKeyboardButton(text="👤 Профиль", switch_inline_query_current_chat="Профиль"))
-    kb.row(*buttons, width=2)
+    kb.add(InlineKeyboardButton(text="👤 Профиль", switch_inline_query_current_chat="Профиль"))
+    if settlement.owner.telegram_id == message.from_user.id:
+        kb.add(InlineKeyboardButton(text="📜 Переименовать", switch_inline_query_current_chat="Переименовать поселение"))
+    kb.adjust(2)
 
     text = (
         f"<b>{settlement.name}</b> (основан {await mfunc.format_relative_time(settlement.created_at)})\n"
@@ -345,7 +340,7 @@ async def start_command(message: types.Message):
     )
     await message.answer(text, reply_markup=kb.as_markup())
 
-@router.message(or_f(Command("name_settlement"), F.text.lower().startswith(("назвать поселение", f"@{settings.BOT_USERNAME} назвать поселение", "name settlement", f"@{settings.BOT_USERNAME} name settlement", "назвати поселення", f"@{settings.BOT_USERNAME} назвати поселення"))))
+@router.message(or_f(Command("name_settlement"), F.text.lower().startswith(("назвать поселение", f"@{settings.BOT_USERNAME} назвать поселение", "переименовать поселение", f"@{settings.BOT_USERNAME} переименовать поселение", "name settlement", f"@{settings.BOT_USERNAME} name settlement", "назвати поселення", f"@{settings.BOT_USERNAME} назвати поселення"))))
 async def name_settlement(message: types.Message, command: CommandObject = None):
     #* Смена имени поселения
     raw_new_name = ""
@@ -810,7 +805,7 @@ async def work_callback(callback: types.CallbackQuery):
     current_step = workflow.get_current_step()
     converted_action = action
     if action is not None and current_step is not None:
-        if isinstance(current_step, (Hitting, Catch, Alternation, ProgressBar)):
+        if isinstance(current_step, (Harvesting, Hitting, Catch, Alternation, ProgressBar)):
             try:
                 converted_action = int(action)
             except Exception:

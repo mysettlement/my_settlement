@@ -565,7 +565,7 @@ async def settler_startWorkflow(message_or_callback: Union[types.Message, types.
                     await message_or_callback.answer(text) if is_message else await message_or_callback.answer(text, show_alert=True)
                     return False
                 continue
-            success, result = await settler_updateResource(settler, session, emoji, qty, check_if_enough=True)
+            success, result = await settler_updateResource(settler, session, emoji, - qty, check_if_enough=True)
             if not success:
                 await message_or_callback.answer(result) if is_message else await message_or_callback.answer(result, show_alert=True)
                 return success

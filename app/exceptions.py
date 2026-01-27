@@ -84,4 +84,4 @@ class ErrorMiddleware(BaseMiddleware):
                 await event.answer('❌ Неизвестная ошибка. Обратитесь к <a href="https://t.me/megatocha">создателю.</a>')
             elif isinstance(event, types.CallbackQuery):
                 await event.message.answer('❌ Неизвестная ошибка. Обратитесь к <a href="https://t.me/megatocha">создателю.</a>')
-            return
+            raise e

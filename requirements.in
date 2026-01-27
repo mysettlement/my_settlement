@@ -1,0 +1,12 @@
+aiogram
+APScheduler
+asyncpg
+langdetect
+pydantic-settings
+SQLAlchemy
+wordfreq
+pytz
+tzdata
+rapidfuzz
+arrow
+timezonefinder

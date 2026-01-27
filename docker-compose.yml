@@ -1,6 +1,7 @@
 services:
   app:
     container_name: app
+    profiles: ["main"]
     build:
       context: .
       dockerfile: Dockerfile
@@ -23,6 +24,7 @@ services:
 
   db:
     container_name: db
+    profiles: ["main"]
     image: postgres:16
     env_file:
       - .env
@@ -46,6 +48,7 @@ services:
   db-dumper:
     image: prodrigestivill/postgres-backup-local
     container_name: db-dumper
+    profiles: ["tools"]
     restart: unless-stopped
     env_file:
       - .env
@@ -84,6 +87,7 @@ services:
 
   docs:
     container_name: docs
+    profiles: ["tools"]
     build:
       context: ./docs
       target: serve

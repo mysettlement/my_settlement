@@ -11,11 +11,12 @@ from sqlalchemy.orm import selectinload
 
 import logging
 from datetime import datetime, timedelta
+from timezonefinder import TimezoneFinder
 
 from app.config import setup_logging, settings
 from app.db import SessionLocal
 import app.core as core
-from app.gamer import Workflow, Harvesting, Hitting, Catch, Alternation, ProgressBar
+from app.gamer import Workflow, Hitting, Catch, Alternation, ProgressBar
 import app.models as models
 from app.mfunc import active_games, fuzzy
 import app.mfunc as mfunc
@@ -26,6 +27,7 @@ bot = Bot(
     )
 router = Router()
 log = setup_logging(logging.getLogger(__name__))
+tf = TimezoneFinder()
 
 
 
@@ -83,7 +85,6 @@ async def bot_added_to_chat_event(event: types.ChatMemberUpdated):
     log.debug(text_log)
 
 
-
 @fuzzy("мой айди", "my id", "мій айді", "мой ид", "мій ід")
 @router.message(or_f(Command("my_id"), F.text.lower().in_({"мой айди", "мой ид", f"@{settings.BOT_USERNAME} мой айди", "my id", f"@{settings.BOT_USERNAME} my id", "мій айді", "мій ід", f"@{settings.BOT_USERNAME} мій айді", f"@{settings.BOT_USERNAME} мій ід"})))
 async def my_id_command(message: types.Message):
@@ -126,7 +127,7 @@ async def me_command(message: types.Message):
                 f"💡 {settler.level} — {settler.emoji} <b>{settler.rank}</b>\n"
                 f"🗂 <b>{round(settler.exp)}/{round(settler.target_exp)}</b> | "
                 f"📄 {f'<b>{settler.quote}/{settler.target_quote}</b>' if not settler.quote_is_completed else f'{settler.target_quote}/{settler.target_quote}'} {'(⏳) ' if settler.overtime_is_toggled and not settler.quote_is_completed else ''}| "
-                f"💰 <b>{round(settler.balance)}</b> ({'<b>' if settler.income != 0 else ''}{round(settler.income)}/день{'</b>' if settler.income != 0 else ''})\n"
+                f"💰 <b>{round(settler.balance)}</b>\n"
                 f"\n{(settler.profession.emoji + ': <b>' + work_countdown + '</b> 🕒') if (settler.profession and not can_work) else ((settler.profession.emoji + ': ✅') if settler.profession else '')}"
             )
 
@@ -142,10 +143,10 @@ async def me_command(message: types.Message):
                 f"🛠 <b>Ремесло:</b> {craft_text}\n"
                 f"💡 <b>Уровень:</b> {settler.level}\n"
                 f"🗂 <b>Опыт:</b> {round(settler.exp)}/{round(settler.target_exp)}\n"
-                f"🏷 <b>Ранг:</b> {settler.emoji} {settler.rank}\n"
+                f"🏷 <b>Титул:</b> {settler.emoji} {settler.rank}\n"
                 f"📄 <b>Мера:</b> {f'<b>{settler.quote}/{settler.target_quote}</b>' if not settler.quote_is_completed else f'{settler.target_quote}/{settler.target_quote}'} {'(⏳ Лишняя мера взята)' if settler.overtime_is_toggled and not settler.quote_is_completed else ''}\n"
-                f"💰 <b>Баланс:</b> {round(settler.balance)} ({'<b>' if settler.income != 0 else ''}{round(settler.income)}/день{'</b>' if settler.income != 0 else ''})\n"
-                f"\n {(settler.profession.emoji + ' Трудиться можно через <b>' + work_countdown + '</b> 🕒') if (settler.profession and not can_work) else ((settler.profession.emoji + ' <b>Можно трудиться</b> ✅') if settler.profession else '')} "
+                f"💰 <b>Баланс:</b> {round(settler.balance)}\n"
+                f"\n{(settler.profession.emoji + ' Трудиться можно через <b>' + work_countdown + '</b> 🕒') if (settler.profession and not can_work) else ((settler.profession.emoji + ' <b>Можно трудиться</b> ✅') if settler.profession else '')} "
             )
 
             kb.add(InlineKeyboardButton(text="🪭 Косметика", switch_inline_query_current_chat="Косметика"))
@@ -178,40 +179,19 @@ async def me_command(message: types.Message):
 async def settings_command(message: types.Message):
     #* Настройки пользователя
     user = await core.user_getOrCreate(message.from_user)
-    kb = InlineKeyboardBuilder()
-    buttons = []
-
-    compact_style = user.compact_style
-    show_hints = user.show_hints
-    allow_typos = user.allow_typos
-    #TODO: XXX = user.XXX
-
-    buttons.append(InlineKeyboardButton(text=f"{'🎩' if compact_style else '🎩 Стиль'}: {'🤏' if compact_style else '🤲'}", callback_data="settings:compact_style"))
-    buttons.append(InlineKeyboardButton(text=f"{'ℹ️' if compact_style else 'ℹ️ Подсказки'}: {'✅' if show_hints else '❌'}", callback_data="settings:show_hints"))
-    buttons.append(InlineKeyboardButton(text=f"{'✍️' if compact_style else '✍️ Опечатки'}: {'✅' if allow_typos else '❌'}", callback_data="settings:allow_typos"))
-    #TODO: buttons.append(InlineKeyboardButton(text=f"{'' if compact_style else ''}: {'✅' if XXX else '❌'}", callback_data="settings:XXX"))
-    kb.row(*buttons, width=2)
+    await show_settings_menu(message, user)
     
-    text = f"⚙️ <b>Настройки</b>"
-    text += f"\n🎩 Стиль: <b>{'🤏 Компактный' if compact_style else '🤲 Развёрнутый'}</b>"
-    text += f"\nℹ️ Подсказки: <b>{'✅ Включены' if show_hints else '❌ Выключены'}</b>"
-    text += f"\n✍️ Опечатки: <b>{'✅ Учитывать' if allow_typos else '❌ Не учитывать'}</b>"
-    #TODO: text += f"\n XXX: <b>{'✅' if XXX else '❌'}</b>"
-    text += "\n\nℹ️ Настройки сохраняются для каждого пользователя отдельно." if user.show_hints else ""
-    #TODO: text += '<a href="https://">📖 Подробнее о настройках</a>'
-    
-    await message.reply(text=text, reply_markup=kb.as_markup(), disable_notification=True)
 
 @router.callback_query(F.data.startswith("settings:"))
 async def settings_callback(callback: types.CallbackQuery):
     #* Callback-кнопки настроек
-    if callback.from_user.id != callback.message.reply_to_message.from_user.id:
-        await callback.answer("❌ Не тронь чужой снасти!", True)
+    if callback.message.reply_to_message and callback.from_user.id != callback.message.reply_to_message.from_user.id:
+        await callback.answer("⚠️ Не тронь чужой снасти!", True)
         return
     
-    action = callback.data.split(":", 1)[1]
+    menu = callback.data.split(":", 1)[1]
     kb = InlineKeyboardBuilder()
-    buttons = []
+    text = ""
     
     async with SessionLocal() as session:
         result = await session.execute(
@@ -220,7 +200,7 @@ async def settings_callback(callback: types.CallbackQuery):
         user = result.scalars().first()
         
         if not user:
-            await callback.answer("❌ Пользователь не найден", True)
+            await callback.answer("⚠️ Пользователь не найден", True)
             return
         
         compact_style = user.compact_style
@@ -228,43 +208,135 @@ async def settings_callback(callback: types.CallbackQuery):
         allow_typos = user.allow_typos
         #TODO: XXX = user.XXX
         
-        if action == "compact_style":
+        if menu == "compact_style":
             user.compact_style = not compact_style; compact_style = not compact_style
             log.debug(f"{user.telegram_id} | 🎩 compact_style > {compact_style}")
             await callback.answer(f"🎩 Стиль > {"🤏 Компактный" if compact_style else "🤲 Развёрнутый"}")
 
-        elif action == "show_hints":
+        elif menu == "show_hints":
             user.show_hints = not show_hints; show_hints = not show_hints
             log.debug(f"{user.telegram_id} | ℹ️ show_hints > {show_hints}")
             await callback.answer(f"ℹ️ Подсказки > {'✅ Включены' if show_hints else '❌ Выключены'}")
         
-        elif action == "allow_typos":
+        elif menu == "allow_typos":
             user.allow_typos = not allow_typos; allow_typos = not allow_typos
             log.debug(f"{user.telegram_id} | 🎩 allow_typos > {allow_typos}")
             await callback.answer(f"✍️ Опечатки > {'✅ Учитывать' if allow_typos else '❌ Не учитывать'}")
+
+        elif menu == "timezone":
+            last_change = user.last_tz_change or datetime.min
+            if (datetime.now() - last_change).days < settings.TZ_CHANGE_COOLDOWN_DAYS:
+                await callback.answer(f"⏳ Сменить пояс можно {mfunc.format_relative_time(last_change + timedelta(days=settings.TZ_CHANGE_COOLDOWN_DAYS))}", show_alert=True)
+                return
+
+            if callback.message.chat.type == "private":
+                kb.row(types.InlineKeyboardButton(text="📍 Определить местоположение", callback_data="ask_location"))
+            kb.row(types.InlineKeyboardButton(text="🔙 Назад", callback_data="settings:back"))
+
+            text += f"🌍 <b>Настройка часового пояса</b>\n\n"
+            text += f"Твой текущий пояс: <code>{user.timezone}</code>\n"
+            text += f"Дневной сброс происходит в <b>00:00</b> по этому времени.\n\n"
+            text += f"⚠️ Менять пояс можно раз в <b>{settings.TZ_CHANGE_COOLDOWN_DAYS} дней</b>."
+
+            await callback.message.edit_text(
+                text,
+                reply_markup=kb.as_markup()
+            )
+            await callback.answer()
+            return
         
-        #TODO: elif action == "XXX":
+        #TODO: elif menu == "XXX":
 
         await session.commit()
 
-    buttons.append(InlineKeyboardButton(text=f"{'🎩' if compact_style else '🎩 Стиль'}: {'🤏' if compact_style else '🤲'}", callback_data="settings:compact_style"))
-    buttons.append(InlineKeyboardButton(text=f"{'ℹ️' if compact_style else 'ℹ️ Подсказки'}: {'✅' if show_hints else '❌'}", callback_data="settings:show_hints"))
-    buttons.append(InlineKeyboardButton(text=f"{'✍️' if compact_style else '✍️ Опечатки'}: {'✅' if allow_typos else '❌'}", callback_data="settings:allow_typos"))
-    #TODO: buttons.append(InlineKeyboardButton(text=f"{'' if compact_style else ''}: {'✅' if XXX else '❌'}", callback_data="settings:XXX"))
+    await show_settings_menu(callback.message, user, is_edit=True)
+
+@router.callback_query(F.data == "ask_location")
+async def ask_location_callback(callback: types.CallbackQuery):
+    kb = types.ReplyKeyboardMarkup(
+        keyboard=[[types.KeyboardButton(text="📍 Поделиться геопозицией", request_location=True), types.KeyboardButton(text="Отмена")]],
+        resize_keyboard=True,
+        one_time_keyboard=True
+    )
+    await callback.message.delete()
+    await callback.message.answer("📍 <b>Нажми на кнопку ниже</b>, чтобы определить часовой пояс автоматически.", reply_markup=kb)
+
+@router.message(F.location)
+async def location_handler(message: types.Message):
+    if message.chat.type != "private":
+        return
+
+    lat = message.location.latitude
+    lon = message.location.longitude
+    
+    timezone_str = tf.timezone_at(lng=lon, lat=lat)
+    
+    if not timezone_str:
+        await message.answer("⚠️ Не удалось определить часовой пояс. Попробуй выбрать вручную.")
+        return
+    
+    await message.answer(
+        f"✅ Твой часовой пояс определён: <b>{timezone_str}</b>", 
+        reply_markup=InlineKeyboardBuilder().add(InlineKeyboardButton(text="Установить!", callback_data=f"set_tz:{timezone_str}")).as_markup()
+    )
+
+@router.callback_query(F.data.startswith("set_tz:"))
+async def set_tz_manual(callback: types.CallbackQuery):
+    tz_name = callback.data.split(":")[1]
+
+    async with SessionLocal() as session:
+        result = await session.execute(select(models.User).where(models.User.telegram_id == callback.from_user.id))
+        user = result.scalars().first()
+        last_change = user.last_tz_change or datetime.min
+        if (datetime.now() - last_change).days < settings.TZ_CHANGE_COOLDOWN_DAYS:
+            time_left = mfunc.format_relative_time(last_change + timedelta(days=settings.TZ_CHANGE_COOLDOWN_DAYS))
+            await callback.answer(f"⏳ Сменить пояс можно {time_left}", show_alert=True)
+            return
+
+        user.timezone = tz_name
+        user.last_tz_change = datetime.now()
+        await session.commit()
+    
+    log.debug(f"{user.telegram_id} | 🌍 timezone > {tz_name}")
+
+    await callback.answer("✅ Часовой пояс сохранен!")
+    await callback.message.edit_text(f"✅ Твой часовой пояс установлен: <b>{tz_name}</b>", reply_markup=InlineKeyboardBuilder().add(InlineKeyboardButton(text="🔙 Назад", callback_data="settings:back")).as_markup())
+
+async def show_settings_menu(message: types.Message, user: models.User, is_edit: bool = False):
+    kb = InlineKeyboardBuilder()
+
+    compact_style = user.compact_style
+    show_hints = user.show_hints
+    allow_typos = user.allow_typos
+    #TODO: XXX = user.XXX
+
+    kb.add(InlineKeyboardButton(text=f"{'🎩' if compact_style else '🎩 Стиль'}: {'🤏' if compact_style else '🤲'}", callback_data="settings:compact_style"))
+    kb.add(InlineKeyboardButton(text=f"{'ℹ️' if compact_style else 'ℹ️ Подсказки'}: {'✅' if show_hints else '❌'}", callback_data="settings:show_hints"))
+    kb.add(InlineKeyboardButton(text=f"{'✍️' if compact_style else '✍️ Опечатки'}: {'✅' if allow_typos else '❌'}", callback_data="settings:allow_typos"))
+    kb.add(InlineKeyboardButton(text=f"{'🌍' if compact_style else '🌍 Часовой пояс'}", callback_data="settings:timezone"))
+    #TODO: kb.add(InlineKeyboardButton(text=f"{'' if compact_style else ''}: {'✅' if XXX else '❌'}", callback_data="settings:XXX"))
+    kb.adjust(2)
     
     text = f"⚙️ <b>Настройки</b>"
-    text += f"\n🎩 Стиль: <b>{'🤏 Компактный' if compact_style else '🤲 Развёрнутый'}</b>"
+    text += f"\n🎩 Стиль сообщений: <b>{'🤏 Компактный' if compact_style else '🤲 Развёрнутый'}</b>"
     text += f"\nℹ️ Подсказки: <b>{'✅ Включены' if show_hints else '❌ Выключены'}</b>"
     text += f"\n✍️ Опечатки: <b>{'✅ Учитывать' if allow_typos else '❌ Не учитывать'}</b>"
+    text += f"\n🌍 Часовой пояс: <b>{user.timezone}</b>"
     #TODO: text += f"\n XXX: <b>{'✅' if XXX else '❌'}</b>"
     text += "\n\nℹ️ Настройки сохраняются для каждого пользователя отдельно." if user.show_hints else ""
     #TODO: text += '<a href="https://">📖 Подробнее о настройках</a>'
+    if is_edit:
+        try:
+            await message.edit_text(text=text, reply_markup=kb.as_markup())
+        except Exception as e:
+            await message.edit_reply_markup(reply_markup=kb.as_markup())
+    else:
+        await message.reply(text=text, reply_markup=kb.as_markup(), disable_notification=True)
 
-    kb.row(*buttons, width=2)
-    try:
-        await callback.message.edit_text(text=text, reply_markup=kb.as_markup())
-    except Exception as e:
-        await callback.message.edit_reply_markup(reply_markup=kb.as_markup())
+@router.message(F.text.lower() == "отмена")
+async def cancel_location(message: types.Message):
+    await message.answer("Отменено."
+    "", reply_markup=types.ReplyKeyboardRemove())
 
 @fuzzy("help", "помощь", "допомога")
 @router.message(or_f(Command("help"), F.text.lower().in_({"помощь", f"@{settings.BOT_USERNAME} помощь", "help", f"@{settings.BOT_USERNAME} help", "допомога", f"@{settings.BOT_USERNAME} допомога"})))
@@ -281,6 +353,7 @@ async def help_command(message: types.Message):
         '<a href="https://mysettlement.github.io/">📚 Полные гайды</a>'
     )
     await message.answer(help_text)
+
 
 
 @router.message(or_f(and_f(F.chat.type == "private", CommandStart()), F.chat.type == "private"))
@@ -327,15 +400,14 @@ async def start_command(message: types.Message):
         if updated_settlement:
             settlement.members = updated_settlement.members
             settlement.owner = updated_settlement.owner
-    
+
     kb = InlineKeyboardBuilder()
     kb.add(InlineKeyboardButton(text="👤 Профиль", switch_inline_query_current_chat="Профиль"))
     if settlement.owner.telegram_id == message.from_user.id:
-        kb.add(InlineKeyboardButton(text="📜 Переименовать", switch_inline_query_current_chat="Переименовать поселение"))
-    kb.adjust(2)
+        kb.row(InlineKeyboardButton(text="📜 Переименовать", switch_inline_query_current_chat="Переименовать поселение"), InlineKeyboardButton(text="🏗 Постройки", switch_inline_query_current_chat="Городские постройки"))
 
     text = (
-        f"<b>{settlement.name}</b> (основан {await mfunc.format_relative_time(settlement.created_at)})\n"
+        f"<b>{settlement.name}</b> (основан {mfunc.format_relative_time(settlement.created_at)})\n"
         f"👥{len(settlement.members)} 👑 <b>{settlement.owner.name or (f"User {settlement.owner.telegram_id}" if settlement.owner else "Отсутствует")}</b>"
     )
     await message.answer(text, reply_markup=kb.as_markup())
@@ -348,7 +420,7 @@ async def name_settlement(message: types.Message, command: CommandObject = None)
         raw_new_name = command.args
     else:
         txt = message.text
-        for trigger in ["назвать поселение", f"@{settings.BOT_USERNAME} назвать поселение", "name settlement", f"@{settings.BOT_USERNAME} name settlement", "назвати поселення", f"@{settings.BOT_USERNAME} назвати поселення"]:
+        for trigger in ["назвать поселение", f"@{settings.BOT_USERNAME} назвать поселение", "переименовать поселение", f"@{settings.BOT_USERNAME} переименовать поселение", "name settlement", f"@{settings.BOT_USERNAME} name settlement", "назвати поселення", f"@{settings.BOT_USERNAME} назвати поселення"]:
             if txt.lower().startswith(trigger):
                 raw_new_name = txt[len(trigger):].strip()
                 break
@@ -385,7 +457,7 @@ async def name_settlement(message: types.Message, command: CommandObject = None)
         
         
         if delta.total_seconds() < settings.SETTLEMENT_NAME_CHANGE_COOLDOWN_HOURS * 3600:
-            remaining_time = await mfunc.format_relative_time(last_change + timedelta(hours=settings.SETTLEMENT_NAME_CHANGE_COOLDOWN_HOURS))
+            remaining_time = mfunc.format_relative_time(last_change + timedelta(hours=settings.SETTLEMENT_NAME_CHANGE_COOLDOWN_HOURS))
             await message.answer(
                 f"📜 <b>Не спеши, правитель.</b>\n"
                 f"Чернила на прошлом указе ещё не высохли. Негоже так часто имена менять.\n\n"
@@ -413,6 +485,245 @@ async def name_settlement(message: types.Message, command: CommandObject = None)
             f"<b>Да здравствует {new_name}!</b> 💪"
         )
         log.debug(f"{message.chat.id} | Переименовано поселение {old_name} -> {new_name}")
+
+
+@fuzzy("городские постройки", "town buildings", "міські будівлі")
+@router.message(or_f(Command("town_buildings"), F.text.lower().in_({"городские постройки", f"@{settings.BOT_USERNAME} городские постройки", "town buildings", f"@{settings.BOT_USERNAME} town buildings", "міські будівлі", f"@{settings.BOT_USERNAME} міські будівлі"})))
+async def town_buildings_command(message: types.Message):
+    #* Городские постройки (только для мэра)
+    user = await core.user_getOrCreate(message.from_user)
+    settlement = await core.settlement_getOrCreate(message.chat)
+
+    await show_buildings_menu(message, user, settlement, "town")
+
+@fuzzy("мои постройки", "my buildings", "мої будівлі")
+@router.message(or_f(Command("my_buildings"), F.text.lower().in_({"мои постройки", f"@{settings.BOT_USERNAME} мои постройки", "my buildings", f"@{settings.BOT_USERNAME} my buildings", "мої будівлі", f"@{settings.BOT_USERNAME} мої будівлі"})))
+async def my_buildings_command(message: types.Message):
+    #* Личные постройки
+    user = await core.user_getOrCreate(message.from_user)
+    settlement = await core.settlement_getOrCreate(message.chat)
+    
+    await show_buildings_menu(message, user, settlement, "my")
+
+async def show_buildings_menu(message: types.Message, user: models.User, settlement: models.Settlement, scope: str, is_edit: bool = False):
+    """Общая функция для показа меню списка построек"""
+    settler = await core.settler_getOrCreate(user, settlement)
+    
+    async with SessionLocal() as session:
+        buildings = await core.building_getByScope(settlement, settler, scope, session)
+        
+        text = "🏙 <b>Городские постройки</b>" if scope == "town" else "🏡 <b>Мои постройки</b>"
+        
+        kb = InlineKeyboardBuilder()
+        
+        if not buildings:
+            text += "\n\n🕸 Пока здесь пусто."
+        else:
+            for b in buildings:
+                time_left = mfunc.format_relative_time(b.under_construction_until) if not b.is_ready else None
+                status = ("✅" if user.compact_style else "✅ Активно") if b.is_ready else (f"⏳ ({time_left})" if user.compact_style else f"⏳ Построится {time_left}")
+                text += f"\n\n{b.type.emoji} <b>{b.type.name}</b> ({b.level}/{b.type.max_level}):" + f"\n{status}\n" if not user.compact_style else f"{status}\n"
+                btn_text = f"{b.type.emoji} {b.type.name} ({'✅' if b.is_ready else '⏳'})"
+                kb.add(InlineKeyboardButton(text=btn_text, callback_data=f"bld_view:{b.id}:{scope}"))
+            
+        kb.adjust(2)
+        
+        kb.row(InlineKeyboardButton(text="🏗 Чертежи", callback_data=f"bld_list:{scope}"))
+        
+        if is_edit:
+            await message.edit_text(text, reply_markup=kb.as_markup())
+        else:
+            await message.answer(text, reply_markup=kb.as_markup())
+
+@router.callback_query(F.data.startswith("bld_"))
+async def buildings_callback(callback: types.CallbackQuery):
+    user = await core.user_getOrCreate(callback.from_user)
+    settlement = await core.settlement_getOrCreate(callback.message.chat)
+    settler = await core.settler_getOrCreate(user, settlement)
+    
+    parts = callback.data.split(":")
+    action = parts[0]
+    
+    compact_style = user.compact_style
+    
+    # === ВОЗВРАТ В МЕНЮ ===
+    if action == "bld_menu":
+        scope = parts[1]
+        await show_buildings_menu(callback.message, user, settlement, scope, is_edit=True)
+
+    # === КАТАЛОГ ЧЕРТЕЖЕЙ ===
+    elif action == "bld_list":
+        scope = parts[1]
+        
+        async with SessionLocal() as session:
+            stmt = select(models.BuildingType)
+            all_types = (await session.execute(stmt)).scalars().all()
+            
+            text = f"🏗 <b>Каталог чертежей</b> ({('Городские' if not compact_style else '🏙') if scope == 'town' else ('Личные' if not compact_style else '🏡')})\n\n"
+            
+            kb = InlineKeyboardBuilder()
+            buttons = []
+            
+            for bt in all_types:
+                if scope == "town" and bt.is_private:
+                    continue
+                if scope == "my" and not bt.is_private:
+                    continue
+                
+                is_prof_enough, _, is_res_enough, _ = await core.building_checkRequirements(settlement, settler, bt, session, compact_style)
+                
+                status_icon = "☑️" if is_prof_enough and is_res_enough else "🔒"
+                if compact_style:
+                    buttons.append(InlineKeyboardButton(text=f"[{status_icon}] {bt.emoji}", callback_data=f"bld_preview:{bt.id}:{scope}"))
+                else:
+                    buttons.append(InlineKeyboardButton(text=f"[{status_icon}] {bt.emoji} {bt.name}", callback_data=f"bld_preview:{bt.id}:{scope}"))
+            
+            if not buttons:
+                text += "🕸 Пока здесь пусто."
+            
+            kb.row(*buttons, width=2)
+            kb.row(InlineKeyboardButton(text="🔙 Назад", callback_data=f"bld_menu:{scope}"))
+            
+            await callback.message.edit_text(text, reply_markup=kb.as_markup())
+    
+    # === ПРОСМОТР КОНКРЕТНОЙ ПОСТРОЙКИ ===
+    elif action == "bld_view":
+        building_id = int(parts[1])
+        scope = parts[2]
+        
+        async with SessionLocal() as session:
+            stmt = select(models.Building).options(selectinload(models.Building.type)).where(models.Building.id == building_id)
+            building = (await session.execute(stmt)).scalars().first()
+            
+            if not building:
+                await callback.answer("🏚 Здание уже снесено или не существует.", show_alert=True)
+                await show_buildings_menu(callback.message, user, settlement, scope, is_edit=True)
+                return
+
+            if compact_style:
+                status_text = "⚪️" if building.is_ready else f"🔨 <b>{mfunc.format_relative_time(building.under_construction_until)}</b>"
+            else:
+                status_text = "⚪️ <b>В обороте!</b>" if building.is_ready else f"🔨 Стройка закончится <b>{mfunc.format_relative_time(building.under_construction_until)}</b>"
+            
+            has_bonuses, bonuses = mfunc.format_bonuses_text(building.type.bonuses)
+            
+            text = (
+                f"{building.type.emoji} <b>{building.type.name}</b> ({building.level}/{building.type.max_level}) {status_text}\n"
+                f"{building.type.description}\n\n"
+                f"🎁 <b>Бонусы:</b>\n{bonuses}"
+            )
+            
+            kb = InlineKeyboardBuilder()
+            kb.add(InlineKeyboardButton(text="🔙 Назад", callback_data=f"bld_menu:{scope}"))
+            
+            await callback.message.edit_text(text, reply_markup=kb.as_markup())
+
+    # === ПРЕВЬЮ ПЕРЕД СТРОЙКОЙ ===
+    elif action == "bld_preview":
+        bt_id = int(parts[1])
+        scope = parts[2]
+
+        cost_text = []
+        is_res_enough = True
+        is_mayor = True
+        if scope == "town" and not settlement.owner or settlement.owner.telegram_id != callback.from_user.id:
+            is_mayor = False
+    
+        async with SessionLocal() as session:
+            stmt = select(models.BuildingType).where(models.BuildingType.id == bt_id)
+            bt = (await session.execute(stmt)).scalars().first()
+                      
+            is_prof_enough, prof_text, is_res_enough, res_text = await core.building_checkRequirements(
+                settlement, settler, bt, session, compact_style
+            )
+            has_bonuses, bonuses = mfunc.format_bonuses_text(bt.bonuses)
+
+            lines = [
+                f"{bt.emoji} <b>{bt.name}</b>",
+                f"{bt.description}",
+                ""
+            ]
+
+            req_content = "\n".join(filter(None, [prof_text, res_text]))
+
+            if req_content:
+                lines.append(f"🔨 <b>Требуется для постройки:</b>")
+                lines.append(f"{req_content}")
+                lines.append("")
+
+            if has_bonuses:
+                lines.append(f"🎁 <b>Бонусы:</b>")
+                lines.append(f"{bonuses}")
+                lines.append("")
+
+            lines.append(f"⏳ <b>Время строительства:</b> {bt.construction_time} секунд")
+
+            text = "\n".join(lines)
+
+            kb = InlineKeyboardBuilder()
+
+            if is_res_enough and is_prof_enough:
+                if (scope != "town" or is_mayor):
+                    kb.add(InlineKeyboardButton(
+                        text="🔨 Построить!", 
+                        callback_data=f"bld_start:{bt.id}:{scope}"
+                    ))
+                
+            
+            kb.row(InlineKeyboardButton(text="🔙 К чертежам", callback_data=f"bld_list:{scope}"))
+            
+            await callback.message.edit_text(text, reply_markup=kb.as_markup())
+
+    # === ЗАПУСК СТРОЙКИ ===
+    elif action == "bld_start":
+        bt_id = int(parts[1])
+        scope = parts[2]
+
+        if scope == "town" and (not settlement.owner or settlement.owner.telegram_id != callback.from_user.id):
+            await callback.answer("⚠️ Только мэр может строить городские здания.", show_alert=True)
+            await show_buildings_menu(callback.message, user, settlement, scope, is_edit=True)
+            return
+        
+        async with SessionLocal() as session:
+            is_prof_enough, msg = await core.building_startBuilding(settler, bt_id, scope, session)
+            
+            if is_prof_enough:
+                await callback.answer("✅ Работа закипела!", show_alert=False)
+                await show_buildings_menu(callback.message, user, settlement, scope, is_edit=True)
+            else:
+                await callback.answer(f"{msg}", show_alert=True)
+
+
+@fuzzy("бонусы", "bonuses", "эффекты", "бонуси","ефекти")
+@router.message(or_f(Command("bonuses"), Command("effects"), F.text.lower().in_({"бонусы", f"@{settings.BOT_USERNAME} бонусы", "bonuses", "эффекты", f"@{settings.BOT_USERNAME} эффекты", f"@{settings.BOT_USERNAME} bonuses", "бонуси", f"@{settings.BOT_USERNAME} бонуси", "ефекти", f"@{settings.BOT_USERNAME} ефекти"})))
+async def bonuses_command(message: types.Message):
+    #* Просмотр активных эффектов
+    user = await core.user_getOrCreate(message.from_user)
+    settlement = await core.settlement_getOrCreate(message.chat)
+    settler = await core.settler_getOrCreate(user, settlement)
+
+    async with SessionLocal() as session:
+        bonuses = core.BonusSet()
+
+        personal, settlement = await core.setter_getBonuses(settler, session)
+        
+        bonuses.merge(personal)
+        bonuses.merge(settlement)
+        
+        data = bonuses.to_dict()
+        
+        has_bonuses, text_bonuses = mfunc.format_bonuses_text(data)
+    
+    text = f"✨ <b>Эффекты {user.name}</b>\n\n"
+    
+    if not has_bonuses:
+        text += "Нет активных эффектов."
+        if user.show_hints:
+            text += "\nℹ️ Бонусы можно получить от личных или городских построек!"
+    else:
+        text += text_bonuses
+
+    await message.answer(text)
 
 
 @fuzzy("косметика", "cosmetics")
@@ -704,22 +1015,18 @@ async def craft_command(message: types.Message):
     user = await core.user_getOrCreate(message.from_user)
     settlement = await core.settlement_getOrCreate(message.chat)
     settler = await core.settler_getOrCreate(user, settlement)
-    
+
+    available_works = [
+        work for work in models.WORKS_REGISTRY.values()
+        if work.profession_id == settler.profession_id or work.profession_id is None
+    ]
+
     if not settler.profession_id:
         await message.answer("⚠️ Ты ещё ремесла не избрал.", reply_markup=InlineKeyboardBuilder().row(InlineKeyboardButton(text="💼 Выбрать ремесло", switch_inline_query_current_chat="Выбрать ремесло")).as_markup())
         return
-    
-    available_works = [
-        work for work in models.WORKS_REGISTRY.values()
-        if work.profession_id == settler.profession_id
-    ]
 
     if not available_works:
-        await message.answer("⚠️ Твоё ремесло пока не имеет доступных трудов. Жди вестей новых!")
-        return
-    
-    if len(available_works) == 1:
-        await core.settler_startWorkflow(message, available_works[0], user, settler)
+        await message.answer("🕸 Твоё ремесло пока не имеет доступных трудов. Жди вестей новых!")
         return
     
     kb = InlineKeyboardBuilder()
@@ -805,7 +1112,7 @@ async def work_callback(callback: types.CallbackQuery):
     current_step = workflow.get_current_step()
     converted_action = action
     if action is not None and current_step is not None:
-        if isinstance(current_step, (Harvesting, Hitting, Catch, Alternation, ProgressBar)):
+        if isinstance(current_step, (Hitting, Catch, Alternation, ProgressBar)):
             try:
                 converted_action = int(action)
             except Exception:
@@ -895,7 +1202,7 @@ async def promo_command(message: types.Message):
         _ , emoji, qty = message.text.split(" ")
         qty = int(qty)
     except:
-        await message.answer(f"⚠️ Неверный формат команды.\n{emoji}: +{qty}\n<code>!дать эмодзи количество</code> (в ответ)")
+        await message.answer(f"⚠️ Неверный формат команды.\n<code>!дать эмодзи количество</code> (в ответ или себе)")
         return
     
     try:
@@ -912,8 +1219,8 @@ async def promo_command(message: types.Message):
         text = await mfunc.format_reward_text(obtained)
 
         await session.commit()
-    
-    await message.answer(f"🌟 <b>{message.from_user.full_name} получил(а):</b>\n{text}")
+
+    await message.answer(f"🌟 <b>{recipient.full_name} получил(а):</b>\n{text}")
 
 
 def collect_commands(router) -> dict[str, callable]:

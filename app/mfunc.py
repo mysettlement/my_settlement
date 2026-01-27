@@ -3,6 +3,7 @@ import time
 import asyncio
 import pytz
 import re
+import arrow
 from typing import Optional, NamedTuple
 from wordfreq import zipf_frequency
 from langdetect import detect, DetectorFactory
@@ -10,7 +11,7 @@ from rapidfuzz import process, fuzz, utils
 from functools import lru_cache
 from typing import Dict, Union, Callable
 from datetime import datetime, timedelta
-from sqlalchemy import update
+from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from aiogram import Bot, types
 from aiogram.client.default import DefaultBotProperties
@@ -95,31 +96,6 @@ async def is_text_command(message, user, commands: dict[str, callable], *, thres
 
     return FuzzyMatch(True, command, score, None) if score >= threshold else FuzzyMatch(False, command, score, f"Низкий балл ({round(score, 2)}%)")
 
-
-async def get_group_owner(chat_id: int) -> types.User:
-    try:
-        chat_admins = await bot.get_chat_administrators(chat_id)
-        for admin in chat_admins:
-            if admin.status == "creator":
-                return admin.user
-        raise GroupOwnerError(f"Не удалось найти владельца группы {chat_id}", chat_id=chat_id)
-    except GroupOwnerError:
-        raise
-    except Exception as e:
-        raise GroupOwnerError(f"Ошибка API Telegram при получении владельца группы {chat_id}: {str(e)}", chat_id=chat_id)
-
-def get_daily_reset_countdown() -> str:
-    now = datetime.now(pytz.timezone('Europe/Kiev'))
-    
-    next_midnight = (now + timedelta(days=1)).replace(hour=0, minute=0, second=0, microsecond=0)
-    
-    time_diff = next_midnight - now
-    
-    hours = int(time_diff.total_seconds() // 3600)
-    minutes = int((time_diff.total_seconds() % 3600) // 60)
-    
-    return f"{hours}ч. {minutes}м." if hours > 0 else f"{minutes}м."
-
 async def is_meaningful(text: str, length: int = 3, words_amount: int = 1) -> bool:
     if not text:
         return False
@@ -160,92 +136,129 @@ async def is_meaningful(text: str, length: int = 3, words_amount: int = 1) -> bo
 
     return (meaningful / total) >= 0.4
 
+
+async def get_group_owner(chat_id: int) -> types.User:
+    try:
+        chat_admins = await bot.get_chat_administrators(chat_id)
+        for admin in chat_admins:
+            if admin.status == "creator":
+                return admin.user
+        raise GroupOwnerError(f"Не удалось найти владельца группы {chat_id}", chat_id=chat_id)
+    except GroupOwnerError:
+        raise
+    except Exception as e:
+        raise GroupOwnerError(f"Ошибка API Telegram при получении владельца группы {chat_id}: {str(e)}", chat_id=chat_id)
+
+def get_daily_reset_countdown() -> str:
+    now = datetime.now(pytz.timezone('Europe/Kiev'))
+    
+    next_midnight = (now + timedelta(days=1)).replace(hour=0, minute=0, second=0, microsecond=0)
+    
+    time_diff = next_midnight - now
+    
+    hours = int(time_diff.total_seconds() // 3600)
+    minutes = int((time_diff.total_seconds() % 3600) // 60)
+    
+    return f"{hours}ч. {minutes}м." if hours > 0 else f"{minutes}м."
+
+
 async def format_reward_text(earned: dict) -> str:
     if not earned:
         return "✖️ Пусто"
     
-    text = " | ".join(f"{resource}: +{quantity}" for resource, quantity in earned.items())
+    text = "\n".join(f"{resource}: {quantity:+}" for resource, quantity in earned.items())
     
     return text
 
-async def format_relative_time(target: datetime, now: Optional[datetime] = None) -> str:
+def format_bonuses_text(bonuses: dict) -> tuple[bool, str]:
     """
-    Возвращает читаемую строку вида:
-    - только что
-    - 5 минут назад
-    - 1 час назад
-    - 3 дня назад
-    - 2 года назад
-    - через 10 минут
-    - через 1 день
-    - через 5 лет
+    Преобразует JSON бонусов в текст, сгруппированный по цели (Всего -> Категории -> Ресурсы)
+    и отсортированный по типу (📦 -> 📦 -> 🍀).
     """
-    if now is None:
-        now = datetime.now(target.tzinfo)
+    if not bonuses:
+        return False, "Нет бонусов"
+    
+    PRIORITY = {
+        "modifier": 1,   # 📦
+        "multiplier": 2, # 📦
+        "chance": 3      # 🍀
+    }
+    
+    ICONS = {
+        1: "📦",
+        2: "📦",
+        3: "🍀"
+    }
 
-    delta = target - now
-    is_future = delta.total_seconds() > 0
-    total_seconds = abs(int(delta.total_seconds()))
+    def parse_key_type(key: str) -> int:
+        if "quantity_modifier" in key: return PRIORITY["modifier"]
+        if "quantity_multiplier" in key: return PRIORITY["multiplier"]
+        if "chance_multiplier" in key: return PRIORITY["chance"]
+        return 99
 
-    if total_seconds == 0:
-        return "сейчас"
+    grouped_data = {} 
 
-    years = total_seconds // (365 * 24 * 3600)
-    remaining = total_seconds % (365 * 24 * 3600)
-    days = remaining // (24 * 3600)
-    remaining = remaining % (24 * 3600)
-    hours = remaining // 3600
-    remaining = remaining % 3600
-    minutes = remaining // 60
+    for key, val in bonuses.items():
+        prio = parse_key_type(key)
+        is_pct = "multiplier" in key or "chance" in key
+        
+        if isinstance(val, (int, float)):
+            target = "__global__"
+            if target not in grouped_data: grouped_data[target] = []
+            grouped_data[target].append({
+                "prio": prio,
+                "val": val,
+                "is_pct": is_pct
+            })
+        
+        elif isinstance(val, dict):
+            for target_name, target_val in val.items():
+                if target_name not in grouped_data: grouped_data[target_name] = []
+                grouped_data[target_name].append({
+                    "prio": prio,
+                    "val": target_val,
+                    "is_pct": is_pct
+                })
 
-    parts = []
+    sorted_targets = sorted(grouped_data.keys(), key=lambda x: (0 if x == "__global__" else 1, x))
 
-    # годы
-    if years > 0:
-        if years == 1:
-            parts.append("1 год")
-        elif 2 <= years <= 4:
-            parts.append(f"{years} года")
-        else:
-            parts.append(f"{years} лет")
+    lines = []
 
-    # дни
-    if days > 0:
-        if days == 1:
-            parts.append("1 день")
-        elif 2 <= days <= 4:
-            parts.append(f"{days} дня")
-        else:
-            parts.append(f"{days} дней")
+    for target in sorted_targets:
+        bonuses_list = sorted(grouped_data[target], key=lambda x: x["prio"])
+        
+        for item in bonuses_list:
+            val = item["val"]
+            icon = ICONS.get(item["prio"], "❓")
+            
+            if item["is_pct"]:
+                val_str = f"{int(val * 100):+}%"
+            else:
+                val_str = f"{val:+}"
 
-    # часы
-    if hours > 0:
-        if hours == 1:
-            parts.append("1 час")
-        elif 2 <= hours <= 4:
-            parts.append(f"{hours} часа")
-        else:
-            parts.append(f"{hours} часов")
+            if target == "__global__":
+                lines.append(f"• <b>{val_str} всего</b> ({icon})")
+            else:
+                lines.append(f"• {target}: <b>{val_str}</b> ({icon})")
 
-    # минуты
-    if minutes > 0 and (total_seconds < 24 * 3600 or years == 0):
-        if minutes == 1:
-            parts.append("1 минуту")
-        elif 2 <= minutes <= 4:
-            parts.append(f"{minutes} минуты")
-        elif minutes % 10 in (2, 3, 4) and minutes not in (12, 13, 14):
-            parts.append(f"{minutes} минуты")
-        else:
-            parts.append(f"{minutes} минут")
+    if not lines:
+        return False, "Нет явных бонусов"
 
-    # менее минуты
-    if not parts:
-        result = "через несколько секунд" if is_future else "только что"
-    else:
-        text = ", ".join(parts)
-        result = ("через " + text) if is_future else (text + " назад")
+    return True, "\n".join(lines)
 
-    return result
+def format_relative_time(target: Union[datetime, int, timedelta], now: Optional[datetime] = None) -> str:
+    """
+    Возвращает читаемую строку времени (например, "2 часа назад", "через 5 минут").
+    Использует библиотеку Arrow для правильных склонений.
+    """
+    if isinstance(target, int):
+        target = datetime.now() + timedelta(seconds=target)
+    
+    elif isinstance(target, timedelta):
+        target = datetime.now() + target
+
+    return arrow.get(target).humanize(other=now, locale='ru')
+
 
 def can_click_button(user_key: str) -> bool:
     current_time = time.time()
@@ -298,7 +311,6 @@ def get_work_remaining_time(chat_id: int) -> int:
     remaining = 180 - elapsed  # 3 минуты = 180 секунд
     return max(0, int(remaining))
 
-
 def can_start_work(chat_id: int) -> tuple[bool, str]:
     global work_in_progress, last_work_end_time
     
@@ -344,3 +356,31 @@ async def mark_work_completed(settler: models.Settler, session: AsyncSession, ch
     await session.commit()
     log.debug(f"{chat_id} | {settler.user_id} | 💼 Работа завершена")
 
+
+async def notify_developers(message: str):
+    if not settings.ENABLE_DEVELOPERS_NOTIFY:
+        return
+    
+    for dev_id in settings.DEVELOPER_IDS:
+        try:
+            await bot.send_message(dev_id, message)
+        except Exception as e:
+            log.error(f"Ошибка при отправке сообщения разработчику {dev_id}: {e}")
+
+
+# Добавляем в конец файла или к другим утилитам времени
+def get_timezones_at_hour(target_hour: int) -> list[str]:
+    """
+    Возвращает список таймзон, в которых сейчас target_hour (например, 19).
+    """
+    target_timezones = []
+    for tz_name in pytz.common_timezones:
+        try:
+            tz = pytz.timezone(tz_name)
+            # Получаем текущее время в этой таймзоне
+            now = datetime.now(tz)
+            if now.hour == target_hour:
+                target_timezones.append(tz_name)
+        except Exception:
+            continue
+    return target_timezones

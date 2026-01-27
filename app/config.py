@@ -12,26 +12,32 @@ class Settings(BaseSettings):
         extra="ignore"
     )
 
-    # -- CONFIG SETTINGS --
+    # -- CONFIG --
     LOGS_PATH: str = "logs/"
-    TURN_ON_COLORS: bool = True
+    ENABLE_COLORS: bool = True
     
-    # -- USER SETTINGS --
+    # -- BOT --
     BOT_TOKEN: str
     BOT_USERNAME: str # Без @ или t.me/. Пример: mysettlementbot
     
+    # -- DATABASE --
     DB_HOST: str
     DB_PORT: int
     DB_USER: str
     DB_PASS: str
     DB_NAME: str
 
-    DEVELOPER_IDS: list[int]
+    # -- DEVELOPER --
+    DEVELOPER_IDS: list[int] = [] # Список Telegram ID разработчиков бота
+    ENABLE_DEVELOPERS_NOTIFY: bool = True # Уведомлять ли разработчиков о важных событиях
+
+    # -- GAME --
     TYPOS_PERCENT: int = 80 # Процент допустимых опечаток в командах. Меньше 60 не рекомендуется.
     WORK_COOLDOWN_HOURS: float = 0.03 # Кулдаун на работу
     WORK_TIMEOUT_SECONDS: int = 180 # Таймаут выполнения работы
     CRAFT_COOLDOWN_HOURS: float = 0.03 # Кулдаун на смену профессии
     SETTLEMENT_NAME_CHANGE_COOLDOWN_HOURS: float = 0.1 # Кулдаун на смену названия поселения
+    TZ_CHANGE_COOLDOWN_DAYS: float = 30 # Кулдаун на смену часового пояса
 
     @property
     def DB_URL(self) -> str:

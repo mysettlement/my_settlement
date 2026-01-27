@@ -1,9 +1,11 @@
-from sqlalchemy import func, Table, Column, Integer, BigInteger, String, ForeignKey, PickleType, Boolean, Enum as SAEnum, DateTime, Float
+from sqlalchemy import func, Table, Column, Integer, BigInteger, String, ForeignKey, PickleType, Boolean, Enum as SAEnum, DateTime, Float, UniqueConstraint
 from sqlalchemy.sql import text
 from sqlalchemy.orm import relationship, declarative_base
 from sqlalchemy.ext.mutable import MutableList
+from sqlalchemy.dialects.postgresql import JSONB
 from typing import List, Optional, Dict, Callable, Any
 from enum import Enum
+from datetime import datetime
 from dataclasses import dataclass, field
 import copy
 import random
@@ -23,31 +25,24 @@ class RarityLevel(str, Enum):
     LEGENDARY = "LEGENDARY"
 
 RARITY_DROP_PROBABILITIES = {
-    RarityLevel.COMMON: 70 / 100.0,
-    RarityLevel.UNCOMMON: 45 / 100.0,
-    RarityLevel.RARE: 10 / 100.0,
-    RarityLevel.EPIC: 3 / 100.0,
-    RarityLevel.LEGENDARY: 0.1 / 100.0
+    RarityLevel.COMMON: 1.00,
+    RarityLevel.UNCOMMON: 0.50,
+    RarityLevel.RARE: 0.20,
+    RarityLevel.EPIC: 0.05,
+    RarityLevel.LEGENDARY: 0.01
 }
 
 RARITY_QUANTITY_RANGES = {
-    RarityLevel.COMMON: (2, 5),
-    RarityLevel.UNCOMMON: (2, 4),
-    RarityLevel.RARE: (1, 3),
-    RarityLevel.EPIC: (1, 2),
+    RarityLevel.COMMON: (4, 8),
+    RarityLevel.UNCOMMON: (3, 6),
+    RarityLevel.RARE: (2, 4),
+    RarityLevel.EPIC: (1, 3),
     RarityLevel.LEGENDARY: (1, 1)
 }
 
 
 
 # === СВЯЗУЮЩИЕ ТАБЛИЦЫ ===
-user_settlements = Table(
-    "user_settlements",
-    Base.metadata,
-    Column("user_id", BigInteger, ForeignKey("users.id"), primary_key=True),
-    Column("settlement_id", BigInteger, ForeignKey("settlements.id"), primary_key=True)
-)
-
 settler_resources = Table(
     "settler_resources",
     Base.metadata,
@@ -56,18 +51,29 @@ settler_resources = Table(
     Column("quantity", Integer, default=0)
 )
 
+building_type_costs = Table(
+    "building_type_costs",
+    Base.metadata,
+    Column("building_type_id", BigInteger, ForeignKey("building_types.id"), primary_key=True),
+    Column("resource_id", BigInteger, ForeignKey("resources.id"), primary_key=True),
+    Column("quantity", Integer, nullable=False, default=1)
+)
+
 
 
 # === МОДЕЛИ ===
 class User(Base):
     __tablename__ = "users"
 
-    id = Column(BigInteger, primary_key=True, index=True) # внутренний id
+    id = Column(BigInteger, primary_key=True, index=True)     # внутренний id
     telegram_id = Column(BigInteger, unique=True, index=True) # id пользователя в телеграме
     name = Column(String)
+    
     compact_style = Column(Boolean, server_default="False")
     show_hints = Column(Boolean, server_default="True")
     allow_typos = Column(Boolean, server_default="False")
+    timezone = Column(String, server_default="Europe/Kiev", nullable=False) # Или UTC
+    last_tz_change = Column(DateTime, server_default=text("to_timestamp(0)"), nullable=False)
 
     owned = relationship("Settlement", back_populates="owner")
     memberships = relationship("Settler", back_populates="user")
@@ -84,6 +90,7 @@ class Settlement(Base):
 
     owner = relationship("User", back_populates="owned")
     members = relationship("Settler", back_populates="settlement")
+    buildings = relationship("Building", back_populates="settlement")
 
 class Settler(Base):
     __tablename__ = "settlers"
@@ -97,7 +104,7 @@ class Settler(Base):
     target_exp = Column(Integer, server_default="7")
     rank = Column(String, server_default="Крестьянин")
     emoji = Column(String, server_default="🧑‍🌾")
-    rank_emoji_available = Column(MutableList.as_mutable(PickleType), default=[])
+    rank_emoji_available = Column(MutableList.as_mutable(PickleType), default=["🧑‍🌾", "👨‍🌾", "👩‍🌾"])
     special_emoji_available = Column(MutableList.as_mutable(PickleType), default=[])
 
     profession_id = Column(BigInteger, ForeignKey("professions.id"), nullable=True)
@@ -113,20 +120,23 @@ class Settler(Base):
     overtime_is_toggled = Column(Boolean, server_default="False")
 
     balance = Column(Integer, server_default="0")
-    income = Column(Integer, server_default="0")
 
     user = relationship("User", back_populates="memberships")
     settlement = relationship("Settlement", back_populates="members")
     resources = relationship("Resource", secondary=settler_resources, backref="settlers")
     profession = relationship("Profession", backref="settlers")
-    # buildings = relationship("Building", backref="owner")
+    buildings = relationship("Building", back_populates="owner")
+
+    __table_args__ = (
+        UniqueConstraint('user_id', 'settlement_id', name='uq_settler_user_settlement'),
+    )
 
 class Resource(Base):
     __tablename__ = "resources"
 
     id = Column(BigInteger, primary_key=True, index=True)
     name = Column(String, unique=True)
-    emoji = Column(String, nullable=True)
+    emoji = Column(String, unique=True,nullable=True)
     description = Column(String, nullable=True)
     category = Column(String)
     rarity = Column(SAEnum(RarityLevel), default=RarityLevel.COMMON, nullable=False)
@@ -142,47 +152,99 @@ class Profession(Base):
 
     id = Column(BigInteger, primary_key=True, index=True)
     name = Column(String, unique=True)
-    emoji = Column(String, nullable=True)
+    emoji = Column(String, unique=True, nullable=True)
     description = Column(String, nullable=True)
+    required_level = Column(Integer, default=0)
+
     crafts = Column(String, nullable=True, default=None)
     collects = Column(String, nullable=True, default=None)
-    required_level = Column(Integer)
 
-# class Building(Base):
-#     __tablename__ = "buildings"
+class BuildingType(Base):
+    __tablename__ = "building_types"
 
-#     id = Column(BigInteger, primary_key=True, index=True)
-#     name = Column(String, unique=True)
-#     emoji = Column(String, nullable=True)
-#     description = Column(String, nullable=True)
-#     category = Column(String)
-#     is_private = Column(Boolean)
+    id = Column(BigInteger, primary_key=True, index=True)
+    name = Column(String, unique=True, nullable=False)
+    emoji = Column(String, unique=True, nullable=True)
+    description = Column(String, nullable=True)
 
-#     build_time = Column(Integer, server_default="0")
-#     cost = Column(MutableList.as_mutable(PickleType), default=[])  # [{"resource": "🌾", "quantity": 5}, ...]
-#     required_profession_id = Column(BigInteger, ForeignKey("professions.id"), nullable=True)
-#     max_level = Column(Integer, server_default="1")
+    is_private = Column(Boolean, server_default="True")
 
-#     level = Column(Integer, server_default="1")
+    max_level = Column(Integer, default=1)
+    construction_time = Column(Integer, default=60)
 
-#     required_profession = relationship("Profession", backref="buildings")
-#     owner = relationship("Settler", backref="buildings")
+    required_professions = Column(JSONB, nullable=True, default={})
+    bonuses = Column(JSONB, default={}, nullable=False)
+    # {
+    #    "global_chance_multiplier": 0.05,             # +5% шанс дропа всего
+    #    "global_quantity_multiplier": 0.1,            # +10% к количеству всего
+    #    "global_quantity_modifier": 2,                # +2 к количеству всего
+    #    "category_chance_multiplier": {"Еда": 0.2},   # +20% к шансу дропа Еды
+    #    "category_quantity_multiplier": {"Еда": 0.5}, # +50% к количеству Еды
+    #    "category_quantity_modifier": {"Еда": 1},     # +1 к количеству Еды
+    #    "resource_chance_multiplier": {"🪴": 0.5},   # +50% к шансу дропа конкретного ресурса
+    #    "resource_quantity_multiplier": {"🪴": 1.0}, # +100% к количеству конкретного ресурса
+    #    "resource_quantity_modifier": {"🗂": 2}       # +2 фиксированных опыта
+    # }
+
+    costs = relationship("Resource", secondary=building_type_costs, backref="used_in_buildings")
+
+class Building(Base):
+    __tablename__ = "buildings"
+
+    id = Column(BigInteger, primary_key=True, index=True)
+    building_type_id = Column(BigInteger, ForeignKey("building_types.id"), nullable=False)
+    settlement_id = Column(BigInteger, ForeignKey("settlements.id"), nullable=False)
+    owner_id = Column(BigInteger, ForeignKey("settlers.id"), nullable=True)
+
+    level = Column(Integer, default=1)
+    under_construction_until = Column(DateTime, nullable=True)
+
+    type = relationship("BuildingType", backref="instances")
+    settlement = relationship("Settlement", back_populates="buildings")
+    owner = relationship("Settler", back_populates="buildings")
+
+    @property
+    def is_ready(self) -> bool:
+        if self.under_construction_until is None:
+            return True
+        return datetime.now() >= self.under_construction_until
+
 
 
 # === РАБОТЫ ===
+
+@dataclass
+class LootItem:
+    emoji: str                                  # Ресурс или специальный тип награды (например, "exp" (🗂) или "balance" (💰))
+
+    min_qty: int = None                         # None = базовое количество ресурса
+    max_qty: int = None                         # None = базовое количество ресурса
+    chance: float = 1.0                         # 1.0 = 100%, 0.05 = 5%, None = базовая редкость ресурса
+
+    qty_is_fixed: bool = False                  # Если True, то выпадет ровно min_qty
+    affected_by_luck: bool = True               # Если True, то количество и шанс будет увеличены в зависимости от удачи
+    affected_by_settler_bonuses: bool = True    # Если True, то количество и шанс будут увеличены в зависимости от бонусов поселенца
+    affected_by_settlement_bonuses: bool = True # Если True, то количество и шанс будут увеличены в зависимости от бонусов поселения
+    affected_by_global_bonuses: bool = True     # Если True, то количество и шанс будут увеличены в зависимости от глобальных бонусов
+
+    tags: List[str] = field(default_factory=list)  # Дополнительные теги для специфичных бонусов. None = категория ресурса
 
 @dataclass
 class Work:
     id: str
     name: str
     emoji: str
+
     profession_id: Optional[int] = None
-    requirements: Dict[str, Any] = field(default_factory=dict)  # {"🎋": 3, "level": 2}
-    steps: List[Step] = field(default_factory=list) # [Hitting(...), Timer(...)]
-    rewards: Dict[str, Any] = field(default_factory=dict)  # {"resource": "🌾", "quantity": lambda: random.randint(2, 5)}
-    texts: Dict[str, str | Callable] = field(default_factory=dict)  # {"step_0_status": "Работай!", "complete": "Работа выполнена!"}
-    answer_texts: Dict[str, Any] = field(default_factory=dict) # {"hit": "Попадение!", "miss": "Промах!"}
+    requirements: Dict[str, Any] = field(default_factory=dict)     # {"🎋": 3, "level": 2}
+    steps: List[Step] = field(default_factory=list)                # [Hitting(...), Timer(...)]
+    rewards: List[LootItem] = field(default_factory=list)          # [{"emoji": "🐟", "min_qty": 1, "max_qty": 3, "chance": 0.8}, {"emoji": "🗂", "min_qty": 1, "max_qty": 5, "chance": 1.0}]
+
+    texts: Dict[str, str | Callable] = field(default_factory=dict) # {"step_0_status": "Работай!", "complete": "Работа выполнена!"}
+    answer_texts: Dict[str, Any] = field(default_factory=dict)     # {"hit": "Попадение!", "miss": "Промах!"}
+
     cooldown_on_fail: bool = True 
+
     _workflow: Optional[Workflow] = None
 
     def build(self) -> Workflow:
@@ -336,10 +398,10 @@ def catcher_milking() -> Work:
         emoji="🪣",
         profession_id=3,
         steps=[step1, step2],
-        rewards={
-            "🥛": None,
-            "exp": None
-        },
+        rewards=[
+            LootItem(emoji="🥛", chance=1.0),
+            LootItem(emoji="🗂", min_qty=2, max_qty=4, chance=1.0)
+        ],
         texts={
             "step_0_status": lambda: "🪣 <b>Успокой корову:</b>\nПогладь 🐄",
             "step_1_status": lambda step: f"🐮 <b>Доение коровы:</b>\nЧередуй нажим на ручки: 💧💧\n<b>{getattr(step, 'current_presses', 0)}/{step.target_presses}</b>",
@@ -372,10 +434,10 @@ def catcher_fishing() -> Work:
         emoji="🎣",
         profession_id=3,
         steps=[step1],
-        rewards={
-            "🐟": None,
-            "exp": None
-        },
+        rewards=[
+            LootItem(emoji="🐟", chance=1.0),
+            LootItem(emoji="🗂", min_qty=2, max_qty=4, chance=1.0)
+        ],
         texts={
             "step_0_status": lambda step: f"🎣 <b>Лови рыбу — осталось {step.rounds - step.current_round + 1}/{step.rounds}</b>",
             "complete": "🐟 <b>Рыба поймана!</b>",
@@ -397,10 +459,10 @@ def catcher_shearing() -> Work:
         emoji="🐑",
         profession_id=3,
         steps=[step1],
-        rewards={
-            "☁️": None,
-            "exp": None
-            },
+        rewards=[
+            LootItem(emoji="☁️", chance=1.0),
+            LootItem(emoji="🗂", min_qty=2, max_qty=5, chance=1.0)
+        ],
         texts={
             "step_0_status": lambda step: f"✂️ <b>Стриги овцу:</b>\nИспользуй ножницы аккуратно!",
             "complete": "☁️ <b>Шерсть собрана!</b>",
@@ -440,13 +502,13 @@ def farmer_harvest_grain() -> Work:
         emoji="🌾",
         profession_id=1,
         steps=[step1],
-        rewards={
-            "🌾": None,
-            "🥔": None,
-            "🍄‍🟫": None,
-            "🫐": None,
-            "exp": None
-        },
+        rewards=[
+            LootItem(emoji="🌾", chance=None),
+            LootItem(emoji="🥔", chance=None),
+            LootItem(emoji="🍄‍🟫", chance=None),
+            LootItem(emoji="🫐", chance=None),
+            LootItem(emoji="🗂", min_qty=2, max_qty=4, chance=1.0)
+        ],
         texts={
             "step_0_status": lambda: "🌾 <b>Собери урожай:</b>\nЖни только созревшие культуры!",
             "complete": "🌾 <b>Урожай собран!</b>",
@@ -485,11 +547,11 @@ def healer_herb_gathering() -> Work:
         emoji="🪴",
         profession_id=2,
         steps=[step1],
-        rewards={
-            "🎋": None,
-            "🪴": None,
-            "exp": None
-        },
+        rewards=[
+            LootItem(emoji="🎋", chance=None),
+            LootItem(emoji="🪴", chance=None),
+            LootItem(emoji="🗂", min_qty=2, max_qty=4, chance=1.0)
+        ],
         texts={
             "step_0_status": lambda: "🪴 <b>Собери травы:</b>\nСобирай только полезные растения!",
             "complete": "🪴 <b>Травы собраны!</b>",
@@ -522,15 +584,15 @@ def healer_tea_brewing() -> Work:
         id="healer_tea_brewing",
         name="Приготовление отвара",
         emoji="🍵",
-        profession_id=2,  # ID профессии "Травник"
+        profession_id=2,
         steps=[step1, step2],
         requirements={
             "🎋": 3
         },
-        rewards={
-            "🍵": 1,
-            "exp": None
-        },
+        rewards=[
+            LootItem(emoji="🍵", min_qty=1, qty_is_fixed=True, chance=1.0),
+            LootItem(emoji="🗂", min_qty=6, max_qty=10, chance=1.0)
+        ],
         texts={
             "step_0_status": lambda step: f"🥣 <b>Измельчение коры</b> — осталось {step.rounds - step.current_round + 1}/{step.rounds}\nИзмельчи кору ступкой! 🎋",
             "step_1_status": lambda step: f"🍵 <b>Заваривание отвара...</b>\n Осталось <b>{step.get_remaining_time()}с</b>" if step.started and not step.completed else ("💧 Налей кипяток для заваривания" if not step.started else "🍵 Отвар готов!"),

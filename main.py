@@ -68,8 +68,8 @@ async def main():
     await db.init_db()
 
     tasks.scheduler.add_job(tasks.day_reset,
-        "cron",
-        hour=0,
+        'cron',
+        hour='*',
         minute=0,
         coalesce=True,
         misfire_grace_time=3600
@@ -77,12 +77,12 @@ async def main():
 
     tasks.scheduler.add_job(tasks.remind_overtime,
         "cron",
-        hour=19,
+        hour="*",
         minute=0,
         coalesce=True,
         misfire_grace_time=3600
     )
-    
+
     tasks.scheduler.add_job(tasks.availability_check,
         "interval",
         minutes=30,
@@ -97,8 +97,8 @@ async def main():
                 await bot.set_my_name(name=f"🛖 Моё Поселение! {smile}", language_code="ru")
             except Exception as e:
                 log.warning(f"Flood Control")
-        await dp.start_polling(bot)
         log.info("🟢 Бот запущен!")
+        await dp.start_polling(bot)
     finally:
         for task in mfunc.work_timeout_tasks.values():
             task.cancel()
@@ -121,3 +121,5 @@ if __name__ == "__main__":
         log.info("🔴 Скрипт остановлен")
     except Exception as e:
         log.critical(f"Критическая ошибка: {e}")
+        if config.settings.ENABLE_DEVELOPERS_NOTIFY:
+            asyncio.run(mfunc.notify_developers(f"❌ Критическая ошибка в main.py: {e}"))

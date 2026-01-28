@@ -1,8 +1,10 @@
 import html
+import asyncio
 from aiogram import Router, types, F, Bot
 from aiogram.filters import Command, CommandObject, CommandStart, or_f, and_f
-from aiogram.types import InlineKeyboardButton
+from aiogram.types import InlineKeyboardButton, ReplyKeyboardRemove
 from aiogram.enums import ParseMode
+from aiogram.exceptions import TelegramBadRequest
 from aiogram.client.default import DefaultBotProperties
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 
@@ -50,7 +52,7 @@ async def bot_added_to_chat_event(event: types.ChatMemberUpdated):
                     "Это поможет мне стать лучше для других правителей."
                 ),
                 reply_markup=InlineKeyboardBuilder()
-                .add(InlineKeyboardButton(text="✍️ Пройти опрос (1 мин)", url="https://tally.so/r/2EXdND"))
+                .button(text="✍️ Пройти опрос (1 мин)", url="https://tally.so/r/2EXdND")
                 .as_markup()
             )
         except:
@@ -65,8 +67,8 @@ async def bot_added_to_chat_event(event: types.ChatMemberUpdated):
             "🛖 Для начала игры используйте команду /start"
         )
 
-        kb.add(InlineKeyboardButton(text="❓ Помощь", switch_inline_query_current_chat="Помощь"))
-        kb.add(InlineKeyboardButton(text="🚶‍➡️ Осмотреть поселение", switch_inline_query_current_chat="Осмотреть поселение"))
+        kb.button(text="❓ Помощь", switch_inline_query_current_chat="Помощь")
+        kb.button(text="🚶‍➡️ Осмотреть поселение", switch_inline_query_current_chat="Осмотреть поселение")
 
         if event.new_chat_member.status == "member":
             text += "\n\n⚠️ Пожалуйста, <b>назначьте меня администратором</b> с правами на <i>закрепление</i> и <i>удаление</i> сообщений, <b>чтобы я мог полноценно функционировать!</b>"
@@ -131,11 +133,11 @@ async def me_command(message: types.Message):
                 f"\n{(settler.profession.emoji + ': <b>' + work_countdown + '</b> 🕒') if (settler.profession and not can_work) else ((settler.profession.emoji + ': ✅') if settler.profession else '')}"
             )
 
-            kb.add(InlineKeyboardButton(text="🪭", switch_inline_query_current_chat="Косметика"))
-            kb.add(InlineKeyboardButton(text="📦", switch_inline_query_current_chat="Инвентарь"))
-            kb.add(InlineKeyboardButton(text="🕒", switch_inline_query_current_chat="Лишняя мера"))
-            kb.add(InlineKeyboardButton(text=f"{settler.profession.emoji}", switch_inline_query_current_chat="Трудиться")) if settler.profession and can_work else None
-            kb.add(InlineKeyboardButton(text="💼", switch_inline_query_current_chat="Выбрать ремесло")) if can_choose else None
+            kb.button(text="🪭", switch_inline_query_current_chat="Косметика")
+            kb.button(text="📦", switch_inline_query_current_chat="Инвентарь")
+            kb.button(text="🕒", switch_inline_query_current_chat="Лишняя мера")
+            kb.button(text=f"{settler.profession.emoji}", switch_inline_query_current_chat="Трудиться") if settler.profession and can_work else None
+            kb.button(text="💼", switch_inline_query_current_chat="Выбрать ремесло") if can_choose else None
             
         else:
             text = (
@@ -149,11 +151,11 @@ async def me_command(message: types.Message):
                 f"\n{(settler.profession.emoji + ' Трудиться можно через <b>' + work_countdown + '</b> 🕒') if (settler.profession and not can_work) else ((settler.profession.emoji + ' <b>Можно трудиться</b> ✅') if settler.profession else '')} "
             )
 
-            kb.add(InlineKeyboardButton(text="🪭 Косметика", switch_inline_query_current_chat="Косметика"))
-            kb.add(InlineKeyboardButton(text="📦 Инвентарь", switch_inline_query_current_chat="Инвентарь"))
-            kb.add(InlineKeyboardButton(text="🕒 Лишняя мера", switch_inline_query_current_chat="Лишняя мера"))
-            kb.add(InlineKeyboardButton(text=f"{settler.profession.emoji} Трудиться", switch_inline_query_current_chat="Трудиться")) if settler.profession and can_work else None
-            kb.add(InlineKeyboardButton(text="💼 Выбрать ремесло", switch_inline_query_current_chat="Выбрать ремесло")) if can_choose else None
+            kb.button(text="🪭 Косметика", switch_inline_query_current_chat="Косметика")
+            kb.button(text="📦 Инвентарь", switch_inline_query_current_chat="Инвентарь")
+            kb.button(text="🕒 Лишняя мера", switch_inline_query_current_chat="Лишняя мера")
+            kb.button(text=f"{settler.profession.emoji} Трудиться", switch_inline_query_current_chat="Трудиться") if settler.profession and can_work else None
+            kb.button(text="💼 Выбрать ремесло", switch_inline_query_current_chat="Выбрать ремесло") if can_choose else None
         
         kb.adjust(2)
         await message.answer(text, reply_markup=kb.as_markup())
@@ -181,7 +183,6 @@ async def settings_command(message: types.Message):
     user = await core.user_getOrCreate(message.from_user)
     await show_settings_menu(message, user)
     
-
 @router.callback_query(F.data.startswith("settings:"))
 async def settings_callback(callback: types.CallbackQuery):
     #* Callback-кнопки настроек
@@ -189,67 +190,96 @@ async def settings_callback(callback: types.CallbackQuery):
         await callback.answer("⚠️ Не тронь чужой снасти!", True)
         return
     
+    user = await core.user_getOrCreate(callback.from_user)
     menu = callback.data.split(":", 1)[1]
+
+    await show_settings_menu(callback.message, user, menu, callback)
+
+async def show_settings_menu(message: types.Message, user: models.User, menu: str = None, callback: types.CallbackQuery = None):
     kb = InlineKeyboardBuilder()
-    text = ""
-    
     async with SessionLocal() as session:
-        result = await session.execute(
-            select(models.User).where(models.User.telegram_id == callback.from_user.id)
+        user = await session.merge(user)
+        
+        if menu in ["compact_style", "show_hints", "allow_typos"]:
+            if menu == "compact_style":
+                user.compact_style = not user.compact_style
+                toast_text = f"🎩 Стиль > {'🤏 Компактный' if user.compact_style else '🤲 Развёрнутый'}"
+                log.debug(f"{user.telegram_id} | 🎩 compact_style > {user.compact_style}")
+            
+            elif menu == "show_hints":
+                user.show_hints = not user.show_hints
+                toast_text = f"ℹ️ Подсказки > {'✅ Включены' if user.show_hints else '❌ Выключены'}"
+                log.debug(f"{user.telegram_id} | ℹ️ show_hints > {user.show_hints}")
+            
+            elif menu == "allow_typos":
+                user.allow_typos = not user.allow_typos
+                toast_text = f"✍️ Опечатки > {'✅ Учитывать' if user.allow_typos else '❌ Не учитывать'}"
+                log.debug(f"{user.telegram_id} | ✍️ allow_typos > {user.allow_typos}")
+            
+            await session.commit()
+            if callback:
+                await callback.answer(toast_text)
+            
+            menu = None
+
+    if menu == "timezone":
+        last_change = user.last_tz_change or datetime.min
+        if (datetime.now() - last_change).days < settings.TZ_CHANGE_COOLDOWN_DAYS:
+            time_left = mfunc.format_relative_time(last_change + timedelta(days=settings.TZ_CHANGE_COOLDOWN_DAYS))
+            await callback.answer(f"⏳ Сменить пояс можно {time_left}", show_alert=True)
+            return
+
+        if message.chat.type == "private":
+            kb.button(text="📍 Определить местоположение", callback_data="ask_location")
+        else:
+            kb.button(text="📍 Определить местоположение", url=f"https://t.me/{settings.BOT_USERNAME}?start=menu_settings_timezone")
+        kb.button(text="🔙 Назад", callback_data="settings:default")
+
+        text = (
+            f"🌍 <b>Настройка часового пояса</b>\n\n"
+            f"Твой текущий пояс: <code>{user.timezone}</code>\n"
+            f"Дневной сброс происходит в <b>00:00</b> по этому времени.\n\n"
+            f"⚠️ Менять пояс можно раз в <b>{settings.TZ_CHANGE_COOLDOWN_DAYS} дней</b>."
         )
-        user = result.scalars().first()
         
-        if not user:
-            await callback.answer("⚠️ Пользователь не найден", True)
-            return
+        if callback: await callback.answer()
+
+    if not menu or menu == "default":
         
-        compact_style = user.compact_style
-        show_hints = user.show_hints
-        allow_typos = user.allow_typos
-        #TODO: XXX = user.XXX
+        c_style = user.compact_style
         
-        if menu == "compact_style":
-            user.compact_style = not compact_style; compact_style = not compact_style
-            log.debug(f"{user.telegram_id} | 🎩 compact_style > {compact_style}")
-            await callback.answer(f"🎩 Стиль > {"🤏 Компактный" if compact_style else "🤲 Развёрнутый"}")
+        def btn_text(icon, label, state):
+            prefix = f"{icon}" if c_style else f"{icon} {label}"
+            status = "✅" if state else "❌"
+            if isinstance(state, str): status = state
+            return f"{prefix}: {status}"
 
-        elif menu == "show_hints":
-            user.show_hints = not show_hints; show_hints = not show_hints
-            log.debug(f"{user.telegram_id} | ℹ️ show_hints > {show_hints}")
-            await callback.answer(f"ℹ️ Подсказки > {'✅ Включены' if show_hints else '❌ Выключены'}")
+        kb.button(text=btn_text("🎩", "Стиль", "🤏" if c_style else "🤲"), callback_data="settings:compact_style")
+        kb.button(text=btn_text("ℹ️", "Подсказки", user.show_hints), callback_data="settings:show_hints")
+        kb.button(text=btn_text("✍️", "Опечатки", user.allow_typos), callback_data="settings:allow_typos")
         
-        elif menu == "allow_typos":
-            user.allow_typos = not allow_typos; allow_typos = not allow_typos
-            log.debug(f"{user.telegram_id} | 🎩 allow_typos > {allow_typos}")
-            await callback.answer(f"✍️ Опечатки > {'✅ Учитывать' if allow_typos else '❌ Не учитывать'}")
-
-        elif menu == "timezone":
-            last_change = user.last_tz_change or datetime.min
-            if (datetime.now() - last_change).days < settings.TZ_CHANGE_COOLDOWN_DAYS:
-                await callback.answer(f"⏳ Сменить пояс можно {mfunc.format_relative_time(last_change + timedelta(days=settings.TZ_CHANGE_COOLDOWN_DAYS))}", show_alert=True)
-                return
-
-            if callback.message.chat.type == "private":
-                kb.row(types.InlineKeyboardButton(text="📍 Определить местоположение", callback_data="ask_location"))
-            kb.row(types.InlineKeyboardButton(text="🔙 Назад", callback_data="settings:back"))
-
-            text += f"🌍 <b>Настройка часового пояса</b>\n\n"
-            text += f"Твой текущий пояс: <code>{user.timezone}</code>\n"
-            text += f"Дневной сброс происходит в <b>00:00</b> по этому времени.\n\n"
-            text += f"⚠️ Менять пояс можно раз в <b>{settings.TZ_CHANGE_COOLDOWN_DAYS} дней</b>."
-
-            await callback.message.edit_text(
-                text,
-                reply_markup=kb.as_markup()
-            )
-            await callback.answer()
-            return
+        kb.button(text=f"{'🌍' if c_style else '🌍 Часовой пояс'}", callback_data="settings:timezone")
         
-        #TODO: elif menu == "XXX":
+        kb.adjust(2)
 
-        await session.commit()
-
-    await show_settings_menu(callback.message, user, is_edit=True)
+        text = (
+            f"⚙️ <b>Настройки</b>\n"
+            f"🎩 Стиль сообщений: <b>{'🤏 Компактный' if c_style else '🤲 Развёрнутый'}</b>\n"
+            f"ℹ️ Подсказки: <b>{'✅ Включены' if user.show_hints else '❌ Отключены'}</b>\n"
+            f"✍️ Опечатки: <b>{'✅ Учитывать' if user.allow_typos else '❌ Не учитывать'}</b>\n"
+            f"🌍 Часовой пояс: <b>{user.timezone}</b>"
+        )
+        
+        if user.show_hints:
+            text += "\n\nℹ️ Настройки сохраняются для каждого пользователя отдельно."
+        
+    if callback:
+        try:
+            await message.edit_text(text=text, reply_markup=kb.as_markup())
+        except TelegramBadRequest:
+            await message.edit_reply_markup(reply_markup=kb.as_markup())
+    else:
+        await message.reply(text=text, reply_markup=kb.as_markup(), disable_notification=True)
 
 @router.callback_query(F.data == "ask_location")
 async def ask_location_callback(callback: types.CallbackQuery):
@@ -261,11 +291,8 @@ async def ask_location_callback(callback: types.CallbackQuery):
     await callback.message.delete()
     await callback.message.answer("📍 <b>Нажми на кнопку ниже</b>, чтобы определить часовой пояс автоматически.", reply_markup=kb)
 
-@router.message(F.location)
+@router.message(and_f(F.chat.type == "private", F.location))
 async def location_handler(message: types.Message):
-    if message.chat.type != "private":
-        return
-
     lat = message.location.latitude
     lon = message.location.longitude
     
@@ -275,13 +302,13 @@ async def location_handler(message: types.Message):
         await message.answer("⚠️ Не удалось определить часовой пояс. Попробуй выбрать вручную.")
         return
     
-    await message.answer(
+    await message.edit_text(
         f"✅ Твой часовой пояс определён: <b>{timezone_str}</b>", 
-        reply_markup=InlineKeyboardBuilder().add(InlineKeyboardButton(text="Установить!", callback_data=f"set_tz:{timezone_str}")).as_markup()
+        reply_markup=InlineKeyboardBuilder().button(text="Установить!", callback_data=f"set_tz:{timezone_str}").as_markup()
     )
 
 @router.callback_query(F.data.startswith("set_tz:"))
-async def set_tz_manual(callback: types.CallbackQuery):
+async def set_tz_callback(callback: types.CallbackQuery):
     tz_name = callback.data.split(":")[1]
 
     async with SessionLocal() as session:
@@ -300,38 +327,9 @@ async def set_tz_manual(callback: types.CallbackQuery):
     log.debug(f"{user.telegram_id} | 🌍 timezone > {tz_name}")
 
     await callback.answer("✅ Часовой пояс сохранен!")
-    await callback.message.edit_text(f"✅ Твой часовой пояс установлен: <b>{tz_name}</b>", reply_markup=InlineKeyboardBuilder().add(InlineKeyboardButton(text="🔙 Назад", callback_data="settings:back")).as_markup())
+    await callback.message.edit_reply_markup()
+    await callback.message.edit_text(f"✅ Твой часовой пояс установлен: <b>{tz_name}</b>", reply_markup=InlineKeyboardBuilder().button(text="🔙 Назад", callback_data="settings:default").as_markup())
 
-async def show_settings_menu(message: types.Message, user: models.User, is_edit: bool = False):
-    kb = InlineKeyboardBuilder()
-
-    compact_style = user.compact_style
-    show_hints = user.show_hints
-    allow_typos = user.allow_typos
-    #TODO: XXX = user.XXX
-
-    kb.add(InlineKeyboardButton(text=f"{'🎩' if compact_style else '🎩 Стиль'}: {'🤏' if compact_style else '🤲'}", callback_data="settings:compact_style"))
-    kb.add(InlineKeyboardButton(text=f"{'ℹ️' if compact_style else 'ℹ️ Подсказки'}: {'✅' if show_hints else '❌'}", callback_data="settings:show_hints"))
-    kb.add(InlineKeyboardButton(text=f"{'✍️' if compact_style else '✍️ Опечатки'}: {'✅' if allow_typos else '❌'}", callback_data="settings:allow_typos"))
-    kb.add(InlineKeyboardButton(text=f"{'🌍' if compact_style else '🌍 Часовой пояс'}", callback_data="settings:timezone"))
-    #TODO: kb.add(InlineKeyboardButton(text=f"{'' if compact_style else ''}: {'✅' if XXX else '❌'}", callback_data="settings:XXX"))
-    kb.adjust(2)
-    
-    text = f"⚙️ <b>Настройки</b>"
-    text += f"\n🎩 Стиль сообщений: <b>{'🤏 Компактный' if compact_style else '🤲 Развёрнутый'}</b>"
-    text += f"\nℹ️ Подсказки: <b>{'✅ Включены' if show_hints else '❌ Выключены'}</b>"
-    text += f"\n✍️ Опечатки: <b>{'✅ Учитывать' if allow_typos else '❌ Не учитывать'}</b>"
-    text += f"\n🌍 Часовой пояс: <b>{user.timezone}</b>"
-    #TODO: text += f"\n XXX: <b>{'✅' if XXX else '❌'}</b>"
-    text += "\n\nℹ️ Настройки сохраняются для каждого пользователя отдельно." if user.show_hints else ""
-    #TODO: text += '<a href="https://">📖 Подробнее о настройках</a>'
-    if is_edit:
-        try:
-            await message.edit_text(text=text, reply_markup=kb.as_markup())
-        except Exception as e:
-            await message.edit_reply_markup(reply_markup=kb.as_markup())
-    else:
-        await message.reply(text=text, reply_markup=kb.as_markup(), disable_notification=True)
 
 @router.message(F.text.lower() == "отмена")
 async def cancel_location(message: types.Message):
@@ -359,22 +357,30 @@ async def help_command(message: types.Message):
 @router.message(or_f(and_f(F.chat.type == "private", CommandStart()), F.chat.type == "private"))
 async def private_handler(message: types.Message, command: CommandObject = None):
     #* Личные сообщения и рефералы
+    user = await core.user_getOrCreate(message.from_user)
     if command and command.args:
         args = command.args
+        args_list = args.split("_")
         
         if args.startswith("ref_"):
             referrer_id = args.split("_")[1]
             await message.answer(f"👋 Тебя пригласил поселенец с ID: {referrer_id}")
             return
         
-        if args.startswith("survey_"):
-            chat_id = args.split("_")[1]
+        if args.startswith("menu_"):
+            _, menu, submenu = args_list + [None]*(3 - len(args_list))
+            log.debug(f"{message.from_user.id} | Вызвано меню: {menu} -> {submenu}")
+            if menu == "settings":
+                await show_settings_menu(message, user, submenu)
+
+            return
         
         # elif args.startswith("work_"):
         # _, work_id,  = args.split("_")
 
     kb = InlineKeyboardBuilder()
-    kb.add(InlineKeyboardButton(text="➕ Добавить", url=f"https://t.me/{settings.BOT_USERNAME}?startgroup=new"))
+    kb.button(text="➕ Добавить", url=f"https://t.me/{settings.BOT_USERNAME}?startgroup=new")
+    kb.button(text="⚙️ Настройки", callback_data="settings:default")
     
     await message.answer(text="<b>Здрав будь!</b> Я вестник для игры в 🛖 <b>Поселения</b>.\nЧтоб в сходку свою меня позвать, <b>на знак ниже ткни:</b>", reply_markup=kb.as_markup())
 
@@ -402,7 +408,7 @@ async def start_command(message: types.Message):
             settlement.owner = updated_settlement.owner
 
     kb = InlineKeyboardBuilder()
-    kb.add(InlineKeyboardButton(text="👤 Профиль", switch_inline_query_current_chat="Профиль"))
+    kb.button(text="👤 Профиль", switch_inline_query_current_chat="Профиль")
     if settlement.owner.telegram_id == message.from_user.id:
         kb.row(InlineKeyboardButton(text="📜 Переименовать", switch_inline_query_current_chat="Переименовать поселение"), InlineKeyboardButton(text="🏗 Постройки", switch_inline_query_current_chat="Городские постройки"))
 
@@ -524,7 +530,7 @@ async def show_buildings_menu(message: types.Message, user: models.User, settlem
                 status = ("✅" if user.compact_style else "✅ Активно") if b.is_ready else (f"⏳ ({time_left})" if user.compact_style else f"⏳ Построится {time_left}")
                 text += f"\n\n{b.type.emoji} <b>{b.type.name}</b> ({b.level}/{b.type.max_level}):" + f"\n{status}\n" if not user.compact_style else f"{status}\n"
                 btn_text = f"{b.type.emoji} {b.type.name} ({'✅' if b.is_ready else '⏳'})"
-                kb.add(InlineKeyboardButton(text=btn_text, callback_data=f"bld_view:{b.id}:{scope}"))
+                kb.button(text=btn_text, callback_data=f"bld_view:{b.id}:{scope}")
             
         kb.adjust(2)
         
@@ -614,7 +620,7 @@ async def buildings_callback(callback: types.CallbackQuery):
             )
             
             kb = InlineKeyboardBuilder()
-            kb.add(InlineKeyboardButton(text="🔙 Назад", callback_data=f"bld_menu:{scope}"))
+            kb.button(text="🔙 Назад", callback_data=f"bld_menu:{scope}")
             
             await callback.message.edit_text(text, reply_markup=kb.as_markup())
 
@@ -664,10 +670,10 @@ async def buildings_callback(callback: types.CallbackQuery):
 
             if is_res_enough and is_prof_enough:
                 if (scope != "town" or is_mayor):
-                    kb.add(InlineKeyboardButton(
+                    kb.button(
                         text="🔨 Построить!", 
                         callback_data=f"bld_start:{bt.id}:{scope}"
-                    ))
+                    )
                 
             
             kb.row(InlineKeyboardButton(text="🔙 К чертежам", callback_data=f"bld_list:{scope}"))
@@ -1032,9 +1038,9 @@ async def craft_command(message: types.Message):
     kb = InlineKeyboardBuilder()
     for work in available_works:
         if user.compact_style:
-            kb.add(InlineKeyboardButton(text=f"{work.emoji}", callback_data=f"select_work:{work.id}"))
+            kb.button(text=f"{work.emoji}", callback_data=f"select_work:{work.id}")
         else:
-            kb.add(InlineKeyboardButton(text=f"{work.emoji} {work.name}", callback_data=f"select_work:{work.id}"))
+            kb.button(text=f"{work.emoji} {work.name}", callback_data=f"select_work:{work.id}")
     kb.adjust(2)
 
     await message.reply(f"{settler.profession.emoji} <b>{settler.profession.name}:</b>", reply_markup=kb.as_markup(), disable_notification=True)

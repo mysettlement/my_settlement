@@ -208,7 +208,7 @@ async def building_startBuilding(settler: models.Settler, building_type_id: int,
 
 
 
-async def user_getOrCreate(telegram_user: types.User):
+async def user_getOrCreate(telegram_user: types.User, session: AsyncSession | None = None) -> models.User:
     #* Получение или создание пользователя
     telegram_name = getattr(telegram_user, 'full_name', None) or f"User {telegram_user.id}"
     

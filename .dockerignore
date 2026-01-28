@@ -1,14 +1,23 @@
-*.log
-*.png
-*.svg
-
-__pycache__/
-.venv/
-wiki/
-logs/
+# --- Системное и IDE ---
 .git/
+.gitignore
 .vscode/
-app/__pycache__
+.trash/
+.obsidian/
+*.log
 
+# --- Python ---
+__pycache__/
+*.pyc
+.venv/
+venv/
+env/
+.env
 example.env
 
+# --- Лишние папки ---
+docs/
+additional/
+notes/
+backups/
+logs/

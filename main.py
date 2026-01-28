@@ -83,11 +83,6 @@ async def main():
         misfire_grace_time=3600
     )
 
-    tasks.scheduler.add_job(tasks.availability_check,
-        "interval",
-        minutes=30,
-    )
-
     try:
         tasks.scheduler.start()
 

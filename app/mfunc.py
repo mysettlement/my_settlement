@@ -149,17 +149,10 @@ async def get_group_owner(chat_id: int) -> types.User:
     except Exception as e:
         raise GroupOwnerError(f"Ошибка API Telegram при получении владельца группы {chat_id}: {str(e)}", chat_id=chat_id)
 
-def get_daily_reset_countdown() -> str:
-    now = datetime.now(pytz.timezone('Europe/Kiev'))
-    
-    next_midnight = (now + timedelta(days=1)).replace(hour=0, minute=0, second=0, microsecond=0)
-    
-    time_diff = next_midnight - now
-    
-    hours = int(time_diff.total_seconds() // 3600)
-    minutes = int((time_diff.total_seconds() % 3600) // 60)
-    
-    return f"{hours}ч. {minutes}м." if hours > 0 else f"{minutes}м."
+def get_daily_reset_countdown(timezone: str) -> str:
+    now = arrow.now(timezone or "UTC")
+    next_midnight = now.shift(days=1).floor('day')
+    return format_relative_time(next_midnight, now=now, disable_affixes=True)
 
 
 async def format_reward_text(earned: dict) -> str:
@@ -246,18 +239,15 @@ def format_bonuses_text(bonuses: dict) -> tuple[bool, str]:
 
     return True, "\n".join(lines)
 
-def format_relative_time(target: Union[datetime, int, timedelta], now: Optional[datetime] = None) -> str:
-    """
-    Возвращает читаемую строку времени (например, "2 часа назад", "через 5 минут").
-    Использует библиотеку Arrow для правильных склонений.
-    """
+def format_relative_time(target: Union[datetime, int, timedelta], now: Union[datetime, arrow.Arrow] = arrow.now(), disable_affixes: bool = False) -> str:
     if isinstance(target, int):
-        target = datetime.now() + timedelta(seconds=target)
+        target = arrow.now().shift(seconds=target)
     
     elif isinstance(target, timedelta):
-        target = datetime.now() + target
+        target = arrow.get((now or arrow.now()) + target)
 
-    return arrow.get(target).humanize(other=now, locale='ru')
+    result = arrow.get(target)
+    return result.humanize(other=now, locale='ru', only_distance=disable_affixes)
 
 
 def can_click_button(user_key: str) -> bool:
@@ -271,16 +261,14 @@ def can_click_button(user_key: str) -> bool:
     return True
 
 def can_choose_craft(last_profession_change) -> tuple[bool, str]:
-    now_ts = int(datetime.now().timestamp())
-    last_ts = int(last_profession_change.timestamp()) or 0
-    cooldown = int(timedelta(hours=settings.CRAFT_COOLDOWN_HOURS).total_seconds())
-    if last_ts and now_ts - last_ts < cooldown:
-        remaining = cooldown - (now_ts - last_ts)
-        days = remaining // 86400
-        hours = (remaining % 86400) // 3600
-        minutes = (remaining % 3600) // 60
-        when = f"{days}д. {hours}ч. {minutes}м." if days > 0 else (f"{hours}ч. {minutes}м." if hours > 0 else f"{minutes}м.")
-        return False, when
+    last = arrow.get(last_profession_change or 0)
+    now = arrow.now()
+    
+    cooldown_end = last.shift(hours=settings.CRAFT_COOLDOWN_HOURS)
+    
+    if cooldown_end > now:
+        return False, cooldown_end.humanize(other=now, locale='ru', only_distance=True)
+        
     return True, ""
 
 async def timeout_work(chat_id: int):
@@ -346,7 +334,7 @@ def end_work(chat_id: int):
     work_start_time.pop(chat_id, None)
 
 async def mark_work_completed(settler: models.Settler, session: AsyncSession, chat_id: int):
-    current_time = int(datetime.now().timestamp())
+    current_time = arrow.now().int_timestamp
     await session.execute(
         update(models.Settler)
         .where(models.Settler.id == settler.id)
@@ -367,19 +355,11 @@ async def notify_developers(message: str):
         except Exception as e:
             log.error(f"Ошибка при отправке сообщения разработчику {dev_id}: {e}")
 
-
-# Добавляем в конец файла или к другим утилитам времени
 def get_timezones_at_hour(target_hour: int) -> list[str]:
-    """
-    Возвращает список таймзон, в которых сейчас target_hour (например, 19).
-    """
     target_timezones = []
     for tz_name in pytz.common_timezones:
         try:
-            tz = pytz.timezone(tz_name)
-            # Получаем текущее время в этой таймзоне
-            now = datetime.now(tz)
-            if now.hour == target_hour:
+            if arrow.now(tz_name).hour == target_hour:
                 target_timezones.append(tz_name)
         except Exception:
             continue

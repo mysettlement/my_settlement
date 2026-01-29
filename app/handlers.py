@@ -1,8 +1,7 @@
 import html
-import asyncio
 from aiogram import Router, types, F, Bot
 from aiogram.filters import Command, CommandObject, CommandStart, or_f, and_f
-from aiogram.types import InlineKeyboardButton, ReplyKeyboardRemove
+from aiogram.types import InlineKeyboardButton
 from aiogram.enums import ParseMode
 from aiogram.exceptions import TelegramBadRequest
 from aiogram.client.default import DefaultBotProperties
@@ -302,7 +301,7 @@ async def location_handler(message: types.Message):
         await message.answer("⚠️ Не удалось определить часовой пояс. Попробуй выбрать вручную.")
         return
     
-    await message.edit_text(
+    await message.answer(
         f"✅ Твой часовой пояс определён: <b>{timezone_str}</b>", 
         reply_markup=InlineKeyboardBuilder().button(text="Установить!", callback_data=f"set_tz:{timezone_str}").as_markup()
     )
@@ -826,7 +825,7 @@ async def overtime_command(message: types.Message):
     settlement = await core.settlement_getOrCreate(message.chat)
     settler = await core.settler_getOrCreate(user, settlement)
     
-    daily_reset_countdown = mfunc.get_daily_reset_countdown()
+    reset_countdown = mfunc.get_daily_reset_countdown(user.timezone)
     compact_style = user.compact_style
     overtime_count=settler.overtime_count
     quote = settler.quote
@@ -835,12 +834,12 @@ async def overtime_command(message: types.Message):
     kb = InlineKeyboardBuilder()
 
     text = f"🕒 <b>Лишняя мера</b>\n"
-    text += f"ℹ️ Коль добра тебе мало, можешь <b>лишнюю меру</b> взять. С каждой лишней мерой работа тяжелеет, мудрости меньше наберёшь, но грошей столько же получишь. Коль <b>не поспеешь труд свершить</b> до нового дня (🕒 {daily_reset_countdown}), на тебя <b>виру</b> наложат в 💰 <b>20</b>.\n\n" if settler.level < 2 and user.show_hints == True else ""
+    text += f"ℹ️ Коль добра тебе мало, можешь <b>лишнюю меру</b> взять. С каждой лишней мерой работа тяжелеет, мудрости меньше наберёшь, но грошей столько же получишь. Коль <b>не поспеешь труд свершить</b> до нового дня (🕒 {reset_countdown}), на тебя <b>виру</b> наложат в 💰 <b>20</b>.\n\n" if settler.level < 2 and user.show_hints == True else ""
     if settler.overtime_is_toggled and not settler.quote_is_completed:
         if compact_style:
-            text += f"🔘 {overtime_count} (🕒 {daily_reset_countdown}) | 📄 <b>{quote}/{target_quote}</b>"
+            text += f"🔘 {overtime_count} (🕒 {reset_countdown}) | 📄 <b>{quote}/{target_quote}</b>"
         else:
-            text += f"Состояние лишней меры: ⚪️ <b>Активна</b>\nСколько лишней меры взято: {overtime_count} (🕒 <b>{daily_reset_countdown}</b> до новой меры)\n📄 Мера: <b>{quote}/{target_quote}</b>"
+            text += f"Состояние лишней меры: ⚪️ <b>Активна</b>\nСколько лишней меры взято: {overtime_count} (🕒 <b>{reset_countdown}</b> до новой меры)\n📄 Мера: <b>{quote}/{target_quote}</b>"
     elif not settler.overtime_is_toggled and not settler.quote_is_completed:
         text += "⚠️ Лишнюю меру брать можно, токмо основную 📄 меру свершив!"
     else:
@@ -886,7 +885,7 @@ async def overtime_take(callback: types.CallbackQuery):
         log.debug(f"{callback.message.chat.id} | {settler.user_id} | 🔄 Лишняя мера взята: 0/{new_quote}")
         await session.commit()
         
-        reset_countdown = mfunc.get_daily_reset_countdown()
+        reset_countdown = mfunc.get_daily_reset_countdown(user.timezone)
         await callback.message.edit_text(f"⏳ <b>Лишняя мера взята!</b> (📄 0/{new_quote})\nТебе осталось 🕒 <b>{reset_countdown}</b> чтоб новую меру исполнить!")
 
 

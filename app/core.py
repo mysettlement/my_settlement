@@ -5,12 +5,12 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm.attributes import flag_modified
 from aiogram import types
-from datetime import datetime, timedelta
 from typing import Dict, Tuple, Union, Optional, List
 import logging
 import random
+import arrow
 
-from app.exceptions import GroupOwnerError, UserCreationError, SettlementCreationError, SettlerCreationError
+from app.exceptions import UserCreationError, SettlementCreationError, SettlerCreationError
 from app.config import setup_logging, settings
 from app.db import SessionLocal
 from main import bot
@@ -192,19 +192,19 @@ async def building_startBuilding(settler: models.Settler, building_type_id: int,
             .values(quantity=models.settler_resources.c.quantity - qty)
         )
 
-    finish_time = datetime.now() + timedelta(seconds=b_type.construction_time)
+    finish_time = arrow.now().shift(seconds=b_type.construction_time)
     
     new_building = models.Building(
         building_type_id=b_type.id,
         settlement_id=settler.settlement_id,
         owner_id=settler.id if scope == "my" or scope == "private" or scope == "settler" or scope == "personal" else None,
         level=1,
-        under_construction_until=finish_time
+        under_construction_until=finish_time.datetime
     )
     session.add(new_building)
     await session.commit()
     
-    return True, f"<b>🏗 Стройка началась!</b>\n{b_type.emoji} <b>{b_type.name}</b> будет готов <b>{mfunc.format_relative_time(b_type.construction_time)}</b>."
+    return True, f"<b>🏗 Стройка началась!</b>\n{b_type.emoji} <b>{b_type.name}</b> будет готов <b>{mfunc.format_relative_time(finish_time)}</b>."
 
 
 
@@ -515,30 +515,16 @@ async def settler_updateQuote(settler: models.Settler, settlement: models.Settle
 
 def settler_canWorkNow(settler: models.Settler) -> tuple[bool, str]:
     #* Проверка, может ли поселенец начать новую работу с учётом кулдауна
-    current_time = datetime.now()
+    last_work = arrow.get(settler.last_work_time)
+    now = arrow.now()
+    can_work = True
     
-    if settler.last_work_time == 0:
-        return True, ""
+    cooldown_end = last_work.shift(hours=settings.WORK_COOLDOWN_HOURS)
 
-    last_work_time = datetime.fromtimestamp(settler.last_work_time)
-    cooldown = timedelta(hours=settings.WORK_COOLDOWN_HOURS)
-    time_since_work = current_time - last_work_time
+    if settler.work_is_completed and now < cooldown_end:
+        can_work = False
 
-    if settler.work_is_completed and time_since_work < cooldown:
-        remaining = cooldown - time_since_work
-        total_seconds = int(remaining.total_seconds())
-        hours = total_seconds // 3600
-        minutes = (total_seconds % 3600) // 60
-        seconds = total_seconds % 60
-
-        if hours > 0:
-            return False, f"{hours}ч. {minutes}м. {seconds}с."
-        elif minutes > 0:
-            return False, f"{minutes}м. {seconds}с."
-        else:
-            return False, f"{seconds}с."
-
-    return True, ""
+    return can_work, mfunc.format_relative_time(cooldown_end, now)
 
 async def settler_startWorkflow(message_or_callback: Union[types.Message, types.CallbackQuery], work: models.Work, user: models.User, settler: models.Settler):
     #* Запуск рабочего процесса для поселенца
@@ -711,7 +697,7 @@ async def setter_getBonuses(settler: models.Settler, session: AsyncSession) -> T
         models.Building.settlement_id == settler.settlement_id,
         or_(
             models.Building.under_construction_until == None,
-            models.Building.under_construction_until <= datetime.now()
+            models.Building.under_construction_until <= arrow.now().datetime
         )
     )
     buildings = (await session.execute(stmt_settlement)).scalars().all()
@@ -778,7 +764,7 @@ async def _roll_chance(item: models.LootItem, resource: Optional[models.Resource
 async def _calculate_quantity(item: models.LootItem, resource: Optional[models.Resource], bonuses: BonusSet) -> int:
     #* Вычисляет итоговое количество предмета с учётом бонусов
     if not item.min_qty and not item.max_qty:
-        base = random.randint(models.RARITY_QUANTITY_RANGES.get(resource.rarity, (1, 1))[0] if resource else 1)
+        base = random.randint(*models.RARITY_QUANTITY_RANGES.get(resource.rarity, (1, 1))) if resource else 1
     else:
         base = item.min_qty if item.qty_is_fixed else random.randint(item.min_qty, item.max_qty)
 

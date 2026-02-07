@@ -16,11 +16,9 @@ from timezonefinder import TimezoneFinder
 
 from app.config import setup_logging, settings
 from app.db import SessionLocal
-import app.core as core
 from app.gamer import Workflow, Hitting, Catch, Alternation, ProgressBar
-import app.models as models
-from app.mfunc import active_games, fuzzy
-import app.mfunc as mfunc
+from app.utils import active_games, fuzzy
+from app import utils, core, models
 
 bot = Bot(
         token=settings.BOT_TOKEN,
@@ -119,7 +117,7 @@ async def me_command(message: types.Message):
         settlement = await core.settlement_getOrCreate(message.chat)
         settler = await core.settler_getOrCreate(user, settlement)
         craft_text = f"{settler.profession.emoji} {settler.profession.name}" if settler.profession else "❓ Лодырь"
-        can_choose, when = mfunc.can_choose_craft(settler.last_profession_change)
+        can_choose, when = utils.can_choose_craft(settler.last_profession_change)
         can_work, work_countdown = core.settler_canWorkNow(settler)
         
         if compact_style:
@@ -224,7 +222,7 @@ async def show_settings_menu(message: types.Message, user: models.User, menu: st
     if menu == "timezone":
         last_change = user.last_tz_change or datetime.min
         if (datetime.now() - last_change).days < settings.TZ_CHANGE_COOLDOWN_DAYS:
-            time_left = mfunc.format_relative_time(last_change + timedelta(days=settings.TZ_CHANGE_COOLDOWN_DAYS))
+            time_left = utils.format_relative_time(last_change + timedelta(days=settings.TZ_CHANGE_COOLDOWN_DAYS))
             await callback.answer(f"⏳ Сменить пояс можно {time_left}", show_alert=True)
             return
 
@@ -315,7 +313,7 @@ async def set_tz_callback(callback: types.CallbackQuery):
         user = result.scalars().first()
         last_change = user.last_tz_change or datetime.min
         if (datetime.now() - last_change).days < settings.TZ_CHANGE_COOLDOWN_DAYS:
-            time_left = mfunc.format_relative_time(last_change + timedelta(days=settings.TZ_CHANGE_COOLDOWN_DAYS))
+            time_left = utils.format_relative_time(last_change + timedelta(days=settings.TZ_CHANGE_COOLDOWN_DAYS))
             await callback.answer(f"⏳ Сменить пояс можно {time_left}", show_alert=True)
             return
 
@@ -362,7 +360,7 @@ async def private_handler(message: types.Message, command: CommandObject = None)
         args_list = args.split("_")
         
         if args.startswith("ref_"):
-            referrer_id = args.split("_")[1]
+            referrer_id = args_list[1]
             await message.answer(f"👋 Тебя пригласил поселенец с ID: {referrer_id}")
             return
         
@@ -412,7 +410,7 @@ async def start_command(message: types.Message):
         kb.row(InlineKeyboardButton(text="📜 Переименовать", switch_inline_query_current_chat="Переименовать поселение"), InlineKeyboardButton(text="🏗 Постройки", switch_inline_query_current_chat="Городские постройки"))
 
     text = (
-        f"<b>{settlement.name}</b> (основан {mfunc.format_relative_time(settlement.created_at)})\n"
+        f"<b>{settlement.name}</b> (основан {utils.format_relative_time(settlement.created_at)})\n"
         f"👥{len(settlement.members)} 👑 <b>{settlement.owner.name or (f"User {settlement.owner.telegram_id}" if settlement.owner else "Отсутствует")}</b>"
     )
     await message.answer(text, reply_markup=kb.as_markup())
@@ -462,7 +460,7 @@ async def name_settlement(message: types.Message, command: CommandObject = None)
         
         
         if delta.total_seconds() < settings.SETTLEMENT_NAME_CHANGE_COOLDOWN_HOURS * 3600:
-            remaining_time = mfunc.format_relative_time(last_change + timedelta(hours=settings.SETTLEMENT_NAME_CHANGE_COOLDOWN_HOURS))
+            remaining_time = utils.format_relative_time(last_change + timedelta(hours=settings.SETTLEMENT_NAME_CHANGE_COOLDOWN_HOURS))
             await message.answer(
                 f"📜 <b>Не спеши, правитель.</b>\n"
                 f"Чернила на прошлом указе ещё не высохли. Негоже так часто имена менять.\n\n"
@@ -525,7 +523,7 @@ async def show_buildings_menu(message: types.Message, user: models.User, settlem
             text += "\n\n🕸 Пока здесь пусто."
         else:
             for b in buildings:
-                time_left = mfunc.format_relative_time(b.under_construction_until) if not b.is_ready else None
+                time_left = utils.format_relative_time(b.under_construction_until) if not b.is_ready else None
                 status = ("✅" if user.compact_style else "✅ Активно") if b.is_ready else (f"⏳ ({time_left})" if user.compact_style else f"⏳ Построится {time_left}")
                 text += f"\n\n{b.type.emoji} <b>{b.type.name}</b> ({b.level}/{b.type.max_level}):" + f"\n{status}\n" if not user.compact_style else f"{status}\n"
                 btn_text = f"{b.type.emoji} {b.type.name} ({'✅' if b.is_ready else '⏳'})"
@@ -606,11 +604,11 @@ async def buildings_callback(callback: types.CallbackQuery):
                 return
 
             if compact_style:
-                status_text = "⚪️" if building.is_ready else f"🔨 <b>{mfunc.format_relative_time(building.under_construction_until)}</b>"
+                status_text = "⚪️" if building.is_ready else f"🔨 <b>{utils.format_relative_time(building.under_construction_until)}</b>"
             else:
-                status_text = "⚪️ <b>В обороте!</b>" if building.is_ready else f"🔨 Стройка закончится <b>{mfunc.format_relative_time(building.under_construction_until)}</b>"
+                status_text = "⚪️ <b>В обороте!</b>" if building.is_ready else f"🔨 Стройка закончится <b>{utils.format_relative_time(building.under_construction_until)}</b>"
             
-            has_bonuses, bonuses = mfunc.format_bonuses_text(building.type.bonuses)
+            has_bonuses, bonuses = utils.format_bonuses_text(building.type.bonuses)
             
             text = (
                 f"{building.type.emoji} <b>{building.type.name}</b> ({building.level}/{building.type.max_level}) {status_text}\n"
@@ -641,7 +639,7 @@ async def buildings_callback(callback: types.CallbackQuery):
             is_prof_enough, prof_text, is_res_enough, res_text = await core.building_checkRequirements(
                 settlement, settler, bt, session, compact_style
             )
-            has_bonuses, bonuses = mfunc.format_bonuses_text(bt.bonuses)
+            has_bonuses, bonuses = utils.format_bonuses_text(bt.bonuses)
 
             lines = [
                 f"{bt.emoji} <b>{bt.name}</b>",
@@ -717,7 +715,7 @@ async def bonuses_command(message: types.Message):
         
         data = bonuses.to_dict()
         
-        has_bonuses, text_bonuses = mfunc.format_bonuses_text(data)
+        has_bonuses, text_bonuses = utils.format_bonuses_text(data)
     
     text = f"✨ <b>Эффекты {user.name}</b>\n\n"
     
@@ -825,7 +823,7 @@ async def overtime_command(message: types.Message):
     settlement = await core.settlement_getOrCreate(message.chat)
     settler = await core.settler_getOrCreate(user, settlement)
     
-    reset_countdown = mfunc.get_daily_reset_countdown(user.timezone)
+    reset_countdown = utils.get_daily_reset_countdown(user.timezone)
     compact_style = user.compact_style
     overtime_count=settler.overtime_count
     quote = settler.quote
@@ -885,7 +883,7 @@ async def overtime_take(callback: types.CallbackQuery):
         log.debug(f"{callback.message.chat.id} | {settler.user_id} | 🔄 Лишняя мера взята: 0/{new_quote}")
         await session.commit()
         
-        reset_countdown = mfunc.get_daily_reset_countdown(user.timezone)
+        reset_countdown = utils.get_daily_reset_countdown(user.timezone)
         await callback.message.edit_text(f"⏳ <b>Лишняя мера взята!</b> (📄 0/{new_quote})\nТебе осталось 🕒 <b>{reset_countdown}</b> чтоб новую меру исполнить!")
 
 
@@ -949,7 +947,7 @@ async def choose_craft_command(message: types.Message):
     
     can_choose, when = True, ""
     if settler.profession_id:
-            can_choose, when = mfunc.can_choose_craft(settler.last_profession_change)
+            can_choose, when = utils.can_choose_craft(settler.last_profession_change)
     
     text = f"💼 <b>Выбор ремесла</b>\n{'⚠️ Сменить ремесло можно через <b>' + when + '</b>\n' if not can_choose and settler.profession else ''}\n"
     kb = InlineKeyboardBuilder()
@@ -998,7 +996,7 @@ async def select_craft_callback(callback: types.CallbackQuery):
             await callback.answer(f"⚠️ Ремесло сие тебе не по плечу! {settler.level}/<b>{profession.required_level}</b>💡")
             return
         if settler.profession_id:
-            can_choose, when = mfunc.can_choose_craft(settler.last_profession_change)
+            can_choose, when = utils.can_choose_craft(settler.last_profession_change)
             if not can_choose:
                 await callback.answer(f"⚠️ Недавно ты ремесло своё сменил, человече! Новое взять можно, как <b>{when}</b> пройдёт.", True)
         
@@ -1078,15 +1076,15 @@ async def work_callback(callback: types.CallbackQuery):
     settler = await core.settler_getOrCreate(user, settlement)
 
     user_key = f"{callback.message.chat.id}_{user.telegram_id}"
-    if not mfunc.can_click_button(user_key):
+    if not utils.can_click_button(user_key):
         await callback.answer("⏳ Погоди миг единый!")
         return
     
-    remaining = mfunc.get_work_remaining_time(callback.message.chat.id)
+    remaining = utils.get_work_remaining_time(callback.message.chat.id)
     if remaining <= 0:
         await callback.answer("⏰ Пора труда миновала! Дело отложено.", True)
         await callback.message.edit_text("⏰ Долго ты без дела стоял! Труд отложен.")
-        mfunc.end_work(callback.message.chat.id)
+        utils.end_work(callback.message.chat.id)
         active_games.pop(user_key, None)
         return
     
@@ -1144,12 +1142,12 @@ async def work_callback(callback: types.CallbackQuery):
         status_text = workflow.get_status_text()
         async with SessionLocal() as session:
             earned = await core.settler_applyRewards(work, settler, session)
-            reward_text = await mfunc.format_reward_text(earned)
+            reward_text = await utils.format_reward_text(earned)
             await callback.message.edit_text(f"{status_text}\n\n📦 <b>Получено:</b>\n{reward_text}", reply_markup=None)
-            await mfunc.mark_work_completed(settler, session, callback.message.chat.id)
+            await utils.mark_work_completed(settler, session, callback.message.chat.id)
         
         active_games.pop(user_key, None)
-        mfunc.end_work(callback.message.chat.id)
+        utils.end_work(callback.message.chat.id)
 
     elif result == "lose":
         status_text = None
@@ -1187,9 +1185,9 @@ async def work_callback(callback: types.CallbackQuery):
         await callback.message.edit_text(status_text, reply_markup=None)
         if work.cooldown_on_fail:
             async with SessionLocal() as session:
-                await mfunc.mark_work_completed(settler, session, callback.message.chat.id)
+                await utils.mark_work_completed(settler, session, callback.message.chat.id)
         active_games.pop(user_key, None)
-        mfunc.end_work(callback.message.chat.id)
+        utils.end_work(callback.message.chat.id)
     else:
         status_text = workflow.get_status_text()
         kb = workflow.get_keyboard()
@@ -1221,7 +1219,7 @@ async def promo_command(message: types.Message):
     
     async with SessionLocal() as session:
         obtained = await core.settler_add(settler, session, emoji, qty)
-        text = await mfunc.format_reward_text(obtained)
+        text = await utils.format_reward_text(obtained)
 
         await session.commit()
 
@@ -1245,7 +1243,7 @@ FUZZY_COMMANDS = collect_commands(router)
 async def quote_handler(message: types.Message):
     #* Обработка сообщений для меры
     user = await core.user_getOrCreate(message.from_user)
-    match = await mfunc.is_text_command(
+    match = await utils.is_text_command(
         message,
         user,
         FUZZY_COMMANDS,
@@ -1276,7 +1274,7 @@ async def quote_handler(message: types.Message):
             return
             
         try:
-            if await mfunc.is_meaningful(message.text) and not settler.quote_is_completed:
+            if await utils.is_meaningful(message.text) and not settler.quote_is_completed:
                 await core.settler_updateQuote(settler, settlement, session, 1)
                 return
         except Exception as e:

@@ -15,7 +15,7 @@ from app.config import setup_logging, settings
 from app.db import SessionLocal
 from main import bot
 import app.models as models
-import app.mfunc as mfunc
+import app.utils as utils
 
 log = setup_logging(logging.getLogger(__name__))
 
@@ -204,7 +204,7 @@ async def building_startBuilding(settler: models.Settler, building_type_id: int,
     session.add(new_building)
     await session.commit()
     
-    return True, f"<b>🏗 Стройка началась!</b>\n{b_type.emoji} <b>{b_type.name}</b> будет готов <b>{mfunc.format_relative_time(finish_time)}</b>."
+    return True, f"<b>🏗 Стройка началась!</b>\n{b_type.emoji} <b>{b_type.name}</b> будет готов <b>{utils.format_relative_time(finish_time)}</b>."
 
 
 
@@ -261,7 +261,7 @@ async def settlement_getOrCreate(chat: types.Chat):
             return db_settlement
 
         try:
-            group_owner = await mfunc.get_group_owner(chat.id)
+            group_owner = await utils.get_group_owner(chat.id)
             if not group_owner:
                  raise SettlementCreationError(f"Не удалось найти владельца чата", chat_id=chat.id)
 
@@ -524,7 +524,7 @@ def settler_canWorkNow(settler: models.Settler) -> tuple[bool, str]:
     if settler.work_is_completed and now < cooldown_end:
         can_work = False
 
-    return can_work, mfunc.format_relative_time(cooldown_end, now)
+    return can_work, utils.format_relative_time(cooldown_end, now)
 
 async def settler_startWorkflow(message_or_callback: Union[types.Message, types.CallbackQuery], work: models.Work, user: models.User, settler: models.Settler):
     #* Запуск рабочего процесса для поселенца
@@ -538,7 +538,7 @@ async def settler_startWorkflow(message_or_callback: Union[types.Message, types.
         await message_or_callback.answer(text) if is_message else await message_or_callback.answer(text, show_alert=True)
         return False
     
-    can_start, error = mfunc.can_start_work(chat_id)
+    can_start, error = utils.can_start_work(chat_id)
     if not can_start:
         await message_or_callback.answer(error) if is_message else await message_or_callback.answer(error, show_alert=True)
         return False
@@ -557,11 +557,11 @@ async def settler_startWorkflow(message_or_callback: Union[types.Message, types.
                 return success
         await session.commit()
     
-    mfunc.start_work(chat_id)
+    utils.start_work(chat_id)
     workflow = work.build()
-    mfunc.active_games[user_key] = workflow
+    utils.active_games[user_key] = workflow
 
-    remaining = mfunc.get_work_remaining_time(chat_id)
+    remaining = utils.get_work_remaining_time(chat_id)
     text = f"{work.emoji} <b>{work.name}</b>\n\n{workflow.get_status_text()}\n\n⏳ Осталось <b>{remaining} секунд</b>"
 
     kb = workflow.get_keyboard()

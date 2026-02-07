@@ -6,7 +6,7 @@ import logging
 from app.config import settings, setup_logging
 from app.models import Base
 import app.models as models
-import app.mfunc as mfunc
+import app.utils as utils
 
 
 log = setup_logging(logging.getLogger(__name__))
@@ -36,8 +36,7 @@ async def init_db():
             tables = [row[0] for row in result.fetchall()]
             if not tables:
                 log.warning("🛠️ Таблицы не найдены. Пересоздание...")
-                if settings.ENABLE_DEVELOPERS_NOTIFY:
-                    await mfunc.notify_developers("⚠️ <b>Таблицы в базе данных не найдены.</b>\nВыполняется пересоздание...")
+                await utils.notify_developers("⚠️ <b>Таблицы в базе данных не найдены.</b>\nВыполняется пересоздание...")
                 await conn.run_sync(Base.metadata.create_all)
                 
                 result = await conn.execute(text("""
@@ -54,8 +53,7 @@ async def init_db():
 
     except Exception as e:
         log.error(f"❌ Ошибка при перезагрузке базы данных: {e}")
-        if settings.ENABLE_DEVELOPERS_NOTIFY:
-            await mfunc.notify_developers(f"❌ Ошибка при перезагрузке базы данных: {e}")
+        await utils.notify_developers(f"❌ Ошибка при перезагрузке базы данных: {e}")
         raise
 
 
@@ -206,8 +204,7 @@ async def init_db():
     
     except Exception as e:
         log.error(f"❌ Ошибка при инициализации базы данных: {e}")
-        if settings.ENABLE_DEVELOPERS_NOTIFY:
-            await mfunc.notify_developers(f"❌ Ошибка при инициализации базы данных: {e}")
+        await utils.notify_developers(f"❌ Ошибка при инициализации базы данных: {e}")
         await session.rollback()
         raise
         

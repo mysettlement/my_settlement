@@ -12,7 +12,7 @@ from aiogram.enums import ParseMode
 from app.config import setup_logging, settings
 from app.db import SessionLocal
 from app.models import Settler, User, Settlement
-from app.mfunc import get_timezones_at_hour
+from app.utils import get_timezones_at_hour
 
 bot = Bot(
     token=settings.BOT_TOKEN,

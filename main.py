@@ -4,14 +4,13 @@ import os
 import random
 
 from aiogram import Bot, Dispatcher
-from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ParseMode
-from aiogram.methods.set_my_name import SetMyName
+from aiogram.client.default import DefaultBotProperties
 
 import app.config as config
 import app.handlers as handlers
 import app.db as db
-import app.mfunc as mfunc
+import app.utils as utils
 import app.tasks as tasks
 from app.exceptions import ErrorMiddleware
     
@@ -20,8 +19,7 @@ bot = Bot(
     default=DefaultBotProperties(parse_mode=ParseMode.HTML)
 )
 
-logger = logging.getLogger(__name__)
-log = config.setup_logging(logger)
+log = config.setup_logging(logging.getLogger(__name__))
 
 def setup_aiogram_logging():
     #* Настраивает логирование aiogram для подавления ненужных сообщений
@@ -95,9 +93,9 @@ async def main():
         log.info("🟢 Бот запущен!")
         await dp.start_polling(bot)
     finally:
-        for task in mfunc.work_timeout_tasks.values():
+        for task in utils.work_timeout_tasks.values():
             task.cancel()
-        mfunc.work_timeout_tasks.clear()
+        utils.work_timeout_tasks.clear()
         tasks.scheduler.shutdown()
         if config.settings.BOT_USERNAME == "mysettlementbot":
             try:
@@ -116,5 +114,4 @@ if __name__ == "__main__":
         log.info("🔴 Скрипт остановлен")
     except Exception as e:
         log.critical(f"Критическая ошибка: {e}")
-        if config.settings.ENABLE_DEVELOPERS_NOTIFY:
-            asyncio.run(mfunc.notify_developers(f"❌ Критическая ошибка в main.py: {e}"))
+        asyncio.run(utils.notify_developers(f"❌ Критическая ошибка в main.py: {e}"))

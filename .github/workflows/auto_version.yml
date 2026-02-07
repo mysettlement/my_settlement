@@ -1,0 +1,72 @@
+name: Auto Version Bump
+
+on:
+  push:
+    branches:
+      - main
+    paths-ignore:
+      - "app/__init__.py"
+      - "README.md"
+      - "README_ru.md"
+
+permissions:
+  contents: write
+
+jobs:
+  bump-version:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.11"
+
+      - name: Update __version__ in app/__init__.py
+        run: |
+          NEW_VER=$(date +'%d.%m.%Y')
+          echo "Setting version to: $NEW_VER"
+
+          python3 -c "
+          import re
+          import os
+
+          file_path = 'app/__init__.py'
+          new_version = '$NEW_VER'
+
+          if os.path.exists(file_path):
+              with open(file_path, 'r') as f:
+                  content = f.read()
+          else:
+              content = ''
+
+          pattern = r'^__version__\s*=\s*[\"\'].*[\"\']'
+          replacement = f'__version__ = \"{new_version}\"'
+
+          if re.search(pattern, content, re.MULTILINE):
+              new_content = re.sub(pattern, replacement, content, flags=re.MULTILINE)
+          else:
+              new_content = replacement + '\n' + content
+              
+          with open(file_path, 'w') as f:
+              f.write(new_content)
+          "
+
+      - name: Commit and Push changes
+        run: |
+          git config --global user.name 'github-actions[bot]'
+          git config --global user.email 'github-actions[bot]@users.noreply.github.com'
+
+          if [[ -n $(git status -s) ]]; then
+            git add app/__init__.py
+            git commit -m "$(date +'%Y.%m.%d') [skip ci]"
+            git push
+            echo "✅ Version updated and pushed."
+          else
+            echo "💤 No changes (version already up to date)."
+          fi

@@ -197,7 +197,7 @@ class Building(Base):
     owner_id = Column(BigInteger, ForeignKey("settlers.id"), nullable=True)
 
     level = Column(Integer, default=1)
-    under_construction_until = Column(DateTime, nullable=True)
+    under_construction_until = Column(DateTime(timezone=True), nullable=True)
 
     type = relationship("BuildingType", backref="instances")
     settlement = relationship("Settlement", back_populates="buildings")

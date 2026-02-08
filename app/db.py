@@ -1,3 +1,4 @@
+from contextlib import asynccontextmanager
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
 from sqlalchemy import text, select
 
@@ -21,6 +22,18 @@ SessionLocal = async_sessionmaker(
     class_=AsyncSession,
     expire_on_commit=False
 )
+
+@asynccontextmanager
+async def try_session(session: AsyncSession | None = None):
+    """
+    Если сессия передана — использует её (не закрывая).
+    Если нет — создает новую, использует и закрывает.
+    """
+    if session:
+        yield session
+    else:
+        async with SessionLocal() as new_session:
+            yield new_session
 
 
 async def init_db():

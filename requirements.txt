@@ -17,6 +17,7 @@ asyncpg==0.31.0           # via -r requirements.in
 attrs==25.4.0             # via aiohttp
 certifi==2026.1.4         # via aiogram
 cffi==2.0.0               # via timezonefinder
+dawg2-python==0.9.0       # via pymorphy3
 flatbuffers==25.12.19     # via timezonefinder
 frozenlist==1.8.0         # via aiohttp, aiosignal
 ftfy==6.3.1               # via wordfreq
@@ -35,6 +36,8 @@ pycparser==3.0            # via cffi
 pydantic==2.12.5          # via aiogram, pydantic-settings
 pydantic-core==2.41.5     # via pydantic
 pydantic-settings==2.12.0  # via -r requirements.in
+pymorphy3==2.0.6          # via -r requirements.in
+pymorphy3-dicts-ru==2.4.417150.4580142  # via pymorphy3
 python-dateutil==2.9.0.post0  # via arrow
 python-dotenv==1.2.1      # via pydantic-settings
 pytz==2025.2              # via -r requirements.in
@@ -51,3 +54,6 @@ watchfiles==1.1.1         # via -r requirements.in
 wcwidth==0.2.14           # via ftfy
 wordfreq==3.1.1           # via -r requirements.in
 yarl==1.22.0              # via aiohttp
+
+# The following packages are considered to be unsafe in a requirements file:
+# setuptools

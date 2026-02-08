@@ -4,6 +4,7 @@ import asyncio
 import pytz
 import re
 import arrow
+from pymorphy3 import MorphAnalyzer
 from typing import Optional, NamedTuple
 from wordfreq import zipf_frequency
 from langdetect import detect, DetectorFactory
@@ -31,6 +32,7 @@ bot = Bot(
 GameType = Union[Harvesting, Hitting, Catch, Alternation, Timer, Workflow]
 active_games: Dict[str, GameType] = {}
 log = setup_logging(logging.getLogger(__name__))
+morph = MorphAnalyzer()
 
 
 #* Система ограничений
@@ -239,7 +241,9 @@ def format_bonuses_text(bonuses: dict) -> tuple[bool, str]:
 
     return True, "\n".join(lines)
 
-def format_relative_time(target: Union[datetime, int, timedelta], now: Union[datetime, arrow.Arrow] = arrow.now(), disable_affixes: bool = False) -> str:
+def format_relative_time(target: Union[datetime, int, timedelta], now: Union[datetime, arrow.Arrow] = None, disable_affixes: bool = False) -> str:
+    now = arrow.get(now) if now is not None else arrow.now()
+    
     if isinstance(target, int):
         target = arrow.now().shift(seconds=target)
     
@@ -248,6 +252,18 @@ def format_relative_time(target: Union[datetime, int, timedelta], now: Union[dat
 
     result = arrow.get(target)
     return result.humanize(other=now, locale='ru', only_distance=disable_affixes)
+
+def format_count(count: int, word: str) -> str:
+    """
+    Автоматически согласует слово с числом.
+    Например: 2, 'куна' -> '2 куны'
+              5, 'куна' -> '5 кун'
+    """
+    parsed_word = morph.parse(word)[0]
+    
+    agreed_word = parsed_word.make_agree_with_number(count).word
+    
+    return f"{count} {agreed_word}"
 
 
 def can_click_button(user_key: str) -> bool:

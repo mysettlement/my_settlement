@@ -64,7 +64,7 @@ jobs:
 
           if [[ -n $(git status -s) ]]; then
             git add app/__init__.py
-            git commit -m "$(date +'%Y.%m.%d') [skip ci]"
+            git commit -m "update version: $(date +'%Y.%m.%d')"
             git push
             echo "✅ Version updated and pushed."
           else

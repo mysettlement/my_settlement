@@ -12,7 +12,7 @@ import arrow
 
 from app.exceptions import UserCreationError, SettlementCreationError, SettlerCreationError
 from app.config import setup_logging, settings
-from app.db import SessionLocal
+from app.db import SessionLocal, try_session
 from main import bot
 import app.models as models
 import app.utils as utils
@@ -208,11 +208,11 @@ async def building_startBuilding(settler: models.Settler, building_type_id: int,
 
 
 
-async def user_getOrCreate(telegram_user: types.User, session: AsyncSession | None = None) -> models.User:
+async def user_getOrCreate(telegram_user: types.User, session: AsyncSession = None) -> models.User:
     #* Получение или создание пользователя
     telegram_name = getattr(telegram_user, 'full_name', None) or f"User {telegram_user.id}"
     
-    async with SessionLocal() as session:
+    async with try_session(session) as session:
         result = await session.execute(
             select(models.User).where(models.User.telegram_id == telegram_user.id)
         )
@@ -245,12 +245,12 @@ async def user_getOrCreate(telegram_user: types.User, session: AsyncSession | No
 
 
 
-async def settlement_getOrCreate(chat: types.Chat):
+async def settlement_getOrCreate(chat: types.Chat, session: AsyncSession = None) -> Optional[models.Settlement]:
     #* Получение или создание поселения
     if chat.type == "private":
         return None
 
-    async with SessionLocal() as session:
+    async with try_session(session) as session:
         stmt = select(models.Settlement).options(
             selectinload(models.Settlement.members),
             selectinload(models.Settlement.owner)
@@ -291,9 +291,9 @@ async def settlement_getOrCreate(chat: types.Chat):
 
 
 
-async def settler_getOrCreate(user: models.User, settlement: models.Settlement):
-    #* Получение или создание поселенца (защита от Race Condition)
-    async with SessionLocal() as session:
+async def settler_getOrCreate(user: models.User, settlement: models.Settlement, session: AsyncSession = None) -> models.Settler:
+    #* Получение или создание поселенца
+    async with try_session(session) as session:
         stmt = select(models.Settler).options(
             selectinload(models.Settler.profession)
         ).where(
@@ -362,7 +362,7 @@ async def settler_addExp(settler: models.Settler, session: AsyncSession, exp: in
         settler.level += 1
         settler.exp -= settler.target_exp
 
-        text = f"🎉 <b>{user.name if user else f"User {settler.user_id}"}</b> повысил(а) уровень до <b>{settler.level}</b>! (🗂 {settler.exp}/{settler.target_exp})\n"
+        text = f"🎉 <b>{user.name if user else f"User {settler.user_id}"}</b> повысил(а) ступень до <b>{settler.level}</b>! (🗂 {settler.exp}/{settler.target_exp})\n"
     
     if old_rank != settler.rank:
         rank_emojis = {
@@ -384,7 +384,7 @@ async def settler_addExp(settler: models.Settler, session: AsyncSession, exp: in
     await session.refresh(settler, ["settlement"])
 
     if text:
-        log.debug(f"{settler.settlement_id} | {settler.user_id} | ⬆️ Повышение уровня: {old_level} → {settler.level} (🗂 {settler.exp}/{settler.target_exp})")
+        log.debug(f"{settler.settlement_id} | {settler.user_id} | ⬆️ Повышение ступени: {old_level} → {settler.level} (🗂 {settler.exp}/{settler.target_exp})")
         await bot.send_message(settler.settlement.chat_id, text)
 
     return settler
@@ -547,7 +547,7 @@ async def settler_startWorkflow(message_or_callback: Union[types.Message, types.
         for emoji, qty in work.requirements.items():
             if emoji == "level":
                 if settler.level < qty:
-                    text = f"⚠️ Сие дело тебе не по плечу. 💡 Требуемый уровень: {settler.level}/{qty}"
+                    text = f"⚠️ Сие дело тебе не по плечу. 💡 Требуемая ступень: {settler.level}/{qty}"
                     await message_or_callback.answer(text) if is_message else await message_or_callback.answer(text, show_alert=True)
                     return False
                 continue

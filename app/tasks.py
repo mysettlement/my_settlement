@@ -76,7 +76,7 @@ async def remind_overtime():
                     user_link = f"<a href='tg://user?id={s.user.telegram_id}'>{s.user.name}</a>"
                     mentions.append(f"• {user_link} ({s.quote}/{s.target_quote})")
                 
-                text = "⏰ <b>Не забудьте выполнить лишнюю меру!</b>\n" + "\n".join(mentions)
+                text = "⏰ <b>Не забудьте выполнить страду!</b>\n" + "\n".join(mentions)
 
                 try:
                     await bot.send_message(chat_id, text)
@@ -139,7 +139,7 @@ async def day_reset():
                         mention = f"<a href='tg://user?id={user.telegram_id}'>{user.name}</a>"
                         lines.append(f"• {mention}: 💰 <b>{fine}</b>")
                     text = (
-                        "⚠️ <b>Сбор виры за невыполненную лишнюю меру!</b>\n"
+                        "⚠️ <b>Сбор виры за невыполненный страд!</b>\n"
                         + "\n".join(lines)
                     )
                     try:

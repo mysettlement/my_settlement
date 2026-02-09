@@ -1,4 +1,3 @@
-import html
 from aiogram import Router, types, F, Bot
 from aiogram.filters import Command, CommandObject, CommandStart, or_f, and_f
 from aiogram.types import InlineKeyboardButton
@@ -11,6 +10,9 @@ from sqlalchemy import select, update
 from sqlalchemy.orm import selectinload
 
 import logging
+import arrow
+import html
+from dataclasses import dataclass
 from datetime import datetime, timedelta
 from timezonefinder import TimezoneFinder
 
@@ -27,7 +29,6 @@ bot = Bot(
 router = Router()
 log = setup_logging(logging.getLogger(__name__))
 tf = TimezoneFinder()
-
 
 
 # ================= Private chats ================
@@ -107,7 +108,7 @@ async def my_id_command(message: types.Message):
 @fuzzy("лик", "мой лик", "my profile", "моя подоба")
 @router.message(or_f(Command("me"), F.text.lower().in_({"лик", f"@{settings.BOT_USERNAME} лик", "мой лик", f"@{settings.BOT_USERNAME} мой лик", "my profile", f"@{settings.BOT_USERNAME} my profile", "моя подоба", f"@{settings.BOT_USERNAME} моя подоба"})))
 async def me_command(message: types.Message):
-    #* Лик поселенца
+    #* Профиль поселенца
     user = await core.user_getOrCreate(message.from_user)
 
     compact_style = user.compact_style
@@ -192,26 +193,39 @@ async def settings_callback(callback: types.CallbackQuery):
 
     await show_settings_menu(callback.message, user, menu, callback)
 
+@dataclass
+class SettingConf:
+    emoji: str
+    label: str
+    is_boolean: bool = True
+    on_emoji: str = "✅"
+    off_emoji: str = "☑️"
+    on_text: str = "Включено"
+    off_text: str = "Выключено"
+
+SETTINGS_MAP = {
+    "compact_style": SettingConf("🎩", "Стиль", on_emoji="🤏", off_emoji="🤲", on_text="Компактный", off_text="Развёрнутый"),
+    "show_hints":    SettingConf("ℹ️", "Подсказки", on_text="Включены", off_text="Выключены"),
+    "allow_typos":   SettingConf("✍️", "Опечатки", on_text="Учитывать", off_text="Не учитывать"),
+    "timezone":      SettingConf("🌍", "Часовой пояс", is_boolean=False) 
+}
+
 async def show_settings_menu(message: types.Message, user: models.User, menu: str = None, callback: types.CallbackQuery = None):
     kb = InlineKeyboardBuilder()
     async with SessionLocal() as session:
         user = await session.merge(user)
         
-        if menu in ["compact_style", "show_hints", "allow_typos"]:
-            if menu == "compact_style":
-                user.compact_style = not user.compact_style
-                toast_text = f"🎩 Стиль > {'🤏 Компактный' if user.compact_style else '🤲 Развёрнутый'}"
-                log.debug(f"{user.telegram_id} | 🎩 compact_style > {user.compact_style}")
+        if menu in SETTINGS_MAP and SETTINGS_MAP[menu].is_boolean:
+            conf = SETTINGS_MAP[menu]
             
-            elif menu == "show_hints":
-                user.show_hints = not user.show_hints
-                toast_text = f"ℹ️ Подсказки > {'✅ Включены' if user.show_hints else '❌ Выключены'}"
-                log.debug(f"{user.telegram_id} | ℹ️ show_hints > {user.show_hints}")
+            current_val = getattr(user, menu)
+            new_val = not current_val
+            setattr(user, menu, new_val)
             
-            elif menu == "allow_typos":
-                user.allow_typos = not user.allow_typos
-                toast_text = f"✍️ Опечатки > {'✅ Учитывать' if user.allow_typos else '❌ Не учитывать'}"
-                log.debug(f"{user.telegram_id} | ✍️ allow_typos > {user.allow_typos}")
+            status_text = conf.on_text if new_val else conf.off_text
+            toast_text = f"{conf.emoji} {conf.label} > {status_text}"
+            
+            log.debug(f"{user.telegram_id} | {conf.emoji} {menu} > {new_val}")
             
             await session.commit()
             if callback:
@@ -220,9 +234,11 @@ async def show_settings_menu(message: types.Message, user: models.User, menu: st
             menu = None
 
     if menu == "timezone":
-        last_change = user.last_tz_change or datetime.min
-        if (datetime.now() - last_change).days < settings.TZ_CHANGE_COOLDOWN_DAYS:
-            time_left = utils.format_relative_time(last_change + timedelta(days=settings.TZ_CHANGE_COOLDOWN_DAYS))
+        last_change = arrow.get(user.last_tz_change) or arrow.get(datetime.min)
+        unlock_time = last_change.shift(days=settings.TZ_CHANGE_COOLDOWN_DAYS)
+        now = arrow.now()
+        if now < unlock_time:
+            time_left = utils.format_relative_time(unlock_time, now)
             await callback.answer(f"⏳ Сменить пояс можно {time_left}", show_alert=True)
             return
 
@@ -234,7 +250,7 @@ async def show_settings_menu(message: types.Message, user: models.User, menu: st
 
         text = (
             f"🌍 <b>Настройка часового пояса</b>\n\n"
-            f"Твой текущий пояс: <code>{user.timezone}</code>\n"
+            f"Текущий пояс: <code>{user.timezone}</code>\n"
             f"Дневной сброс происходит в <b>00:00</b> по этому времени.\n\n"
             f"⚠️ Менять пояс можно раз в <b>{settings.TZ_CHANGE_COOLDOWN_DAYS} дней</b>."
         )
@@ -242,33 +258,36 @@ async def show_settings_menu(message: types.Message, user: models.User, menu: st
         if callback: await callback.answer()
 
     if not menu or menu == "default":
-        
-        c_style = user.compact_style
-        
-        def btn_text(icon, label, state):
-            prefix = f"{icon}" if c_style else f"{icon} {label}"
-            status = "✅" if state else "❌"
-            if isinstance(state, str): status = state
-            return f"{prefix}: {status}"
+        for key, conf in SETTINGS_MAP.items():
+            
+            btn_text = f"{conf.emoji}"
+            if not user.compact_style:
+                btn_text += f" {conf.label}"
+            
+            if conf.is_boolean:
+                is_active = getattr(user, key)
+                status = conf.on_emoji if is_active else conf.off_emoji
+                btn_text += f": {status}"
+            
+            kb.button(
+                text=btn_text, 
+                callback_data=f"settings:{key}",
+                style="success" if (conf.is_boolean and getattr(user, key)) else "primary"
+            )
 
-        kb.button(text=btn_text("🎩", "Стиль", "🤏" if c_style else "🤲"), callback_data="settings:compact_style")
-        kb.button(text=btn_text("ℹ️", "Подсказки", user.show_hints), callback_data="settings:show_hints")
-        kb.button(text=btn_text("✍️", "Опечатки", user.allow_typos), callback_data="settings:allow_typos")
-        
-        kb.button(text=f"{'🌍' if c_style else '🌍 Часовой пояс'}", callback_data="settings:timezone")
-        
         kb.adjust(2)
-
-        text = (
-            f"⚙️ <b>Настройки</b>\n"
-            f"🎩 Стиль сообщений: <b>{'🤏 Компактный' if c_style else '🤲 Развёрнутый'}</b>\n"
-            f"ℹ️ Подсказки: <b>{'✅ Включены' if user.show_hints else '❌ Отключены'}</b>\n"
-            f"✍️ Опечатки: <b>{'✅ Учитывать' if user.allow_typos else '❌ Не учитывать'}</b>\n"
-            f"🌍 Часовой пояс: <b>{user.timezone}</b>"
-        )
         
-        if user.show_hints:
-            text += "\n\nℹ️ Настройки сохраняются для каждого пользователя отдельно."
+        lines = ["⚙️ <b>Настройки</b>\n"]
+        for key, conf in SETTINGS_MAP.items():
+            val = getattr(user, key)
+            if conf.is_boolean:
+                status_text = conf.on_text if val else conf.off_text
+                status_emoji = conf.on_emoji if val else conf.off_emoji
+                lines.append(f"{conf.emoji} {conf.label}: {status_emoji} <b>{status_text}</b>")
+            elif key == "timezone":
+                lines.append(f"{conf.emoji} {conf.label}: <b>{val}</b>")
+        
+        text = "\n".join(lines)
         
     if callback:
         try:
@@ -301,7 +320,7 @@ async def location_handler(message: types.Message):
     
     await message.answer(
         f"✅ Твой часовой пояс определён: <b>{timezone_str}</b>", 
-        reply_markup=InlineKeyboardBuilder().button(text="Установить!", callback_data=f"set_tz:{timezone_str}").as_markup()
+        reply_markup=InlineKeyboardBuilder().button(text="Установить!", callback_data=f"set_tz:{timezone_str}", style="success").as_markup()
     )
 
 @router.callback_query(F.data.startswith("set_tz:"))
@@ -311,9 +330,11 @@ async def set_tz_callback(callback: types.CallbackQuery):
     async with SessionLocal() as session:
         result = await session.execute(select(models.User).where(models.User.telegram_id == callback.from_user.id))
         user = result.scalars().first()
-        last_change = user.last_tz_change or datetime.min
-        if (datetime.now() - last_change).days < settings.TZ_CHANGE_COOLDOWN_DAYS:
-            time_left = utils.format_relative_time(last_change + timedelta(days=settings.TZ_CHANGE_COOLDOWN_DAYS))
+        last_change = arrow.get(user.last_tz_change) or arrow.get(datetime.min)
+        unlock_time = last_change.shift(days=settings.TZ_CHANGE_COOLDOWN_DAYS)
+        now = arrow.now()
+        if now < unlock_time:
+            time_left = utils.format_relative_time(unlock_time, now)
             await callback.answer(f"⏳ Сменить пояс можно {time_left}", show_alert=True)
             return
 
@@ -444,15 +465,15 @@ async def name_settlement(message: types.Message, command: CommandObject = None)
             return
 
         if not settlement.owner or settlement.owner.telegram_id != message.from_user.id:
-            await message.answer("⚠️ Управлять именем поселения токмо <b>мэр</b> (владелец чата) может! Иди своим путём, простолюдин.")
+            await message.answer("⚠️ Управлять именем поселения токмо 👑 <b>мэр</b> может! Иди своим путём, простолюдин.")
             return
 
-        last_change = settlement.last_name_change or datetime.min
-        delta = datetime.now() - last_change
-        
-        
-        if delta.total_seconds() < settings.SETTLEMENT_NAME_CHANGE_COOLDOWN_HOURS * 3600:
-            remaining_time = utils.format_relative_time(last_change + timedelta(hours=settings.SETTLEMENT_NAME_CHANGE_COOLDOWN_HOURS))
+        now = arrow.now()
+        last_change = arrow.get(settlement.last_name_change) if settlement.last_name_change else arrow.get(datetime.min)
+        cooldown_expires = last_change.shift(hours=settings.SETTLEMENT_NAME_CHANGE_COOLDOWN_HOURS)
+
+        if now < cooldown_expires:
+            remaining_time = utils.format_relative_time(cooldown_expires, now)
             await message.answer(
                 f"📜 <b>Не спеши, правитель.</b>\n"
                 f"Чернила на прошлом указе ещё не высохли. Негоже так часто имена менять.\n\n"

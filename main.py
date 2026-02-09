@@ -1,11 +1,12 @@
 import asyncio
 import logging
-import os
 import random
+from contextlib import suppress
 
 from aiogram import Bot, Dispatcher
 from aiogram.enums import ParseMode
 from aiogram.client.default import DefaultBotProperties
+from aiogram.exceptions import TelegramBadRequest
 
 import app.config as config
 import app.handlers as handlers
@@ -13,105 +14,105 @@ import app.db as db
 import app.utils as utils
 import app.tasks as tasks
 from app.exceptions import ErrorMiddleware
-    
+
 bot = Bot(
     token=config.settings.BOT_TOKEN,
     default=DefaultBotProperties(parse_mode=ParseMode.HTML)
 )
 
-log = config.setup_logging(logging.getLogger(__name__))
+class ConnectionErrorFilter(logging.Filter):
+    def filter(self, record):
+        message = record.getMessage()
+        ignored_phrases = [
+            "Server disconnected",
+            "Failed to fetch updates",
+            "Sleep for",
+            "bot was kicked from the supergroup chat",
+            "TelegramForbiddenError"
+        ]
+        return not any(phrase in message for phrase in ignored_phrases)
 
 def setup_aiogram_logging():
-    #* Настраивает логирование aiogram для подавления ненужных сообщений
     aiogram_logger = logging.getLogger("aiogram")
-    
     aiogram_logger.setLevel(logging.WARNING)
     
-    class ConnectionErrorFilter(logging.Filter):
-        def filter(self, record):
-            message = record.getMessage()
-            # Подавляем сообщения о разрыве соединения
-            if "Server disconnected" in message:
-                return False
-            if "Failed to fetch updates" in message:
-                return False
-            if "Sleep for 1.000000 seconds" in message:
-                return False
-            # Подавляем ошибки о кике из группы
-            if "bot was kicked from the supergroup chat" in message:
-                return False
-            if "TelegramForbiddenError" in message:
-                return False
-            return True
-    
     connection_filter = ConnectionErrorFilter()
-    
     for handler in aiogram_logger.handlers:
         handler.addFilter(connection_filter)
+
+log = config.setup_logging(logging.getLogger(__name__))
+
+
+async def set_bot_status(bot: Bot, mood: str):
+    if config.settings.BOT_USERNAME != "mysettlementbot":
+        return
+
+    emojis = {
+        "happy": ["🌀", "🫐", "🐬"],
+        "sad": ["㊙️", "🍒", "🏮"]
+    }
     
-    if not aiogram_logger.handlers:
-        handler = logging.StreamHandler()
-        handler.addFilter(connection_filter)
-        aiogram_logger.addHandler(handler)
+    selected_emoji = random.choice(emojis.get(mood, ["🤖"]))
+    
+    with suppress(TelegramBadRequest, Exception):
+        await bot.set_my_name(
+            name=f"🛖 Моё Поселение! {selected_emoji}", 
+            language_code="ru"
+        )
+
+async def on_startup(bot: Bot):
+    await db.init_db()
+    
+    tasks.scheduler.add_job(tasks.day_reset, 'cron', hour='*', minute=0, coalesce=True, misfire_grace_time=3600)
+    tasks.scheduler.add_job(tasks.remind_overtime, "cron", hour="*", minute=0, coalesce=True, misfire_grace_time=3600)
+    
+    try:
+        tasks.scheduler.start()
+    except Exception as e:
+        log.error(f"Ошибка запуска планировщика: {e}")
+
+    await set_bot_status(bot, "happy")
+    log.info("🟢 Бот запущен!")
+
+async def on_shutdown(bot: Bot):
+    log.info("🟡 Завершение работы...")
+
+    if tasks.scheduler.running:
+        tasks.scheduler.shutdown(wait=False)
+
+    for task in utils.work_timeout_tasks.values():
+        task.cancel()
+    utils.work_timeout_tasks.clear()
+
+    await set_bot_status(bot, "sad")
+    
+    await bot.session.close()
+    log.info("🔴 Бот остановлен!")
 
 
 async def main():
     setup_aiogram_logging()
-
+    
     dp = Dispatcher()
+    
     dp.message.middleware(ErrorMiddleware())
     dp.callback_query.middleware(ErrorMiddleware())
+    
     dp.include_router(handlers.router)
+    
+    dp.startup.register(on_startup)
+    dp.shutdown.register(on_shutdown)
 
-    await db.init_db()
-
-    tasks.scheduler.add_job(tasks.day_reset,
-        'cron',
-        hour='*',
-        minute=0,
-        coalesce=True,
-        misfire_grace_time=3600
-    )
-
-    tasks.scheduler.add_job(tasks.remind_overtime,
-        "cron",
-        hour="*",
-        minute=0,
-        coalesce=True,
-        misfire_grace_time=3600
-    )
-
-    try:
-        tasks.scheduler.start()
-
-        if config.settings.BOT_USERNAME == "mysettlementbot":
-            try:
-                smile = random.choice(["🌀", "🫐", "🐬"])
-                await bot.set_my_name(name=f"🛖 Моё Поселение! {smile}", language_code="ru")
-            except Exception as e:
-                log.warning(f"Flood Control")
-        log.info("🟢 Бот запущен!")
-        await dp.start_polling(bot)
-    finally:
-        for task in utils.work_timeout_tasks.values():
-            task.cancel()
-        utils.work_timeout_tasks.clear()
-        tasks.scheduler.shutdown()
-        if config.settings.BOT_USERNAME == "mysettlementbot":
-            try:
-                cry = random.choice(["㊙️", "🍒", "🏮"])
-                await bot.set_my_name(name=f"🛖 Моё Поселение! {cry}", language_code="ru")
-            except Exception as e:
-                log.warning(f"Flood Control")
-        await bot.session.close()
-        log.info("🔴 Бот остановлен!")
-
+    await dp.start_polling(bot, allowed_updates=dp.resolve_used_update_types())
 
 if __name__ == "__main__":
     try:
         asyncio.run(main())
     except KeyboardInterrupt:
-        log.info("🔴 Скрипт остановлен")
+        log.info("🛑 Скрипт остановлен пользователем")
     except Exception as e:
-        log.critical(f"Критическая ошибка: {e}")
-        asyncio.run(utils.notify_developers(f"❌ Критическая ошибка в main.py: {e}"))
+        log.critical(e, exc_info=True)
+        try:
+            asyncio.run(utils.notify_developers(f"❌ Критическая ошибка: {e}"))
+        except Exception:
+            pass

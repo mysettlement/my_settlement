@@ -12,13 +12,18 @@ from sqlalchemy.orm import selectinload
 import logging
 import arrow
 import html
+from typing import TYPE_CHECKING
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from timezonefinder import TimezoneFinder
 
+if TYPE_CHECKING:
+    from stub import TranslatorRunner
+
 from app.config import setup_logging, settings
 from app.db import SessionLocal
 from app.gamer import Workflow, Hitting, Catch, Alternation, ProgressBar
+from app.i18n import I18nMiddleware
 from app.utils import active_games, fuzzy, format_count
 from app import utils, core, models
 
@@ -207,7 +212,8 @@ SETTINGS_MAP = {
     "compact_style": SettingConf("🎩", "Стиль", on_emoji="🤏", off_emoji="🤲", on_text="Компактный", off_text="Развёрнутый"),
     "show_hints":    SettingConf("ℹ️", "Подсказки", on_text="Включены", off_text="Выключены"),
     "allow_typos":   SettingConf("✍️", "Опечатки", on_text="Учитывать", off_text="Не учитывать"),
-    "timezone":      SettingConf("🌍", "Часовой пояс", is_boolean=False) 
+    "timezone":      SettingConf("🌍", "Часовой пояс", is_boolean=False),
+    "language":      SettingConf("🗣", "Язык", is_boolean=False),
 }
 
 async def show_settings_menu(message: types.Message, user: models.User, menu: str = None, callback: types.CallbackQuery = None):
@@ -253,6 +259,21 @@ async def show_settings_menu(message: types.Message, user: models.User, menu: st
             f"Текущий пояс: <code>{user.timezone}</code>\n"
             f"Дневной сброс происходит в <b>00:00</b> по этому времени.\n\n"
             f"⚠️ Менять пояс можно раз в <b>{settings.TZ_CHANGE_COOLDOWN_DAYS} дней</b>."
+        )
+        
+        if callback: await callback.answer()
+
+    elif menu == "language":
+        kb.button(text="Русский", callback_data="set_lang:ru")
+        kb.button(text="Українська 🇺🇦", callback_data="set_lang:uk")
+        kb.button(text="🔙 Назад", callback_data="settings:default")
+        kb.button(text="English 🇬🇧", callback_data="set_lang:en")
+        kb.adjust(2)
+
+        text = (
+            f"🗣 <b>Настройка языка</b>\n"
+            f"Выбери язык интерфейса. Это не повлияет на язык сообщений от других игроков.\n\n"
+            f"Текущий язык: <code>{user.language}</code>"
         )
         
         if callback: await callback.answer()
@@ -347,6 +368,25 @@ async def set_tz_callback(callback: types.CallbackQuery):
     await callback.answer("✅ Часовой пояс сохранен!")
     await callback.message.edit_reply_markup()
     await callback.message.edit_text(f"✅ Твой часовой пояс установлен: <b>{tz_name}</b>", reply_markup=InlineKeyboardBuilder().button(text="🔙 Назад", callback_data="settings:default").as_markup())
+
+
+@router.callback_query(F.data.startswith("set_lang:"))
+async def set_language(callback: types.CallbackQuery, i18n_middleware: I18nMiddleware, i18n: TranslatorRunner):
+    lang_code = callback.data.split(":")[1]
+    async with SessionLocal() as session:
+        user = await core.user_getOrCreate(callback.from_user, session=session)
+        user.language = lang_code
+        await session.commit()
+    
+    i18n_middleware.cache[user.telegram_id] = lang_code
+
+    i18n: TranslatorRunner = i18n_middleware.hub.get_translator_by_locale(lang_code)
+    
+    lang_names = {"ru": "Русский", "uk": "Українську", "en": "English"}
+    lang_name = lang_names.get(lang_code, lang_code)
+
+    log.debug(f"{user.telegram_id} | 🗣 language > {lang_code}")
+    await callback.answer(i18n.language.changed(lang_name=lang_name), show_alert=True)
 
 
 @router.message(F.text.lower() == "отмена")

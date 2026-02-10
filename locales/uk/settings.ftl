@@ -1,0 +1,1 @@
+language-changed = ✅ Мова успішно змінена на { $lang_name }!

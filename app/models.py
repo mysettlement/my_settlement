@@ -68,6 +68,7 @@ class User(Base):
     id = Column(BigInteger, primary_key=True, index=True)     # внутренний id
     telegram_id = Column(BigInteger, unique=True, index=True) # id пользователя в телеграме
     name = Column(String)
+    language = Column(String, nullable=True)
     
     compact_style = Column(Boolean, server_default="False")
     show_hints = Column(Boolean, server_default="True")

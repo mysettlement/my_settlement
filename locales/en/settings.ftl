@@ -1,0 +1,1 @@
+language-changed = ✅ Language successfully changed to { $lang_name }!

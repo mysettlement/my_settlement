@@ -5,8 +5,8 @@ from contextlib import suppress
 
 from aiogram import Bot, Dispatcher
 from aiogram.enums import ParseMode
-from aiogram.client.default import DefaultBotProperties
 from aiogram.exceptions import TelegramBadRequest
+from aiogram.client.default import DefaultBotProperties
 
 import app.config as config
 import app.handlers as handlers
@@ -14,6 +14,10 @@ import app.db as db
 import app.utils as utils
 import app.tasks as tasks
 from app.exceptions import ErrorMiddleware
+from app.i18n import create_translator_hub, I18nMiddleware
+
+
+log = config.setup_logging(logging.getLogger(__name__))
 
 bot = Bot(
     token=config.settings.BOT_TOKEN,
@@ -39,8 +43,6 @@ def setup_aiogram_logging():
     connection_filter = ConnectionErrorFilter()
     for handler in aiogram_logger.handlers:
         handler.addFilter(connection_filter)
-
-log = config.setup_logging(logging.getLogger(__name__))
 
 
 async def set_bot_status(bot: Bot, mood: str):
@@ -97,6 +99,8 @@ async def main():
     
     dp.message.middleware(ErrorMiddleware())
     dp.callback_query.middleware(ErrorMiddleware())
+    dp.message.middleware(I18nMiddleware(create_translator_hub()))
+    dp.callback_query.middleware(I18nMiddleware(create_translator_hub()))
     
     dp.include_router(handlers.router)
     

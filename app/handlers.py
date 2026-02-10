@@ -97,6 +97,9 @@ async def bot_added_to_chat_event(event: types.ChatMemberUpdated):
 async def my_id_command(message: types.Message):
     #* Показать ID пользователя
     user = await core.user_getOrCreate(message.from_user)
+    await show_id_menu(message, user)
+    
+async def show_id_menu(message: types.Message, user: models.User):
     compact_style = user.compact_style
     if compact_style:
         text = (
@@ -111,6 +114,7 @@ async def my_id_command(message: types.Message):
             f"💬 Telegram: <code>{user.telegram_id}</code>\n"
         )
     await message.answer(text)
+
 
 @fuzzy("лик", "мой лик", "my profile", "моя подоба")
 @router.message(or_f(Command("me"), F.text.lower().in_({"лик", f"@{settings.BOT_USERNAME} лик", "мой лик", f"@{settings.BOT_USERNAME} мой лик", "my profile", f"@{settings.BOT_USERNAME} my profile", "моя подоба", f"@{settings.BOT_USERNAME} моя подоба"})))
@@ -166,19 +170,7 @@ async def me_command(message: types.Message):
         await message.answer(text, reply_markup=kb.as_markup())
 
     elif message.chat.type == "private":
-        if compact_style:
-            text = (
-                f"👤 <b>{user.name}</b>\n"
-                f"🆔 <code>{user.id}</code>\n"
-                f"💬 <code>{user.telegram_id}</code>\n"
-            )
-        else:
-            text = (
-                f"👤 <b>{user.name}</b>\n"
-                f"🆔 Internal: <code>{user.id}</code>\n"
-                f"💬 Telegram: <code>{user.telegram_id}</code>\n"
-            )
-        await message.answer(text)
+        await show_id_menu(message, user)
 
 
 @fuzzy("настройки", "settings", "налаштування")
@@ -214,11 +206,11 @@ class SettingConf:
 SETTINGS_MAP = {
     "compact_style": SettingConf(
         "🎩", 
-        "constant-settings-label-style", # Ключ
+        "constant-settings-label-style",
         on_emoji="🤏", 
         off_emoji="🤲", 
-        on_text_key="constant-settings-style-compact", # Ключ
-        off_text_key="constant-settings-style-full"    # Ключ
+        on_text_key="constant-settings-style-compact",
+        off_text_key="constant-settings-style-full"
     ),
     "show_hints": SettingConf(
         "ℹ️", 
@@ -236,38 +228,34 @@ SETTINGS_MAP = {
     "language": SettingConf("🗣", "constant-settings-label-language", is_boolean=False, options_map=LANGUAGES_MAP),
 }
 
-async def show_settings_menu(message: types.Message, user: models.User, menu: str = None, callback: types.CallbackQuery = None, i18n: TranslatorRunner = None):
-    if i18n is None:
-        log.error(f"show_settings_menu called without i18n for user {user.telegram_id}")
-        return
-    
+async def show_settings_menu(message: types.Message, user: models.User, submenu: str = None, callback: types.CallbackQuery = None, i18n: TranslatorRunner = None):
     kb = InlineKeyboardBuilder()
     
-    current_conf = SETTINGS_MAP.get(menu)
+    current_conf = SETTINGS_MAP.get(submenu)
     menu_label_text = i18n.get(current_conf.label_key) if current_conf else ""
 
     async with SessionLocal() as session:
         user = await session.merge(user)
         
         if current_conf and current_conf.is_boolean:
-            current_val = getattr(user, menu)
+            current_val = getattr(user, submenu)
             new_val = not current_val
-            setattr(user, menu, new_val)
+            setattr(user, submenu, new_val)
             
             key_to_translate = current_conf.on_text_key if new_val else current_conf.off_text_key
             status_text = i18n.get(key_to_translate)
 
             toast_text = f"{current_conf.emoji} {menu_label_text} > {status_text}"
             
-            log.debug(f"{user.telegram_id} | {current_conf.emoji} {menu} > {new_val}")
+            log.debug(f"{user.telegram_id} | {current_conf.emoji} {submenu} > {new_val}")
             
             await session.commit()
             if callback:
                 await callback.answer(toast_text)
             
-            menu = None 
+            submenu = None 
 
-    if menu == "timezone":
+    if submenu == "timezone":
         last_change = arrow.get(user.last_tz_change) or arrow.get(datetime.min)
         unlock_time = last_change.shift(days=settings.TZ_CHANGE_COOLDOWN_DAYS)
         now = arrow.now()
@@ -294,7 +282,7 @@ async def show_settings_menu(message: types.Message, user: models.User, menu: st
         
         if callback: await callback.answer()
 
-    elif menu == "language":
+    elif submenu == "language":
         for code, name in LANGUAGES_MAP.items():
             is_selected = (user.language == code)
             style = "success" if is_selected else "primary"
@@ -316,7 +304,7 @@ async def show_settings_menu(message: types.Message, user: models.User, menu: st
         
         if callback: await callback.answer()
 
-    elif not menu or menu == "default":
+    elif not submenu or submenu == "default":
         lines = [i18n.text.settings.title(), ""]
         
         for key, item_conf in SETTINGS_MAP.items():
@@ -481,6 +469,8 @@ async def private_handler(message: types.Message, command: CommandObject = None,
             log.debug(f"{message.from_user.id} | Вызвано меню: {menu} -> {submenu}")
             if menu == "settings":
                 await show_settings_menu(message, user, submenu, i18n=i18n)
+            elif menu == "id":
+                await show_id_menu(message, user)
 
             return
         

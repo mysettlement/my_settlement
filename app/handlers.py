@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from aiogram import Router, types, F, Bot
 from aiogram.filters import Command, CommandObject, CommandStart, or_f, and_f
 from aiogram.types import InlineKeyboardButton
@@ -12,13 +14,18 @@ from sqlalchemy.orm import selectinload
 import logging
 import arrow
 import html
-from dataclasses import dataclass
-from datetime import datetime, timedelta
+from typing import TYPE_CHECKING
+from dataclasses import dataclass, field
+from datetime import datetime
 from timezonefinder import TimezoneFinder
+
+if TYPE_CHECKING:
+    from stub import TranslatorRunner
 
 from app.config import setup_logging, settings
 from app.db import SessionLocal
 from app.gamer import Workflow, Hitting, Catch, Alternation, ProgressBar
+from app.i18n import I18nMiddleware, LANGUAGES_MAP
 from app.utils import active_games, fuzzy, format_count
 from app import utils, core, models
 
@@ -176,117 +183,172 @@ async def me_command(message: types.Message):
 
 @fuzzy("настройки", "settings", "налаштування")
 @router.message(or_f(Command("settings"), F.text.lower().in_({"настройки", f"@{settings.BOT_USERNAME} настройки", "settings", f"@{settings.BOT_USERNAME} settings", "налаштування", f"@{settings.BOT_USERNAME} налаштування"})))
-async def settings_command(message: types.Message):
+async def settings_command(message: types.Message, i18n: TranslatorRunner):
     #* Настройки пользователя
     user = await core.user_getOrCreate(message.from_user)
-    await show_settings_menu(message, user)
+    await show_settings_menu(message, user, i18n=i18n)
     
 @router.callback_query(F.data.startswith("settings:"))
-async def settings_callback(callback: types.CallbackQuery):
+async def settings_callback(callback: types.CallbackQuery, i18n: TranslatorRunner):
     #* Callback-кнопки настроек
     if callback.message.reply_to_message and callback.from_user.id != callback.message.reply_to_message.from_user.id:
-        await callback.answer("⚠️ Не тронь чужой снасти!", True)
+        await callback.answer(i18n.callback.common.dont_touch(), True)
         return
     
     user = await core.user_getOrCreate(callback.from_user)
     menu = callback.data.split(":", 1)[1]
 
-    await show_settings_menu(callback.message, user, menu, callback)
+    await show_settings_menu(callback.message, user, menu, callback, i18n)
 
 @dataclass
 class SettingConf:
     emoji: str
-    label: str
+    label_key: str
     is_boolean: bool = True
     on_emoji: str = "✅"
     off_emoji: str = "☑️"
-    on_text: str = "Включено"
-    off_text: str = "Выключено"
+    on_text_key: str = "common-on"
+    off_text_key: str = "common-off"
+    options_map: dict[str, str] = field(default_factory=dict)
 
 SETTINGS_MAP = {
-    "compact_style": SettingConf("🎩", "Стиль", on_emoji="🤏", off_emoji="🤲", on_text="Компактный", off_text="Развёрнутый"),
-    "show_hints":    SettingConf("ℹ️", "Подсказки", on_text="Включены", off_text="Выключены"),
-    "allow_typos":   SettingConf("✍️", "Опечатки", on_text="Учитывать", off_text="Не учитывать"),
-    "timezone":      SettingConf("🌍", "Часовой пояс", is_boolean=False) 
+    "compact_style": SettingConf(
+        "🎩", 
+        "constant-settings-label-style", # Ключ
+        on_emoji="🤏", 
+        off_emoji="🤲", 
+        on_text_key="constant-settings-style-compact", # Ключ
+        off_text_key="constant-settings-style-full"    # Ключ
+    ),
+    "show_hints": SettingConf(
+        "ℹ️", 
+        "constant-settings-label-hints", 
+        on_text_key="constant-settings-common-enabled", 
+        off_text_key="constant-settings-common-disabled"
+    ),
+    "allow_typos": SettingConf(
+        "✍️", 
+        "constant-settings-label-typos", 
+        on_text_key="constant-settings-common-account", 
+        off_text_key="constant-settings-common-ignore"
+    ),
+    "timezone": SettingConf("🌍", "constant-settings-label-timezone", is_boolean=False),
+    "language": SettingConf("🗣", "constant-settings-label-language", is_boolean=False, options_map=LANGUAGES_MAP),
 }
 
-async def show_settings_menu(message: types.Message, user: models.User, menu: str = None, callback: types.CallbackQuery = None):
+async def show_settings_menu(message: types.Message, user: models.User, menu: str = None, callback: types.CallbackQuery = None, i18n: TranslatorRunner = None):
+    if i18n is None:
+        log.error(f"show_settings_menu called without i18n for user {user.telegram_id}")
+        return
+    
     kb = InlineKeyboardBuilder()
+    
+    current_conf = SETTINGS_MAP.get(menu)
+    menu_label_text = i18n.get(current_conf.label_key) if current_conf else ""
+
     async with SessionLocal() as session:
         user = await session.merge(user)
         
-        if menu in SETTINGS_MAP and SETTINGS_MAP[menu].is_boolean:
-            conf = SETTINGS_MAP[menu]
-            
+        if current_conf and current_conf.is_boolean:
             current_val = getattr(user, menu)
             new_val = not current_val
             setattr(user, menu, new_val)
             
-            status_text = conf.on_text if new_val else conf.off_text
-            toast_text = f"{conf.emoji} {conf.label} > {status_text}"
+            key_to_translate = current_conf.on_text_key if new_val else current_conf.off_text_key
+            status_text = i18n.get(key_to_translate)
+
+            toast_text = f"{current_conf.emoji} {menu_label_text} > {status_text}"
             
-            log.debug(f"{user.telegram_id} | {conf.emoji} {menu} > {new_val}")
+            log.debug(f"{user.telegram_id} | {current_conf.emoji} {menu} > {new_val}")
             
             await session.commit()
             if callback:
                 await callback.answer(toast_text)
             
-            menu = None
+            menu = None 
 
     if menu == "timezone":
         last_change = arrow.get(user.last_tz_change) or arrow.get(datetime.min)
         unlock_time = last_change.shift(days=settings.TZ_CHANGE_COOLDOWN_DAYS)
         now = arrow.now()
+        
         if now < unlock_time:
             time_left = utils.format_relative_time(unlock_time, now)
-            await callback.answer(f"⏳ Сменить пояс можно {time_left}", show_alert=True)
+            await callback.answer(i18n.callback.settings.timezone.error.locked(time_left=time_left), show_alert=True)
             return
 
+        determine_text = i18n.button.settings.timezone.determine()
         if message.chat.type == "private":
-            kb.button(text="📍 Определить местоположение", callback_data="ask_location")
+            kb.button(text=determine_text, callback_data="ask_location", style="primary")
         else:
-            kb.button(text="📍 Определить местоположение", url=f"https://t.me/{settings.BOT_USERNAME}?start=menu_settings_timezone")
-        kb.button(text="🔙 Назад", callback_data="settings:default")
+            kb.button(text=determine_text, url=f"https://t.me/{settings.BOT_USERNAME}?start=menu_settings_timezone", style="primary")
+        
+        kb.button(text=i18n.button.common.back(), callback_data="settings:default")
 
-        text = (
-            f"🌍 <b>Настройка часового пояса</b>\n\n"
-            f"Текущий пояс: <code>{user.timezone}</code>\n"
-            f"Дневной сброс происходит в <b>00:00</b> по этому времени.\n\n"
-            f"⚠️ Менять пояс можно раз в <b>{settings.TZ_CHANGE_COOLDOWN_DAYS} дней</b>."
+        text = i18n.text.settings.timezone.title(
+            emoji=current_conf.emoji,
+            label=menu_label_text,
+            timezone=str(user.timezone or "UTC"),
+            cooldown=settings.TZ_CHANGE_COOLDOWN_DAYS
         )
         
         if callback: await callback.answer()
 
-    if not menu or menu == "default":
-        for key, conf in SETTINGS_MAP.items():
+    elif menu == "language":
+        for code, name in LANGUAGES_MAP.items():
+            is_selected = (user.language == code)
+            style = "success" if is_selected else "primary"
+            btn_text = f"✅ {name}" if is_selected else name
             
-            btn_text = f"{conf.emoji}"
+            kb.button(text=btn_text, callback_data=f"set_lang:{code}", style=style)
+        
+        kb.button(text=i18n.button.common.back(), callback_data="settings:default")
+        kb.adjust(2)
+
+        lang_code = user.language if user.language else message.from_user.language_code if message.from_user.language_code in LANGUAGES_MAP else "en"
+        lang_name = LANGUAGES_MAP.get(lang_code, lang_code)
+
+        text = i18n.text.settings.language.title(
+            emoji=current_conf.emoji,
+            label=menu_label_text,
+            lang_name=lang_name
+        )
+        
+        if callback: await callback.answer()
+
+    elif not menu or menu == "default":
+        lines = [i18n.text.settings.title(), ""]
+        
+        for key, item_conf in SETTINGS_MAP.items():
+            val = getattr(user, key)
+            
+            item_label = i18n.get(item_conf.label_key)
+            
+            btn_text = f"{item_conf.emoji}"
             if not user.compact_style:
-                btn_text += f" {conf.label}"
+                btn_text += f" {item_label}"
             
-            if conf.is_boolean:
-                is_active = getattr(user, key)
-                status = conf.on_emoji if is_active else conf.off_emoji
-                btn_text += f": {status}"
+            if item_conf.is_boolean:
+                status_key = item_conf.on_text_key if val else item_conf.off_text_key
+                display_val = i18n.get(status_key)
+                
+                status_emoji = item_conf.on_emoji if val else item_conf.off_emoji
+                
+                btn_text += f": {status_emoji}"
+                
+                lines.append(f"{item_conf.emoji} {item_label}: {status_emoji} <b>{display_val}</b>")
+            else:
+                if item_conf.options_map and val in item_conf.options_map:
+                    display_val = item_conf.options_map[val]
+                else:
+                    display_val = val if val is not None else "None"
+                
+                lines.append(f"{item_conf.emoji} {item_label}: <b>{display_val}</b>")
             
-            kb.button(
-                text=btn_text, 
-                callback_data=f"settings:{key}",
-                style="success" if (conf.is_boolean and getattr(user, key)) else "primary"
-            )
+            style = "success" if (item_conf.is_boolean and val) else "primary"
+            kb.button(text=btn_text, callback_data=f"settings:{key}", style=style)
 
         kb.adjust(2)
-        
-        lines = ["⚙️ <b>Настройки</b>\n"]
-        for key, conf in SETTINGS_MAP.items():
-            val = getattr(user, key)
-            if conf.is_boolean:
-                status_text = conf.on_text if val else conf.off_text
-                status_emoji = conf.on_emoji if val else conf.off_emoji
-                lines.append(f"{conf.emoji} {conf.label}: {status_emoji} <b>{status_text}</b>")
-            elif key == "timezone":
-                lines.append(f"{conf.emoji} {conf.label}: <b>{val}</b>")
-        
         text = "\n".join(lines)
         
     if callback:
@@ -298,33 +360,36 @@ async def show_settings_menu(message: types.Message, user: models.User, menu: st
         await message.reply(text=text, reply_markup=kb.as_markup(), disable_notification=True)
 
 @router.callback_query(F.data == "ask_location")
-async def ask_location_callback(callback: types.CallbackQuery):
+async def ask_location_callback(callback: types.CallbackQuery, i18n: TranslatorRunner):
     kb = types.ReplyKeyboardMarkup(
-        keyboard=[[types.KeyboardButton(text="📍 Поделиться геопозицией", request_location=True), types.KeyboardButton(text="Отмена")]],
+        keyboard=[[types.KeyboardButton(text=i18n.button.settings.timezone.share_location(), request_location=True), types.KeyboardButton(text="Отмена")]],
         resize_keyboard=True,
         one_time_keyboard=True
     )
     await callback.message.delete()
-    await callback.message.answer("📍 <b>Нажми на кнопку ниже</b>, чтобы определить часовой пояс автоматически.", reply_markup=kb)
+    await callback.message.answer(i18n.text.settings.timezone.determine(), reply_markup=kb)
 
 @router.message(and_f(F.chat.type == "private", F.location))
-async def location_handler(message: types.Message):
+async def location_handler(message: types.Message, i18n: TranslatorRunner):
     lat = message.location.latitude
     lon = message.location.longitude
     
-    timezone_str = tf.timezone_at(lng=lon, lat=lat)
+    timezone = tf.timezone_at(lng=lon, lat=lat)
     
-    if not timezone_str:
-        await message.answer("⚠️ Не удалось определить часовой пояс. Попробуй выбрать вручную.")
+    if not timezone:
+        await message.reply(
+            i18n.text.settings.timezone.error.determine(), 
+            reply_markup=InlineKeyboardBuilder().button(text=i18n.button.common.back(), callback_data="settings:timezone").as_markup()
+        )
         return
     
-    await message.answer(
-        f"✅ Твой часовой пояс определён: <b>{timezone_str}</b>", 
-        reply_markup=InlineKeyboardBuilder().button(text="Установить!", callback_data=f"set_tz:{timezone_str}", style="success").as_markup()
+    await message.reply(
+        i18n.text.settings.timezone.determined(timezone=timezone), 
+        reply_markup=InlineKeyboardBuilder().button(text=i18n.button.settings.timezone.set(), callback_data=f"set_tz:{timezone}", style="success").as_markup()
     )
 
 @router.callback_query(F.data.startswith("set_tz:"))
-async def set_tz_callback(callback: types.CallbackQuery):
+async def set_tz_callback(callback: types.CallbackQuery, i18n: TranslatorRunner):    
     tz_name = callback.data.split(":")[1]
 
     async with SessionLocal() as session:
@@ -335,7 +400,7 @@ async def set_tz_callback(callback: types.CallbackQuery):
         now = arrow.now()
         if now < unlock_time:
             time_left = utils.format_relative_time(unlock_time, now)
-            await callback.answer(f"⏳ Сменить пояс можно {time_left}", show_alert=True)
+            await callback.answer(i18n.callback.settings.timezone.error.locked(time_left=time_left), show_alert=True)
             return
 
         user.timezone = tz_name
@@ -344,9 +409,35 @@ async def set_tz_callback(callback: types.CallbackQuery):
     
     log.debug(f"{user.telegram_id} | 🌍 timezone > {tz_name}")
 
-    await callback.answer("✅ Часовой пояс сохранен!")
+    await callback.answer(i18n.callback.settings.timezone.changed())
     await callback.message.edit_reply_markup()
-    await callback.message.edit_text(f"✅ Твой часовой пояс установлен: <b>{tz_name}</b>", reply_markup=InlineKeyboardBuilder().button(text="🔙 Назад", callback_data="settings:default").as_markup())
+    await callback.message.edit_text(text=i18n.text.settings.timezone.changed(tz_name=tz_name), reply_markup=InlineKeyboardBuilder().button(text=i18n.button.common.back(), callback_data="settings:default").as_markup())
+
+
+@router.callback_query(F.data.startswith("set_lang:"))
+async def set_language(callback: types.CallbackQuery, i18n_middleware: I18nMiddleware, i18n: TranslatorRunner):
+    if callback.from_user.id != callback.message.reply_to_message.from_user.id:
+        await callback.answer(i18n.callback.common.dont_touch(), True)
+        return
+    
+    lang_code = callback.data.split(":")[1]
+    if lang_code not in LANGUAGES_MAP:
+        await callback.answer(f"⚠️ Language {lang_code} not found", show_alert=True)
+        return
+
+    async with SessionLocal() as session:
+        user = await core.user_getOrCreate(callback.from_user, session=session)
+        user.language = lang_code
+        await session.commit()
+    
+    i18n_middleware.cache[user.telegram_id] = lang_code
+    i18n = i18n_middleware.hub.get_translator_by_locale(lang_code)
+    
+    lang_name = LANGUAGES_MAP.get(lang_code, lang_code)
+
+    log.debug(f"{user.telegram_id} | 🗣 language > {lang_code}")
+    await callback.answer(i18n.callback.settings.language.changed(lang_name=lang_name))
+    await show_settings_menu(callback.message, user, "language", callback, i18n)
 
 
 @router.message(F.text.lower() == "отмена")
@@ -373,7 +464,7 @@ async def help_command(message: types.Message):
 
 
 @router.message(or_f(and_f(F.chat.type == "private", CommandStart()), F.chat.type == "private"))
-async def private_handler(message: types.Message, command: CommandObject = None):
+async def private_handler(message: types.Message, command: CommandObject = None, i18n: TranslatorRunner = None):
     #* Личные сообщения и рефералы
     user = await core.user_getOrCreate(message.from_user)
     if command and command.args:
@@ -389,7 +480,7 @@ async def private_handler(message: types.Message, command: CommandObject = None)
             _, menu, submenu = args_list + [None]*(3 - len(args_list))
             log.debug(f"{message.from_user.id} | Вызвано меню: {menu} -> {submenu}")
             if menu == "settings":
-                await show_settings_menu(message, user, submenu)
+                await show_settings_menu(message, user, submenu, i18n=i18n)
 
             return
         
@@ -400,7 +491,7 @@ async def private_handler(message: types.Message, command: CommandObject = None)
     kb.button(text="➕ Добавить", url=f"https://t.me/{settings.BOT_USERNAME}?startgroup=new")
     kb.button(text="⚙️ Настройки", callback_data="settings:default")
     
-    await message.answer(text="<b>Здрав будь!</b> Я вестник для игры в 🛖 <b>Поселения</b>.\nЧтоб в сходку свою меня позвать, <b>на знак ниже ткни:</b>", reply_markup=kb.as_markup())
+    await message.reply(text="<b>Здрав будь!</b> Я вестник для игры в 🛖 <b>Поселения</b>.\nЧтоб в сходку свою меня позвать, <b>на знак ниже ткни:</b>", reply_markup=kb.as_markup())
 
 
 
@@ -552,7 +643,7 @@ async def show_buildings_menu(message: types.Message, user: models.User, settlem
             await message.answer(text, reply_markup=kb.as_markup())
 
 @router.callback_query(F.data.startswith("bld_"))
-async def buildings_callback(callback: types.CallbackQuery):
+async def buildings_callback(callback: types.CallbackQuery, i18n: TranslatorRunner):
     user = await core.user_getOrCreate(callback.from_user)
     settlement = await core.settlement_getOrCreate(callback.message.chat)
     settler = await core.settler_getOrCreate(user, settlement)
@@ -598,7 +689,7 @@ async def buildings_callback(callback: types.CallbackQuery):
                 text += "🕸 Пока здесь пусто."
             
             kb.row(*buttons, width=2)
-            kb.row(InlineKeyboardButton(text="🔙 Назад", callback_data=f"bld_menu:{scope}"))
+            kb.row(InlineKeyboardButton(text=i18n.button.common.back(), callback_data=f"bld_menu:{scope}"))
             
             await callback.message.edit_text(text, reply_markup=kb.as_markup())
     
@@ -630,7 +721,7 @@ async def buildings_callback(callback: types.CallbackQuery):
             )
             
             kb = InlineKeyboardBuilder()
-            kb.button(text="🔙 Назад", callback_data=f"bld_menu:{scope}")
+            kb.button(text=i18n.button.common.back(), callback_data=f"bld_menu:{scope}")
             
             await callback.message.edit_text(text, reply_markup=kb.as_markup())
 
@@ -781,10 +872,10 @@ async def cosmetics_command(message: types.Message):
     await message.reply(text=text, reply_markup=kb.as_markup(), disable_notification=True)
 
 @router.callback_query(F.data.startswith("cosmetics_select_"))
-async def cosmetics_select(callback: types.CallbackQuery):
+async def cosmetics_select(callback: types.CallbackQuery, i18n: TranslatorRunner):
     #* Выбор эмодзи косметики
     if callback.from_user.id != callback.message.reply_to_message.from_user.id:
-        await callback.answer("❌ Не тронь чужой снасти!", True)
+        await callback.answer(i18n.callback.common.dont_touch(), True)
         return
     
     user = await core.user_getOrCreate(callback.from_user)
@@ -864,11 +955,11 @@ async def overtime_command(message: types.Message):
     await message.reply(text, reply_markup=kb.as_markup(), disable_notification=True)
 
 @router.callback_query(F.data == "overtime_take")
-async def overtime_take(callback: types.CallbackQuery):
+async def overtime_take(callback: types.CallbackQuery, i18n: TranslatorRunner):
     #* Взять страду
     async with SessionLocal() as session:
         if callback.from_user.id != callback.message.reply_to_message.from_user.id:
-            await callback.answer("⚠️ Не тронь чужой снасти!", True)
+            await callback.answer(i18n.callback.common.dont_touch(), True)
             return
 
         user = await core.user_getOrCreate(callback.from_user)
@@ -985,7 +1076,7 @@ async def choose_craft_command(message: types.Message):
     await message.reply(text=text, reply_markup=kb.as_markup(), disable_notification=True)
 
 @router.callback_query(F.data.startswith("select_craft:"))
-async def select_craft_callback(callback: types.CallbackQuery):
+async def select_craft_callback(callback: types.CallbackQuery, i18n: TranslatorRunner):
     #* Кнопка выбора ремесла
     prof_id = int(callback.data.split(":")[1])
 
@@ -995,7 +1086,7 @@ async def select_craft_callback(callback: types.CallbackQuery):
         settler = await core.settler_getOrCreate(user, settlement)
 
         if callback.from_user.id != callback.message.reply_to_message.from_user.id:
-            await callback.answer("⚠️ Не тронь чужой снасти!", True)
+            await callback.answer(i18n.callback.common.dont_touch(), True)
             return
         
         if settler.profession_id == prof_id:
@@ -1020,7 +1111,7 @@ async def select_craft_callback(callback: types.CallbackQuery):
         )
         await session.commit()
         
-        kb = InlineKeyboardBuilder().row(InlineKeyboardButton(text=f"{profession.emoji} Трудиться", switch_inline_query_current_chat="Трудиться"))
+        kb = InlineKeyboardBuilder().row(InlineKeyboardButton(text=profession.emoji + i18n.callback.craft.craft(), switch_inline_query_current_chat=i18n.callback.craft.craft()))
         await callback.message.edit_text(f"✅ <b>{callback.from_user.full_name}</b> ремесло себе избрал: {profession.emoji} <b>{profession.name}!</b>", reply_markup=kb.as_markup())
         log.debug(f"{callback.message.chat.id} | {settler.user_id} | 💼 Выбрано ремесло: {profession.name}")
 
@@ -1056,7 +1147,7 @@ async def craft_command(message: types.Message):
     await message.reply(f"{settler.profession.emoji} <b>{settler.profession.name}:</b>", reply_markup=kb.as_markup(), disable_notification=True)
 
 @router.callback_query(F.data.startswith("select_work:"))
-async def work_selection_callback(callback: types.CallbackQuery):
+async def work_selection_callback(callback: types.CallbackQuery, i18n: TranslatorRunner):
     #* Кнопка выбора труда
     work_id = callback.data.split(":", 1)[1]
 
@@ -1065,7 +1156,7 @@ async def work_selection_callback(callback: types.CallbackQuery):
     settler = await core.settler_getOrCreate(user, settlement)
 
     if callback.from_user.id != callback.message.reply_to_message.from_user.id:
-        await callback.answer("⚠️ Не тронь чужой снасти!", True)
+        await callback.answer(i18n.callback.common.dont_touch(), True)
         return
     
     work = models.WORKS_REGISTRY.get(work_id)

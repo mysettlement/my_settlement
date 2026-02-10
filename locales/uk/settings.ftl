@@ -1,6 +1,6 @@
 callback-settings-language-changed = ✅ Мова успішно змінена на { $lang_name }!
 callback-settings-timezone-changed = ✅ Часовий пояс збережено!
-callback-settings-timezone-error-locked = ⏳ Змінити пояс можно { $time_left }
+callback-settings-timezone-error-locked = ⏳ Змінити пояс можна { $time_left }
 text-settings-title =
     ⚙️ <b>Налаштування</b>
     Ви можете налаштувати поведінку бота під себе, змінивши наступні параметри:
@@ -33,6 +33,6 @@ constant-settings-style-compact = Компактний
 constant-settings-style-full = Розгорнутий
 constant-settings-label-style = Стиль
 constant-settings-label-hints = Підказки
-constant-settings-label-typos = Одруківки
+constant-settings-label-typos = Друкарська помилка
 constant-settings-label-timezone = Часовий пояс
 constant-settings-label-language = Мова

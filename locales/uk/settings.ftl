@@ -14,7 +14,6 @@ text-settings-timezone-error-determine = Неможливо визначити �
 text-settings-timezone-determined = Часовий пояс визначено: <b>{ $timezone }</b>
 text-settings-timezone-changed = Часовий пояс встановлено: <b>{ $tz_name }</b>
 text-settings-language-title =
-    { $emoji } <b>{ $label }</b>
     Виберіть мову інтерфейсу. Це не вплине на мову повідомлень від інших гравців.
     
     Поточна мова: <b>{ $lang_name }</b>
@@ -31,6 +30,6 @@ constant-settings-style-compact = Компактний
 constant-settings-style-full = Розгорнутий
 constant-settings-label-style = Стиль
 constant-settings-label-hints = Підказки
-constant-settings-label-typos = Друкарська помилка
+constant-settings-label-typos = Одруківки
 constant-settings-label-timezone = Часовий пояс
 constant-settings-label-language = Мова

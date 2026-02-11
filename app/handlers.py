@@ -262,10 +262,10 @@ async def show_settings_menu(message: types.Message, user: models.User, submenu:
         
         if now < unlock_time:
             time_left = utils.format_relative_time(unlock_time, now)
-            await callback.answer(i18n.callback.settings.timezone.error.locked(time_left=time_left), show_alert=True)
+            await callback.answer("⏳ " + i18n.callback.settings.timezone.error.locked(time_left=time_left), show_alert=True)
             return
 
-        determine_text = i18n.button.settings.timezone.determine()
+        determine_text = "📍 " + i18n.button.settings.timezone.determine()
         if message.chat.type == "private":
             kb.button(text=determine_text, callback_data="ask_location", style="primary")
         else:
@@ -273,9 +273,7 @@ async def show_settings_menu(message: types.Message, user: models.User, submenu:
         
         kb.button(text=i18n.button.common.back(), callback_data="settings:default")
 
-        text = i18n.text.settings.timezone.title(
-            emoji=current_conf.emoji,
-            label=menu_label_text,
+        text = f"{current_conf.emoji} <b>{menu_label_text}</b>\n\n" + i18n.text.settings.timezone.title(
             timezone=str(user.timezone or "UTC"),
             cooldown=settings.TZ_CHANGE_COOLDOWN_DAYS
         )
@@ -293,19 +291,18 @@ async def show_settings_menu(message: types.Message, user: models.User, submenu:
         kb.button(text=i18n.button.common.back(), callback_data="settings:default")
         kb.adjust(2)
 
-        lang_code = user.language if user.language else message.from_user.language_code if message.from_user.language_code in LANGUAGES_MAP else "en"
+        tg_user = callback.from_user if callback else message.from_user
+        lang_code = user.language if user.language is not None else tg_user.language_code
         lang_name = LANGUAGES_MAP.get(lang_code, lang_code)
 
-        text = i18n.text.settings.language.title(
-            emoji=current_conf.emoji,
-            label=menu_label_text,
+        text = f"{current_conf.emoji} <b>{menu_label_text}</b>\n" + i18n.text.settings.language.title(
             lang_name=lang_name
         )
         
         if callback: await callback.answer()
 
     elif not submenu or submenu == "default":
-        lines = [i18n.text.settings.title(), ""]
+        lines = ["⚙️ " + i18n.text.settings.title(), ""]
         
         for key, item_conf in SETTINGS_MAP.items():
             val = getattr(user, key)
@@ -350,7 +347,7 @@ async def show_settings_menu(message: types.Message, user: models.User, submenu:
 @router.callback_query(F.data == "ask_location")
 async def ask_location_callback(callback: types.CallbackQuery, i18n: TranslatorRunner):
     kb = types.ReplyKeyboardMarkup(
-        keyboard=[[types.KeyboardButton(text=i18n.button.settings.timezone.share_location(), request_location=True), types.KeyboardButton(text="Отмена")]],
+        keyboard=[[types.KeyboardButton(text="📍 " + i18n.button.settings.timezone.share_location(), request_location=True), types.KeyboardButton(text="Отмена")]],
         resize_keyboard=True,
         one_time_keyboard=True
     )
@@ -366,13 +363,13 @@ async def location_handler(message: types.Message, i18n: TranslatorRunner):
     
     if not timezone:
         await message.reply(
-            i18n.text.settings.timezone.error.determine(), 
+            "⚠️ " + i18n.text.settings.timezone.error.determine(), 
             reply_markup=InlineKeyboardBuilder().button(text=i18n.button.common.back(), callback_data="settings:timezone").as_markup()
         )
         return
     
     await message.reply(
-        i18n.text.settings.timezone.determined(timezone=timezone), 
+        "✅ " + i18n.text.settings.timezone.determined(timezone=timezone), 
         reply_markup=InlineKeyboardBuilder().button(text=i18n.button.settings.timezone.set(), callback_data=f"set_tz:{timezone}", style="success").as_markup()
     )
 
@@ -388,7 +385,7 @@ async def set_tz_callback(callback: types.CallbackQuery, i18n: TranslatorRunner)
         now = arrow.now()
         if now < unlock_time:
             time_left = utils.format_relative_time(unlock_time, now)
-            await callback.answer(i18n.callback.settings.timezone.error.locked(time_left=time_left), show_alert=True)
+            await callback.answer("⏳ " + i18n.callback.settings.timezone.error.locked(time_left=time_left), show_alert=True)
             return
 
         user.timezone = tz_name
@@ -397,9 +394,9 @@ async def set_tz_callback(callback: types.CallbackQuery, i18n: TranslatorRunner)
     
     log.debug(f"{user.telegram_id} | 🌍 timezone > {tz_name}")
 
-    await callback.answer(i18n.callback.settings.timezone.changed())
+    await callback.answer("✅ " + i18n.callback.settings.timezone.changed())
     await callback.message.edit_reply_markup()
-    await callback.message.edit_text(text=i18n.text.settings.timezone.changed(tz_name=tz_name), reply_markup=InlineKeyboardBuilder().button(text=i18n.button.common.back(), callback_data="settings:default").as_markup())
+    await callback.message.edit_text(text="✅ " + i18n.text.settings.timezone.changed(tz_name=tz_name), reply_markup=InlineKeyboardBuilder().button(text=i18n.button.common.back(), callback_data="settings:default").as_markup())
 
 
 @router.callback_query(F.data.startswith("set_lang:"))
@@ -424,7 +421,7 @@ async def set_language(callback: types.CallbackQuery, i18n_middleware: I18nMiddl
     lang_name = LANGUAGES_MAP.get(lang_code, lang_code)
 
     log.debug(f"{user.telegram_id} | 🗣 language > {lang_code}")
-    await callback.answer(i18n.callback.settings.language.changed(lang_name=lang_name))
+    await callback.answer("✅ " + i18n.callback.settings.language.changed(lang_name=lang_name))
     await show_settings_menu(callback.message, user, "language", callback, i18n)
 
 

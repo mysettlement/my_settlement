@@ -76,7 +76,7 @@ class I18nMiddleware(BaseMiddleware):
                 if db_lang:
                     lang_code = db_lang
                 else:
-                    lang_code = user.language_code if user.language_code in LANGUAGES_MAP else "en"
+                    lang_code = user.language_code
                 
                 self.cache[user.id] = lang_code
 

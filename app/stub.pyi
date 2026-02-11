@@ -19,9 +19,9 @@ class ButtonCommon:
 
 class ButtonSettingsTimezone:
     @staticmethod
-    def determine() -> Literal["""📍 Определить"""]: ...
+    def determine() -> Literal["""Определить"""]: ...
     @staticmethod
-    def share_location() -> Literal["""📍 Поделиться геопозицией"""]: ...
+    def share_location() -> Literal["""Поделиться геопозицией"""]: ...
     @staticmethod
     def set() -> Literal["""Установить!"""]: ...
 
@@ -36,53 +36,51 @@ class CallbackCommon:
     @staticmethod
     def dont_touch() -> Literal["""⚠️ Не тронь чужой снасти!"""]: ...
 
-class CallbackCraft:
-    @staticmethod
-    def craft() -> Literal["""Трудиться"""]: ...
-
 class CallbackSettingsLanguage:
     @staticmethod
-    def changed(*, lang_name: PossibleValue) -> Literal["""✅ Язык успешно изменён на { $lang_name }!"""]: ...
+    def changed(*, lang_name: PossibleValue) -> Literal["""Язык успешно изменён на { $lang_name }!"""]: ...
 
 class CallbackSettingsTimezoneError:
     @staticmethod
-    def locked(*, time_left: PossibleValue) -> Literal["""⏳ Сменить пояс можно { $time_left }"""]: ...
+    def locked(*, time_left: PossibleValue) -> Literal["""Сменить пояс можно { $time_left }"""]: ...
 
 class CallbackSettingsTimezone:
     error: CallbackSettingsTimezoneError
 
     @staticmethod
-    def changed() -> Literal["""✅ Часовой пояс сохранен!"""]: ...
+    def changed() -> Literal["""Часовой пояс сохранен!"""]: ...
 
 class CallbackSettings:
     language: CallbackSettingsLanguage
     timezone: CallbackSettingsTimezone
 
+class CallbackCraft:
+    @staticmethod
+    def craft() -> Literal["""Трудиться"""]: ...
+
 class Callback:
     common: CallbackCommon
-    craft: CallbackCraft
     settings: CallbackSettings
+    craft: CallbackCraft
 
 class TextSettingsTimezoneError:
     @staticmethod
-    def determine() -> Literal["""⚠️ Не удалось определить часовой пояс. Попробуйте выбрать его вручную."""]: ...
+    def determine() -> Literal["""Не удалось определить часовой пояс. Попробуйте выбрать его вручную."""]: ...
 
 class TextSettingsTimezone:
     error: TextSettingsTimezoneError
 
     @staticmethod
-    def title(*, cooldown: PossibleValue, emoji: PossibleValue, label: PossibleValue, timezone: PossibleValue) -> Literal["""{ $emoji } &lt;b&gt;{ $label }&lt;/b&gt;
-
-Текущий пояс: &lt;code&gt;{ $timezone }&lt;/code&gt;
+    def title(*, cooldown: PossibleValue, timezone: PossibleValue) -> Literal["""Текущий пояс: &lt;code&gt;{ $timezone }&lt;/code&gt;
 Дневной сброс происходит в &lt;b&gt;00:00&lt;/b&gt; по этому времени.
 
 ⚠️ Менять пояс можно раз в &lt;b&gt;{ $cooldown } дней&lt;/b&gt;."""]: ...
     @staticmethod
     def determine() -> Literal["""&lt;b&gt;Нажми на кнопку ниже&lt;/b&gt;, чтобы определить часовой пояс автоматически."""]: ...
     @staticmethod
-    def determined(*, timezone: PossibleValue) -> Literal["""✅ Часовой пояс определён: &lt;b&gt;{ $timezone }&lt;/b&gt;"""]: ...
+    def determined(*, timezone: PossibleValue) -> Literal["""Часовой пояс определён: &lt;b&gt;{ $timezone }&lt;/b&gt;"""]: ...
     @staticmethod
-    def changed(*, tz_name: PossibleValue) -> Literal["""✅ Часовой пояс установлен: &lt;b&gt;{ $tz_name }&lt;/b&gt;"""]: ...
+    def changed(*, tz_name: PossibleValue) -> Literal["""Часовой пояс установлен: &lt;b&gt;{ $tz_name }&lt;/b&gt;"""]: ...
 
 class TextSettingsLanguage:
     @staticmethod
@@ -96,7 +94,7 @@ class TextSettings:
     language: TextSettingsLanguage
 
     @staticmethod
-    def title() -> Literal["""⚙️ &lt;b&gt;Настройки&lt;/b&gt;
+    def title() -> Literal["""&lt;b&gt;Настройки&lt;/b&gt;
 Вы можете настроить поведение бота под себя, изменив следующие параметры:"""]: ...
 
 class Text:

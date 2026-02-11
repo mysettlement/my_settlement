@@ -21,7 +21,7 @@ text-settings-timezone-changed = Часовой пояс установлен: <
 
 text-settings-language-title =
     Выберите язык интерфейса. Это не повлияет на язык сообщений от других игроков.
-
+    
     Текущий язык: <b>{ $lang_name }</b>
 
 

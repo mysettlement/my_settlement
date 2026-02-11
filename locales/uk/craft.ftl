@@ -1,1 +1,1 @@
-callback-craft-craft = Працювати
+callback-craft-craft = Трудиться

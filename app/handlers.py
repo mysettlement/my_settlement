@@ -184,7 +184,7 @@ async def settings_command(message: types.Message, i18n: TranslatorRunner):
 async def settings_callback(callback: types.CallbackQuery, i18n: TranslatorRunner):
     #* Callback-кнопки настроек
     if callback.message.reply_to_message and callback.from_user.id != callback.message.reply_to_message.from_user.id:
-        await callback.answer(i18n.callback.common.dont_touch(), True)
+        await callback.answer("⚠️ " + i18n.callback.common.dont_touch(), True)
         return
     
     user = await core.user_getOrCreate(callback.from_user)
@@ -271,7 +271,7 @@ async def show_settings_menu(message: types.Message, user: models.User, submenu:
         else:
             kb.button(text=determine_text, url=f"https://t.me/{settings.BOT_USERNAME}?start=menu_settings_timezone", style="primary")
         
-        kb.button(text=i18n.button.common.back(), callback_data="settings:default")
+        kb.button(text="🔙 " + i18n.button.common.back(), callback_data="settings:default")
 
         text = f"{current_conf.emoji} <b>{menu_label_text}</b>\n\n" + i18n.text.settings.timezone.title(
             timezone=str(user.timezone or "UTC"),
@@ -288,7 +288,7 @@ async def show_settings_menu(message: types.Message, user: models.User, submenu:
             
             kb.button(text=btn_text, callback_data=f"set_lang:{code}", style=style)
         
-        kb.button(text=i18n.button.common.back(), callback_data="settings:default")
+        kb.button(text="🔙 " + i18n.button.common.back(), callback_data="settings:default")
         kb.adjust(2)
 
         tg_user = callback.from_user if callback else message.from_user
@@ -364,7 +364,7 @@ async def location_handler(message: types.Message, i18n: TranslatorRunner):
     if not timezone:
         await message.reply(
             "⚠️ " + i18n.text.settings.timezone.error.determine(), 
-            reply_markup=InlineKeyboardBuilder().button(text=i18n.button.common.back(), callback_data="settings:timezone").as_markup()
+            reply_markup=InlineKeyboardBuilder().button(text="🔙 " + i18n.button.common.back(), callback_data="settings:timezone").as_markup()
         )
         return
     
@@ -396,13 +396,13 @@ async def set_tz_callback(callback: types.CallbackQuery, i18n: TranslatorRunner)
 
     await callback.answer("✅ " + i18n.callback.settings.timezone.changed())
     await callback.message.edit_reply_markup()
-    await callback.message.edit_text(text="✅ " + i18n.text.settings.timezone.changed(tz_name=tz_name), reply_markup=InlineKeyboardBuilder().button(text=i18n.button.common.back(), callback_data="settings:default").as_markup())
+    await callback.message.edit_text(text="✅ " + i18n.text.settings.timezone.changed(tz_name=tz_name), reply_markup=InlineKeyboardBuilder().button(text="🔙 " + i18n.button.common.back(), callback_data="settings:default").as_markup())
 
 
 @router.callback_query(F.data.startswith("set_lang:"))
 async def set_language(callback: types.CallbackQuery, i18n_middleware: I18nMiddleware, i18n: TranslatorRunner):
     if callback.from_user.id != callback.message.reply_to_message.from_user.id:
-        await callback.answer(i18n.callback.common.dont_touch(), True)
+        await callback.answer("⚠️ " + i18n.callback.common.dont_touch(), True)
         return
     
     lang_code = callback.data.split(":")[1]
@@ -676,7 +676,7 @@ async def buildings_callback(callback: types.CallbackQuery, i18n: TranslatorRunn
                 text += "🕸 Пока здесь пусто."
             
             kb.row(*buttons, width=2)
-            kb.row(InlineKeyboardButton(text=i18n.button.common.back(), callback_data=f"bld_menu:{scope}"))
+            kb.row(InlineKeyboardButton(text="🔙 " + i18n.button.common.back(), callback_data=f"bld_menu:{scope}"))
             
             await callback.message.edit_text(text, reply_markup=kb.as_markup())
     
@@ -708,7 +708,7 @@ async def buildings_callback(callback: types.CallbackQuery, i18n: TranslatorRunn
             )
             
             kb = InlineKeyboardBuilder()
-            kb.button(text=i18n.button.common.back(), callback_data=f"bld_menu:{scope}")
+            kb.button(text="🔙 " + i18n.button.common.back(), callback_data=f"bld_menu:{scope}")
             
             await callback.message.edit_text(text, reply_markup=kb.as_markup())
 
@@ -862,7 +862,7 @@ async def cosmetics_command(message: types.Message):
 async def cosmetics_select(callback: types.CallbackQuery, i18n: TranslatorRunner):
     #* Выбор эмодзи косметики
     if callback.from_user.id != callback.message.reply_to_message.from_user.id:
-        await callback.answer(i18n.callback.common.dont_touch(), True)
+        await callback.answer("⚠️ " + i18n.callback.common.dont_touch(), True)
         return
     
     user = await core.user_getOrCreate(callback.from_user)
@@ -946,7 +946,7 @@ async def overtime_take(callback: types.CallbackQuery, i18n: TranslatorRunner):
     #* Взять страду
     async with SessionLocal() as session:
         if callback.from_user.id != callback.message.reply_to_message.from_user.id:
-            await callback.answer(i18n.callback.common.dont_touch(), True)
+            await callback.answer("⚠️ " + i18n.callback.common.dont_touch(), True)
             return
 
         user = await core.user_getOrCreate(callback.from_user)
@@ -1073,7 +1073,7 @@ async def select_craft_callback(callback: types.CallbackQuery, i18n: TranslatorR
         settler = await core.settler_getOrCreate(user, settlement)
 
         if callback.from_user.id != callback.message.reply_to_message.from_user.id:
-            await callback.answer(i18n.callback.common.dont_touch(), True)
+            await callback.answer("⚠️ " + i18n.callback.common.dont_touch(), True)
             return
         
         if settler.profession_id == prof_id:
@@ -1143,7 +1143,7 @@ async def work_selection_callback(callback: types.CallbackQuery, i18n: Translato
     settler = await core.settler_getOrCreate(user, settlement)
 
     if callback.from_user.id != callback.message.reply_to_message.from_user.id:
-        await callback.answer(i18n.callback.common.dont_touch(), True)
+        await callback.answer("⚠️ " + i18n.callback.common.dont_touch(), True)
         return
     
     work = models.WORKS_REGISTRY.get(work_id)

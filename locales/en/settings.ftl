@@ -14,7 +14,6 @@ text-settings-timezone-error-determine = Unable to determine time zone. Try sele
 text-settings-timezone-determined = Timezone determined: <b>{ $timezone }</b>
 text-settings-timezone-changed = Timezone set: <b>{ $tz_name }</b>
 text-settings-language-title =
-    { $emoji } <b>{ $label }</b>
     Select the interface language. This will not affect the language of messages from other players.
     
     Current language: <b>{ $lang_name }</b>

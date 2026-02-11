@@ -1,6 +1,7 @@
 files:
   - source: locales/ru/*.ftl
     translation: /locales/%two_letters_code%/%original_file_name%
+    type: ftl
 
 pull_request_title: "Изменения в переводе от Crowdin"
 pull_request_labels: ["crowdin"]

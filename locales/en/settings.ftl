@@ -1,9 +1,8 @@
 callback-settings-language-changed = Language successfully changed to { $lang_name }!
 callback-settings-timezone-changed = Timezone has been saved!
 callback-settings-timezone-error-locked = You can change timezone { $time_left }
-text-settings-title =
-    <b>Settings</b>
-    You can customize the bot's behavior by changing the following parameters:
+text-settings-title = Settings
+text-settings-subtitle = You can customize the bot's behavior by changing the following parameters:
 text-settings-timezone-title =
     Current timezone: <code>{ $timezone }</code>
     The daily reset occurs at <b>00:00</b> at this time.

@@ -302,7 +302,7 @@ async def show_settings_menu(message: types.Message, user: models.User, submenu:
         if callback: await callback.answer()
 
     elif not submenu or submenu == "default":
-        lines = ["⚙️ " + i18n.text.settings.title(), ""]
+        lines = ["⚙️ <b>" + i18n.text.settings.title() + "</b>\n" + i18n.text.settings.subtitle(), ""]
         
         for key, item_conf in SETTINGS_MAP.items():
             val = getattr(user, key)
@@ -458,7 +458,7 @@ async def private_handler(message: types.Message, command: CommandObject = None,
         
         if args.startswith("ref_"):
             referrer_id = args_list[1]
-            await message.answer(f"👋 Тебя пригласил поселенец с ID: {referrer_id}")
+            await message.answer("👋 " + i18n.text.other.referral() + f"{referrer_id}")
             return
         
         if args.startswith("menu_"):
@@ -476,7 +476,7 @@ async def private_handler(message: types.Message, command: CommandObject = None,
 
     kb = InlineKeyboardBuilder()
     kb.button(text="➕ Добавить", url=f"https://t.me/{settings.BOT_USERNAME}?startgroup=new")
-    kb.button(text="⚙️ Настройки", callback_data="settings:default")
+    kb.button(text="⚙️ " + i18n.text.settings.title(), callback_data="settings:default")
     
     await message.reply(text="<b>Здрав будь!</b> Я вестник для игры в 🛖 <b>Поселения</b>.\nЧтоб в сходку свою меня позвать, <b>на знак ниже ткни:</b>", reply_markup=kb.as_markup())
 

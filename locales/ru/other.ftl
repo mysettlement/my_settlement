@@ -1,0 +1,1 @@
+text-other-referral = Тебя пригласил поселенец с ID:

@@ -1,9 +1,8 @@
 callback-settings-language-changed = Мова успішно змінена на { $lang_name }!
 callback-settings-timezone-changed = Часовий пояс збережено!
 callback-settings-timezone-error-locked = Змінити пояс можна { $time_left }
-text-settings-title =
-    <b>Налаштування</b>
-    Ви можете налаштувати поведінку бота під себе, змінивши наступні параметри:
+text-settings-title = Налаштування
+text-settings-subtitle = Ви можете налаштувати поведінку бота під себе, змінивши наступні параметри:
 text-settings-timezone-title =
     Поточний пояс: <code>{ $timezone }</code>
     Денний скид відбувається о <b>00:00</b> за цим часом.

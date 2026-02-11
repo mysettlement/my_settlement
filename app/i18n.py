@@ -1,4 +1,5 @@
 from fluentogram import TranslatorHub, FluentTranslator
+from pathlib import Path
 from fluent_compiler.bundle import FluentBundle
 
 from typing import Any, Dict, Awaitable, Callable, Optional
@@ -22,29 +23,35 @@ LANGUAGES_MAP = {
 }
 
 def create_translator_hub() -> TranslatorHub:
-    translator_hub = TranslatorHub(
+    locale_config = {
+        "ru": "ru-RU",
+        "uk": "uk-UA",
+        "en": "en-US",
+    }
+    
+    translators = []
+    base_dir = Path("/app/locales")
+
+    for lang_code, full_locale in locale_config.items():
+        lang_dir = base_dir / lang_code
+        filenames = [str(path) for path in lang_dir.glob("*.ftl")]
+        
+        translators.append(
+            FluentTranslator(
+                locale=lang_code,
+                translator=FluentBundle.from_files(full_locale, filenames=filenames),
+            )
+        )
+
+    return TranslatorHub(
         locales_map={
             "ru": ("ru", "uk", "en"),
             "uk": ("uk", "ru", "en"),
             "en": ("en", "ru", "uk"),
         },
-        translators=[
-            FluentTranslator(
-                locale="ru",
-                translator=FluentBundle.from_files("ru-RU", filenames=["locales/ru/settings.ftl", "locales/ru/common.ftl", "locales/ru/craft.ftl"]),
-            ),
-            FluentTranslator(
-                locale="uk",
-                translator=FluentBundle.from_files("uk-UA", filenames=["locales/uk/settings.ftl", "locales/uk/common.ftl", "locales/uk/craft.ftl"]),
-            ),
-            FluentTranslator(
-                locale="en",
-                translator=FluentBundle.from_files("en-US", filenames=["locales/en/settings.ftl", "locales/en/common.ftl", "locales/en/craft.ftl"]),
-            ),
-        ],
+        translators=translators,
         root_locale="ru",
     )
-    return translator_hub
 
 
 class I18nMiddleware(BaseMiddleware):

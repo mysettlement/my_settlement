@@ -5,9 +5,8 @@ callback-settings-timezone-error-locked = Сменить пояс можно { $
 
 
 
-text-settings-title = 
-    <b>Настройки</b>
-    Вы можете настроить поведение бота под себя, изменив следующие параметры:
+text-settings-title = Настройки
+text-settings-subtitle = Вы можете настроить поведение бота под себя, изменив следующие параметры:
 
 text-settings-timezone-title =
     Текущий пояс: <code>{ $timezone }</code>

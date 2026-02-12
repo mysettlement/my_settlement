@@ -1,6 +1,8 @@
+# --- callback ---
 callback-settings-language-changed = Language successfully changed to { $lang_name }!
 callback-settings-timezone-changed = Timezone has been saved!
 callback-settings-timezone-error-locked = You can change timezone { $time_left }
+# --- text ---
 text-settings-title = Settings
 text-settings-subtitle = You can customize the bot's behavior by changing the following parameters:
 text-settings-timezone-title =
@@ -16,9 +18,11 @@ text-settings-language-title =
     Select the interface language. This will not affect the language of messages from other players.
     
     Current language: <b>{ $lang_name }</b>
+# --- button ---
 button-settings-timezone-determine = Determine
 button-settings-timezone-share_location = Share location
 button-settings-timezone-set = Set!
+# --- constant ---
 constant-settings-common-on = Enabled
 constant-settings-common-off = Disabled
 constant-settings-common-enabled = Enabled

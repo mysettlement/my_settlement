@@ -1,6 +1,8 @@
+# --- callback ---
 callback-settings-language-changed = Мова успішно змінена на { $lang_name }!
 callback-settings-timezone-changed = Часовий пояс збережено!
 callback-settings-timezone-error-locked = Змінити пояс можна { $time_left }
+# --- text ---
 text-settings-title = Налаштування
 text-settings-subtitle = Ви можете налаштувати поведінку бота під себе, змінивши наступні параметри:
 text-settings-timezone-title =
@@ -16,9 +18,11 @@ text-settings-language-title =
     Виберіть мову інтерфейсу. Це не вплине на мову повідомлень від інших гравців.
     
     Поточна мова: <b>{ $lang_name }</b>
+# --- button ---
 button-settings-timezone-determine = Визначити
 button-settings-timezone-share_location = Поділитися геопозицією
 button-settings-timezone-set = Встановити!
+# --- constant ---
 constant-settings-common-on = Увімкнено
 constant-settings-common-off = Вимкнено
 constant-settings-common-enabled = Увімкнені

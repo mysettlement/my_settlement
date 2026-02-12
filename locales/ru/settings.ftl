@@ -1,10 +1,10 @@
+# --- callback ---
 callback-settings-language-changed = Язык успешно изменён на { $lang_name }!
 
 callback-settings-timezone-changed = Часовой пояс сохранен!
 callback-settings-timezone-error-locked = Сменить пояс можно { $time_left }
 
-
-
+# --- text ---
 text-settings-title = Настройки
 text-settings-subtitle = Вы можете настроить поведение бота под себя, изменив следующие параметры:
 
@@ -23,14 +23,12 @@ text-settings-language-title =
     
     Текущий язык: <b>{ $lang_name }</b>
 
-
-
+# --- button ---
 button-settings-timezone-determine = Определить
 button-settings-timezone-share_location = Поделиться геопозицией
 button-settings-timezone-set = Установить!
 
-
-
+# --- constant ---
 constant-settings-common-on = Включено
 constant-settings-common-off = Выключено
 constant-settings-common-enabled = Включены

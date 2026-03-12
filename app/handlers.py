@@ -26,7 +26,7 @@ from app.config import setup_logging, settings
 from app.db import SessionLocal
 from app.gamer import Workflow, Hitting, Catch, Alternation, ProgressBar
 from app.i18n import I18nMiddleware, LANGUAGES_MAP, create_translator_hub
-from app.utils import active_games, fuzzy, format_count
+from app.utils import active_games, format_count, TextCommand
 from app import utils, core, models
 
 bot = Bot(
@@ -90,11 +90,9 @@ async def bot_added_to_chat_event(event: types.ChatMemberUpdated):
     log.debug(text_log)
 
 
-@fuzzy("мой айди", "my id", "мій айді", "мой ид", "мій ід")
-@router.message(or_f(Command("my_id"), F.text.lower().in_({"мой айди", "мой ид", f"@{settings.BOT_USERNAME} мой айди", "my id", f"@{settings.BOT_USERNAME} my id", "мій айді", "мій ід", f"@{settings.BOT_USERNAME} мій айді", f"@{settings.BOT_USERNAME} мій ід"})))
-async def my_id_command(message: types.Message, i18n: TranslatorRunner):
+@router.message(or_f(Command("my_id"), TextCommand("мой айди", "my id", "мій айді", "мой ид", "мій ід")))
+async def my_id_command(message: types.Message, user: models.User, i18n: TranslatorRunner):
     #* Показать ID пользователя
-    user = await core.user_getOrCreate(message.from_user)
     await show_id_menu(message, user, i18n)
     
 async def show_id_menu(message: types.Message, user: models.User, i18n: TranslatorRunner = None):
@@ -114,12 +112,9 @@ async def show_id_menu(message: types.Message, user: models.User, i18n: Translat
     await message.answer(text)
 
 
-@fuzzy("лик", "мой лик", "my profile", "моя подоба")
-@router.message(or_f(Command("me"), F.text.lower().in_({"лик", f"@{settings.BOT_USERNAME} лик", "мой лик", f"@{settings.BOT_USERNAME} мой лик", "my profile", f"@{settings.BOT_USERNAME} my profile", "моя подоба", f"@{settings.BOT_USERNAME} моя подоба"})))
-async def me_command(message: types.Message, i18n: TranslatorRunner):
+@router.message(or_f(Command("me"), TextCommand("лик", "мой лик", "my profile", "моя подоба")))
+async def me_command(message: types.Message, user: models.User, i18n: TranslatorRunner):
     #* Профиль поселенца
-    user = await core.user_getOrCreate(message.from_user)
-
     compact_style = user.compact_style
     kb = InlineKeyboardBuilder()
 
@@ -151,13 +146,13 @@ async def me_command(message: types.Message, i18n: TranslatorRunner):
             quote_display = f"<b>{settler.quote}/{settler.target_quote}</b>" if not settler.quote_is_completed else f"{settler.target_quote}/{settler.target_quote}"
             text = (
                 f"👤 <b>{user.name}</b>\n"
-                f"🛠 {i18n.text.settler.profile.full.craft()}: {craft_text}\n"
-                f"💡 {i18n.text.settler.profile.full.level()}: {settler.level}\n"
-                f"🗂 {i18n.text.settler.profile.full.exp()}: {round(settler.exp)}/{round(settler.target_exp)}\n"
-                f"🏷 {i18n.text.settler.profile.full.rank()}: {settler.emoji} {settler.rank}\n"
-                f"📄 {i18n.text.settler.profile.full.quote()}: {quote_display}{overtime_hint}\n"
-                f"💰 {i18n.text.settler.profile.full.balance()}: {format_count(round(settler.balance), 'куна')}\n"
-                f"\n{(settler.profession.emoji + ' ' + i18n.text.settler.profile.work.cooldown(countdown=work_countdown) + ' 🕒') if (settler.profession and not can_work) else ((settler.profession.emoji + ' ' + i18n.text.settler.profile.work.ready() + ' ✅') if settler.profession else '')} "
+                f"🛠 <b>{i18n.text.settler.profile.full.craft()}</b>: {craft_text}\n"
+                f"💡 <b>{i18n.text.settler.profile.full.level()}</b>: {settler.level}\n"
+                f"🗂 <b>{i18n.text.settler.profile.full.exp()}</b>: {round(settler.exp)}/{round(settler.target_exp)}\n"
+                f"🏷 <b>{i18n.text.settler.profile.full.rank()}</b>: {settler.emoji} {settler.rank}\n"
+                f"📄 <b>{i18n.text.settler.profile.full.quote()}</b>: {quote_display}{overtime_hint}\n"
+                f"💰 <b>{i18n.text.settler.profile.full.balance()}</b>: {format_count(round(settler.balance), 'куна')}\n"
+                f"\n{(settler.profession.emoji + ' ' + i18n.text.settler.profile.work.cooldown(countdown=work_countdown) + ' 🕒') if (settler.profession and not can_work) else ((settler.profession.emoji + ' <b>' + i18n.text.settler.profile.work.ready() + '</b> ✅') if settler.profession else '')} "
             )
 
             kb.button(text="🪭 " + i18n.button.settler.cosmetics(), switch_inline_query_current_chat="Обличья")
@@ -173,11 +168,9 @@ async def me_command(message: types.Message, i18n: TranslatorRunner):
         await show_id_menu(message, user, i18n)
 
 
-@fuzzy("настройки", "settings", "налаштування")
-@router.message(or_f(Command("settings"), F.text.lower().in_({"настройки", f"@{settings.BOT_USERNAME} настройки", "settings", f"@{settings.BOT_USERNAME} settings", "налаштування", f"@{settings.BOT_USERNAME} налаштування"})))
-async def settings_command(message: types.Message, i18n: TranslatorRunner):
+@router.message(or_f(Command("settings"), TextCommand("настройки", "settings", "налаштування")))
+async def settings_command(message: types.Message, user: models.User, i18n: TranslatorRunner):
     #* Настройки пользователя
-    user = await core.user_getOrCreate(message.from_user)
     await show_settings_menu(message, user, i18n=i18n)
     
 @router.callback_query(F.data.startswith("settings:"))
@@ -429,8 +422,7 @@ async def set_language(callback: types.CallbackQuery, i18n_middleware: I18nMiddl
 async def cancel_location(message: types.Message, i18n: TranslatorRunner):
     await message.answer(i18n.text.other.cancel(), reply_markup=types.ReplyKeyboardRemove())
 
-@fuzzy("help", "помощь", "допомога")
-@router.message(or_f(Command("help"), F.text.lower().in_({"помощь", f"@{settings.BOT_USERNAME} помощь", "help", f"@{settings.BOT_USERNAME} help", "допомога", f"@{settings.BOT_USERNAME} допомога"})))
+@router.message(or_f(Command("help"), TextCommand("помощь", "help", "допомога")))
 async def help_command(message: types.Message, i18n: TranslatorRunner):
     #* Помощь и руководство по игре
     help_text = (
@@ -441,9 +433,8 @@ async def help_command(message: types.Message, i18n: TranslatorRunner):
 
 
 @router.message(or_f(and_f(F.chat.type == "private", CommandStart()), F.chat.type == "private"))
-async def private_handler(message: types.Message, command: CommandObject = None, i18n: TranslatorRunner = None):
+async def private_handler(message: types.Message, user: models.User, command: CommandObject = None, i18n: TranslatorRunner = None):
     #* Личные сообщения и рефералы
-    user = await core.user_getOrCreate(message.from_user)
     if command and command.args:
         args = command.args
         args_list = args.split("_")
@@ -476,8 +467,7 @@ async def private_handler(message: types.Message, command: CommandObject = None,
 
 # ================= Group chats ================
 
-@fuzzy("осмотреть город", "осмотреть поселение", "мое поселение", "моё поселение", "town")
-@router.message(or_f(CommandStart(), Command("town"), F.text.lower().in_({"осмотреть город", f"@{settings.BOT_USERNAME} осмотреть город", "осмотреть поселение", f"@{settings.BOT_USERNAME} осмотреть поселение", "town", f"@{settings.BOT_USERNAME} town"})))
+@router.message(or_f(CommandStart(), Command("town"), Command("settlement"), TextCommand("осмотреть поселение", "оглянути поселення", "town")))
 async def start_command(message: types.Message, i18n: TranslatorRunner):
     #* Осмотр поселения / старт игры
     async with SessionLocal() as session:
@@ -513,7 +503,7 @@ async def name_settlement(message: types.Message, command: CommandObject = None,
                 break
     
     if not raw_new_name:
-        await message.answer("⚠️ " + i18n.text.settlement.rename.empty())
+        await message.answer("⚠️ <b>" + i18n.text.settlement.rename.empty() + "</b>")
         return
 
     if len(raw_new_name) > 30 or len(raw_new_name) < 3:
@@ -521,8 +511,6 @@ async def name_settlement(message: types.Message, command: CommandObject = None,
         return
 
     new_name = html.escape(raw_new_name)
-
-    user = await core.user_getOrCreate(message.from_user)
     
     async with SessionLocal() as session:
         result = await session.execute(
@@ -568,20 +556,16 @@ async def name_settlement(message: types.Message, command: CommandObject = None,
         log.debug(f"{message.chat.id} | Переименовано поселение {old_name} -> {new_name}")
 
 
-@fuzzy("городские постройки", "town buildings", "міські будівлі")
-@router.message(or_f(Command("town_buildings"), F.text.lower().in_({"городские постройки", f"@{settings.BOT_USERNAME} городские постройки", "town buildings", f"@{settings.BOT_USERNAME} town buildings", "міські будівлі", f"@{settings.BOT_USERNAME} міські будівлі"})))
-async def town_buildings_command(message: types.Message, i18n: TranslatorRunner):
+@router.message(or_f(Command("town_buildings"), TextCommand("городские постройки", "town buildings", "міські будівлі")))
+async def town_buildings_command(message: types.Message, user: models.User, i18n: TranslatorRunner):
     #* Городские постройки (только для мэра)
-    user = await core.user_getOrCreate(message.from_user)
     settlement = await core.settlement_getOrCreate(message.chat)
 
     await show_buildings_menu(message, user, settlement, "town", i18n=i18n)
 
-@fuzzy("мои постройки", "my buildings", "мої будівлі")
-@router.message(or_f(Command("my_buildings"), F.text.lower().in_({"мои постройки", f"@{settings.BOT_USERNAME} мои постройки", "my buildings", f"@{settings.BOT_USERNAME} my buildings", "мої будівлі", f"@{settings.BOT_USERNAME} мої будівлі"})))
-async def my_buildings_command(message: types.Message, i18n: TranslatorRunner):
+@router.message(or_f(Command("my_buildings"), TextCommand("мои постройки", "my buildings", "мої будівлі")))
+async def my_buildings_command(message: types.Message, user: models.User, i18n: TranslatorRunner):
     #* Личные постройки
-    user = await core.user_getOrCreate(message.from_user)
     settlement = await core.settlement_getOrCreate(message.chat)
     
     await show_buildings_menu(message, user, settlement, "my", i18n=i18n)
@@ -593,7 +577,7 @@ async def show_buildings_menu(message: types.Message, user: models.User, settlem
     async with SessionLocal() as session:
         buildings = await core.building_getByScope(settlement, settler, scope, session)
         
-        text = ("🏙 " + i18n.text.buildings.town.title()) if scope == "town" else ("🏡 " + i18n.text.buildings.my.title()) if i18n else ("🏙 <b>Городские постройки</b>" if scope == "town" else "🏡 <b>Мои постройки</b>")
+        text = ("🏙 <b>" + i18n.text.buildings.town.title() + "</b>") if scope == "town" else ("🏡 <b>" + i18n.text.buildings.my.title() + "</b>") if i18n else ("🏙 <b>Городские постройки</b>" if scope == "town" else "🏡 <b>Мои постройки</b>")
         
         kb = InlineKeyboardBuilder()
         
@@ -643,7 +627,7 @@ async def buildings_callback(callback: types.CallbackQuery, i18n: TranslatorRunn
             stmt = select(models.BuildingType)
             all_types = (await session.execute(stmt)).scalars().all()
             
-            text = f"🏗 " + i18n.text.buildings.catalog.title() + f" ({(i18n.text.buildings.catalog.scope.town() if not compact_style else '🏙') if scope == 'town' else (i18n.text.buildings.catalog.scope.my() if not compact_style else '🏡')})\n\n"
+            text = f"🏗 <b>" + i18n.text.buildings.catalog.title() + f"</b> ({(i18n.text.buildings.catalog.scope.town() if not compact_style else '🏙') if scope == 'town' else (i18n.text.buildings.catalog.scope.my() if not compact_style else '🏡')})\n\n"
             
             kb = InlineKeyboardBuilder()
             buttons = []
@@ -687,14 +671,14 @@ async def buildings_callback(callback: types.CallbackQuery, i18n: TranslatorRunn
             if compact_style:
                 status_text = "⚪️" if building.is_ready else f"🔨 <b>{utils.format_relative_time(building.under_construction_until)}</b>"
             else:
-                status_text = ("⚪️ " + i18n.text.buildings.view.active()) if building.is_ready else ("🔨 " + i18n.text.buildings.view.construction(time_left=utils.format_relative_time(building.under_construction_until)))
+                status_text = ("⚪️ <b>" + i18n.text.buildings.view.active() + "</b>") if building.is_ready else ("🔨 " + i18n.text.buildings.view.construction(time_left=utils.format_relative_time(building.under_construction_until)))
             
             has_bonuses, bonuses = utils.format_bonuses_text(building.type.bonuses)
             
             text = (
                 f"{building.type.emoji} <b>{building.type.name}</b> ({building.level}/{building.type.max_level}) {status_text}\n"
                 f"{building.type.description}\n\n"
-                f"🎁 " + i18n.text.buildings.view.bonuses() + f"\n{bonuses}"
+                f"🎁 <b>" + i18n.text.buildings.view.bonuses() + f"</b>\n{bonuses}"
             )
             
             kb = InlineKeyboardBuilder()
@@ -731,12 +715,12 @@ async def buildings_callback(callback: types.CallbackQuery, i18n: TranslatorRunn
             req_content = "\n".join(filter(None, [prof_text, res_text]))
 
             if req_content:
-                lines.append(f"🔨 " + i18n.text.buildings.preview.requirements())
+                lines.append(f"🔨 <b>" + i18n.text.buildings.preview.requirements() + "</b>")
                 lines.append(f"{req_content}")
                 lines.append("")
 
             if has_bonuses:
-                lines.append(f"🎁 " + i18n.text.buildings.preview.bonuses())
+                lines.append(f"🎁 <b>" + i18n.text.buildings.view.bonuses() + "</b>")
                 lines.append(f"{bonuses}")
                 lines.append("")
 
@@ -778,11 +762,9 @@ async def buildings_callback(callback: types.CallbackQuery, i18n: TranslatorRunn
                 await callback.answer(f"{msg}", show_alert=True)
 
 
-@fuzzy("бонусы", "bonuses", "эффекты", "бонуси","ефекти")
-@router.message(or_f(Command("bonuses"), Command("effects"), F.text.lower().in_({"бонусы", f"@{settings.BOT_USERNAME} бонусы", "bonuses", "эффекты", f"@{settings.BOT_USERNAME} эффекты", f"@{settings.BOT_USERNAME} bonuses", "бонуси", f"@{settings.BOT_USERNAME} бонуси", "ефекти", f"@{settings.BOT_USERNAME} ефекти"})))
-async def bonuses_command(message: types.Message, i18n: TranslatorRunner):
+@router.message(or_f(Command("bonuses"), Command("effects"), TextCommand("бонусы", "bonuses", "эффекты", "бонуси", "ефекти")))
+async def bonuses_command(message: types.Message, user: models.User, i18n: TranslatorRunner):
     #* Просмотр активных эффектов
-    user = await core.user_getOrCreate(message.from_user)
     settlement = await core.settlement_getOrCreate(message.chat)
     settler = await core.settler_getOrCreate(user, settlement)
 
@@ -810,11 +792,9 @@ async def bonuses_command(message: types.Message, i18n: TranslatorRunner):
     await message.answer(text)
 
 
-@fuzzy("лепота", "обличья", "косметика", "cosmetics", "оздоба", "врода")
-@router.message(or_f(Command("cosmetics"), F.text.lower().in_({"лепота", f"@{settings.BOT_USERNAME} лепота", "обличья", f"@{settings.BOT_USERNAME} обличья", "оздоба", f"@{settings.BOT_USERNAME} оздоба", "врода", f"@{settings.BOT_USERNAME} врода", "cosmetics", f"@{settings.BOT_USERNAME} cosmetics"})))
-async def cosmetics_command(message: types.Message, i18n: TranslatorRunner):
+@router.message(or_f(Command("cosmetics"), TextCommand("лепота", "обличья", "cosmetics", "оздоба", "врода")))
+async def cosmetics_command(message: types.Message, user: models.User, i18n: TranslatorRunner):
     #* Лепота поселенца
-    user = await core.user_getOrCreate(message.from_user)
     settlement = await core.settlement_getOrCreate(message.chat)
     settler = await core.settler_getOrCreate(user, settlement)
     
@@ -823,7 +803,7 @@ async def cosmetics_command(message: types.Message, i18n: TranslatorRunner):
         await message.answer("❌ " + i18n.text.settler.error.not_found())
         return
 
-    text = f"🪭 " + i18n.text.settler.cosmetics.title() + f"\n\n🎭 " + i18n.text.settler.cosmetics.current(emoji=settler.emoji)
+    text = f"🪭 <b>" + i18n.text.settler.cosmetics.title() + f"</b>\n\n🎭 <b>" + i18n.text.settler.cosmetics.current() + f":</b> {settler.emoji}"
     
     all_emojis = []
     if settler.rank_emoji_available:
@@ -896,11 +876,9 @@ async def cosmetics_select(callback: types.CallbackQuery, i18n: TranslatorRunner
     await callback.message.edit_text(text=f"🪭 " + i18n.text.settler.cosmetics.title() + f"\n\n🎭 " + i18n.text.settler.cosmetics.current(emoji=db_settler.emoji), reply_markup=kb)
 
 
-@fuzzy("страда", "overtime", "понадмір", "зайва міра")
-@router.message(or_f(Command("overtime"), F.text.lower().in_({"страда", f"@{settings.BOT_USERNAME} страда", "overtime", f"@{settings.BOT_USERNAME} overtime", "понадмір", f"@{settings.BOT_USERNAME} понадмір", "зайва міра", f"@{settings.BOT_USERNAME} зайва міра"})))
-async def overtime_command(message: types.Message, i18n: TranslatorRunner):
+@router.message(or_f(Command("overtime"), TextCommand("страда", "overtime", "понадмір", "зайва міра")))
+async def overtime_command(message: types.Message, user: models.User, i18n: TranslatorRunner):
     #* Страда поселенца
-    user = await core.user_getOrCreate(message.from_user)
     settlement = await core.settlement_getOrCreate(message.chat)
     settler = await core.settler_getOrCreate(user, settlement)
     
@@ -912,7 +890,7 @@ async def overtime_command(message: types.Message, i18n: TranslatorRunner):
     buttons = []
     kb = InlineKeyboardBuilder()
 
-    text = f"🕒 " + i18n.text.settler.overtime.title() + "\n"
+    text = f"🕒 <b>" + i18n.text.settler.overtime.title() + "</b>\n"
     text += f"ℹ️ " + i18n.text.settler.overtime.hint(reset_countdown=reset_countdown) + "\n\n" if settler.level < 2 and user.show_hints == True else ""
     if settler.overtime_is_toggled and not settler.quote_is_completed:
         if compact_style:
@@ -968,15 +946,13 @@ async def overtime_take(callback: types.CallbackQuery, i18n: TranslatorRunner):
         await callback.message.edit_text("⏳ " + i18n.text.settler.overtime.taken(new_quote=new_quote, reset_countdown=reset_countdown))
 
 
-@fuzzy("скарб", "inventory", "інвентар", "инвентарь")
-@router.message(or_f(Command("inventory"), F.text.lower().in_({"скарб", f"@{settings.BOT_USERNAME} скарб", "инвентарь", f"@{settings.BOT_USERNAME} инвентарь", "інвентар", f"@{settings.BOT_USERNAME} інвентар", "inventory", f"@{settings.BOT_USERNAME} inventory"})))
-async def inventory_command(message: types.Message, i18n: TranslatorRunner):
+@router.message(or_f(Command("inventory"), TextCommand("скарб", "инвентарь", "інвентар", "inventory")))
+async def inventory_command(message: types.Message, user: models.User, i18n: TranslatorRunner):
     #* Скарб поселенца
-    user = await core.user_getOrCreate(message.from_user)
     settlement = await core.settlement_getOrCreate(message.chat)
     settler = await core.settler_getOrCreate(user, settlement)
 
-    text = f"📦 " + i18n.text.settler.inventory.title() + "\n\n"
+    text = f"📦 <b>" + i18n.text.settler.inventory.title() + "</b>\n\n"
     
     async with SessionLocal() as session:
         compact_style = user.compact_style
@@ -1010,11 +986,9 @@ async def inventory_command(message: types.Message, i18n: TranslatorRunner):
     await message.answer(text=text)
 
 
-@fuzzy("выбрать ремесло", "choose craft", "вибрати ремесло")
-@router.message(or_f(Command("choose_craft"), F.text.lower().in_({"выбрать ремесло", f"@{settings.BOT_USERNAME} выбрать ремесло", "choose craft", f"@{settings.BOT_USERNAME} choose craft"})))
-async def choose_craft_command(message: types.Message, i18n: TranslatorRunner):
+@router.message(or_f(Command("choose_craft"), TextCommand("выбрать ремесло", "обрати ремесло", "choose craft")))
+async def choose_craft_command(message: types.Message, user: models.User, i18n: TranslatorRunner):
     #* Выбор ремесла поселенца
-    user = await core.user_getOrCreate(message.from_user)
     settlement = await core.settlement_getOrCreate(message.chat)
     settler = await core.settler_getOrCreate(user, settlement)
 
@@ -1030,7 +1004,7 @@ async def choose_craft_command(message: types.Message, i18n: TranslatorRunner):
     if settler.profession_id:
             can_choose, when = utils.can_choose_craft(settler.last_profession_change)
     
-    text = f"💼 " + i18n.text.craft.choose.title() + "\n" + ('⚠️ ' + i18n.text.craft.choose.cooldown(when=when) + '\n' if not can_choose and settler.profession else '') + "\n"
+    text = f"💼 <b>" + i18n.text.craft.choose.title() + "</b>\n" + ('⚠️ ' + i18n.text.craft.choose.cooldown() + f' {when}\n' if not can_choose and settler.profession else '') + "\n"
     kb = InlineKeyboardBuilder()
 
     async with SessionLocal() as session:
@@ -1041,7 +1015,7 @@ async def choose_craft_command(message: types.Message, i18n: TranslatorRunner):
             if compact_style:
                 text += f"{prof.emoji} <b>{prof.name}:</b> {prof.description}\n{'✅' if settler.profession_id == prof.id else '☑️'} <b>{settler.level}/{prof.required_level}</b>💡\n\n"
             else:
-                selected = i18n.text.craft.status.selected() if settler.profession_id == prof.id else i18n.text.craft.status.available()
+                selected = ("<b>" + i18n.text.craft.status.selected() + "</b>") if settler.profession_id == prof.id else (i18n.text.craft.status.available())
                 req_level = i18n.text.craft.status.required_level()
                 text += f"{prof.emoji} <b>{prof.name}:</b> {prof.description}\n{'✅ ' + selected if settler.profession_id == prof.id else '☑️ ' + i18n.text.craft.status.available()} ({req_level} <b>{settler.level}/{prof.required_level}</b>💡)\n\n"
             buttons.append(InlineKeyboardButton(text=f"{prof.emoji} {prof.name}", callback_data=f"select_craft:{prof.id}")) if settler.profession_id != prof.id and can_choose else None
@@ -1094,11 +1068,9 @@ async def select_craft_callback(callback: types.CallbackQuery, i18n: TranslatorR
         await callback.message.edit_text("✅ " + i18n.text.craft.selected.success(user_name=callback.from_user.full_name, profession_name=profession.name), reply_markup=kb.as_markup())
         log.debug(f"{callback.message.chat.id} | {settler.user_id} | 💼 Выбрано ремесло: {profession.name}")
 
-@fuzzy("трудиться", "craft", "трудитися", "працювати")
-@router.message(or_f(Command("craft"), F.text.lower().in_({"трудиться", f"@{settings.BOT_USERNAME} трудиться", "craft", f"@{settings.BOT_USERNAME} craft", "трудитися", f"@{settings.BOT_USERNAME} трудитися", "працювати", f"@{settings.BOT_USERNAME} працювати"})))
-async def craft_command(message: types.Message, i18n: TranslatorRunner):
+@router.message(or_f(Command("craft"), TextCommand("трудиться", "craft", "трудитися", "працювати")))
+async def craft_command(message: types.Message, user: models.User, i18n: TranslatorRunner):
     #* Начало труда поселенца
-    user = await core.user_getOrCreate(message.from_user)
     settlement = await core.settlement_getOrCreate(message.chat)
     settler = await core.settler_getOrCreate(user, settlement)
 
@@ -1309,53 +1281,13 @@ async def promo_command(message: types.Message, i18n: TranslatorRunner):
     await message.answer("🌟 " + i18n.text.other.promo.received(name=recipient.full_name) + f"\n{text}")
 
 
-def collect_commands(router) -> dict[str, callable]:
-    result = {}
-    for handler in router.message.handlers:
-        cb = handler.callback
-        aliases = getattr(cb, "__fuzzy_aliases__", None)
-        if not aliases:
-            continue
-        for alias in aliases:
-            result[alias] = cb
-    return result
-FUZZY_COMMANDS = collect_commands(router)
-
-
 @router.message(or_f(F.chat.type == "supergroup", F.chat.type == "group"))
-async def quote_handler(message: types.Message):
+async def quote_handler(message: types.Message, **kwargs):
     #* Обработка сообщений для меры
-    user = await core.user_getOrCreate(message.from_user)
-    match = await utils.is_text_command(
-        message,
-        user,
-        FUZZY_COMMANDS,
-        threshold=settings.TYPOS_PERCENT
-    )
-    
-    if match.matched:
-        handler = FUZZY_COMMANDS[match.command]
-        await handler(message)
-        log.debug(f"{message.chat.id} | {user.telegram_id} | 🔍 {message.text} → {match.command} ({match.score}%)")
-        return
-    
-    log.debug(f"{message.chat.id} | {user.telegram_id} | 🔍 {message.text} / {match.log_text}")
-    
     async with SessionLocal() as session:
-        result = await session.execute(
-            select(models.Settlement).where(models.Settlement.chat_id == message.chat.id)
-        )
-        settlement = result.scalars().first()
-        
-        if not settlement:
-            return
-            
-        settler = await core.settler_getOrCreate(user, settlement)
-        
-        if not settler:
-            log.error(f"Не удалось получить или создать поселенца для пользователя {message.from_user.id} во время quote_handler()")
-            return
-            
+        user = await core.user_getOrCreate(message.from_user, session)
+        settlement = await core.settlement_getOrCreate(message.chat, session)
+        settler = await core.settler_getOrCreate(user, settlement, session)
         try:
             if await utils.is_meaningful(message.text) and not settler.quote_is_completed:
                 await core.settler_updateQuote(settler, settlement, session, 1)

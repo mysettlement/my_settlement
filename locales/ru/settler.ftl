@@ -3,27 +3,27 @@ text-settler-id-internal = Внутренний ID
 text-settler-id-telegram = Telegram ID
 
 text-settler-profile-craft-none = Лодырь
-text-settler-profile-full-craft = <b>Ремесло</b>
-text-settler-profile-full-level = <b>Ступень</b>
-text-settler-profile-full-exp = <b>Опыт</b>
-text-settler-profile-full-rank = <b>Титул</b>
-text-settler-profile-full-quote = <b>Мера</b>
-text-settler-profile-full-balance = <b>Мошна</b>
+text-settler-profile-full-craft = Ремесло
+text-settler-profile-full-level = Ступень
+text-settler-profile-full-exp = Опыт
+text-settler-profile-full-rank = Титул
+text-settler-profile-full-quote = Мера
+text-settler-profile-full-balance = Мошна
 text-settler-profile-work-cooldown = Труд доступен <b>{ $countdown }</b>
-text-settler-profile-work-ready = <b>Доступен труд!</b>
+text-settler-profile-work-ready = Доступен труд!
 text-settler-profile-overtime-hint = Страда взята
 
 text-settler-error-not_found = Беда приключилась, вести о тебе не сысканы. Погоди малость, опосля пытай снова.
 
 # --- text - cosmetics ---
-text-settler-cosmetics-title = <b>Доступные обличья</b>
-text-settler-cosmetics-current = <b>Текущий эмодзи</b>: { $emoji }
+text-settler-cosmetics-title = Доступные обличья
+text-settler-cosmetics-current = Текущий эмодзи
 text-settler-cosmetics-none = Нет доступных эмодзи
 
 text-settler-cosmetics-accepted = Облик принят: { $emoji }
 
 # --- text - overtime ---
-text-settler-overtime-title = <b>Страда</b>
+text-settler-overtime-title = Страда
 text-settler-overtime-hint = Коль добра тебе мало, можешь <b>страду</b> взять. С каждой страдой работа тяжелеет, мудрости меньше наберёшь, но грошей столько же получишь. Коль <b>не поспеешь труд свершить</b> до нового дня ({ $reset_countdown }), на тебя <b>виру</b> наложат.
 text-settler-overtime-status-active = Состояние страды: <b>Активна</b>
     Сколько страды взято: { $overtime_count } (<b>{ $reset_countdown }</b> до новой страды)
@@ -38,7 +38,7 @@ text-settler-overtime-taken = <b>Страда взята!</b> (📄 0/{ $new_quo
 callback-settler-overtime-already = Страда уже взята!
 
 # --- text - inventory ---
-text-settler-inventory-title = <b>Скарби</b>
+text-settler-inventory-title = Скарби
 text-settler-inventory-empty = Пусто
 text-settler-inventory-hint = Ресурсы могут добывать разные специалисты, а также их можно получить в награду за выполнение событий.
 

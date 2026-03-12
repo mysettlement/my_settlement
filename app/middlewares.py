@@ -1,6 +1,10 @@
 from aiogram import BaseMiddleware, types
+from certifi import core
 from app.config import setup_logging
 import logging
+from aiogram import BaseMiddleware
+from aiogram.types import TelegramObject
+from typing import Callable, Dict, Any, Awaitable
 
 log = setup_logging(logging.getLogger(__name__))
 
@@ -85,3 +89,18 @@ class ErrorMiddleware(BaseMiddleware):
             elif isinstance(event, types.CallbackQuery):
                 await event.message.answer('❌ Неизвестная ошибка. Обратитесь к <a href="https://t.me/megatocha">создателю.</a>')
             raise e
+
+
+
+class UserMiddleware(BaseMiddleware):
+    def __init__(self, user_getOrCreate: Callable):
+        self.user_getOrCreate = user_getOrCreate
+    
+    async def __call__(self, handler: Callable[[TelegramObject, Dict[str, Any]], Awaitable[Any]], event: TelegramObject, data: Dict[str, Any]) -> Any:
+        tg_user = data.get("event_from_user")
+        
+        if tg_user:
+            user = await self.user_getOrCreate(tg_user)
+            data["user"] = user
+            
+        return await handler(event, data)

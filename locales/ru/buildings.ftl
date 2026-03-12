@@ -1,19 +1,18 @@
 # --- text ---
-text-buildings-town-title = <b>Городские постройки</b>
-text-buildings-my-title = <b>Мои постройки</b>
+text-buildings-town-title = Городские постройки
+text-buildings-my-title = Мои постройки
 text-buildings-empty = Пока здесь пусто.
 text-buildings-status-active = Активно
 text-buildings-status-construction = Построится { $time_left }
-text-buildings-view-active = <b>В обороте!</b>
+text-buildings-view-active = В обороте!
 text-buildings-view-construction = Стройка закончится <b>{ $time_left }</b>
-text-buildings-view-bonuses = <b>Бонусы:</b>
+text-buildings-view-bonuses = Бонусы:
 
-text-buildings-catalog-title = <b>Каталог чертежей</b>
+text-buildings-catalog-title = Каталог чертежей
 text-buildings-catalog-scope-town = Городские
 text-buildings-catalog-scope-my = Личные
 
-text-buildings-preview-requirements = <b>Требуется для постройки:</b>
-text-buildings-preview-bonuses = <b>Бонусы:</b>
+text-buildings-preview-requirements = Требуется для постройки:
 text-buildings-preview-time = <b>Время строительства:</b> { $time } секунд
 
 text-buildings-not_found = Здание уже снесено или не существует.

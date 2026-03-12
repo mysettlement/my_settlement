@@ -15,12 +15,14 @@ from datetime import datetime, timedelta
 from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from aiogram import Bot, types
-from aiogram.client.default import DefaultBotProperties
+from aiogram.types import Message
 from aiogram.enums import ParseMode
+from aiogram.filters import BaseFilter
+from aiogram.client.default import DefaultBotProperties
 
 from app.config import setup_logging, settings
 from app.gamer import Harvesting, Hitting, Timer, Catch, Alternation, Workflow
-from app.exceptions import GroupOwnerError
+from app.middlewares import GroupOwnerError
 import app.models as models
 
 
@@ -55,48 +57,44 @@ KNOWN_TYPOS: Dict[str, str] = {
     
 }
 
+class TextCommand(BaseFilter):
+    def __init__(self, *aliases: str):
+        self.aliases = [a.lower() for a in aliases]
 
-class FuzzyMatch(NamedTuple):
-    matched: bool
-    command: Optional[str] = None
-    score: int = 0
-    log_text: Optional[str] = None
+    async def __call__(self, message: Message, user: models.User) -> bool:
+        if not message.text or message.text.startswith("/"):
+            return False
 
-def fuzzy(*aliases: str):
-    def wrapper(func: Callable):
-        func.__fuzzy_aliases__ = tuple(a.lower() for a in aliases)
-        return func
-    return wrapper
+        bot_mention = f"@{settings.BOT_USERNAME}".lower()
+        text = message.text.lower().replace(bot_mention, "").strip()
 
-async def is_text_command(message, user, commands: dict[str, callable], *, threshold: int = 84) -> FuzzyMatch:
-    if not message.text or message.text.startswith("/"):
-        return FuzzyMatch(False, None, 0, "Не текстовая команда")
+        if text in self.aliases:
+            return True
 
-    if not getattr(user, "allow_typos", False):
-        return FuzzyMatch(False, None, 0, "Настройка выключена")
+        if not getattr(user, "allow_typos", False):
+            return False
 
-    text = utils.default_process(message.text)
+        processed_text = utils.default_process(text)
 
-    if text in KNOWN_TYPOS:
-        command_text = KNOWN_TYPOS[text]
-        return FuzzyMatch(True, command_text, 100)
+        from app.utils import KNOWN_TYPOS
+        if processed_text in KNOWN_TYPOS and KNOWN_TYPOS[processed_text] in self.aliases:
+            return True
 
-    match = process.extractOne(
-        text,
-        commands.keys(),
-        scorer=fuzz.QRatio
-    )
+        match = process.extractOne(
+            processed_text,
+            self.aliases,
+            scorer=fuzz.QRatio
+        )
 
-    if not match:
-        return FuzzyMatch(False, None, 0, "Нет совпадений")
+        if match:
+            command, score, _ = match
+            len_ratio = len(processed_text) / len(command)
+            
+            if 0.7 <= len_ratio <= 1.3 and score >= settings.TYPOS_PERCENT:
+                log.debug(f"{message.chat.id} | {message.from_user.id} | Схожесть с «{command}» {round(score, 2)}%/{settings.TYPOS_PERCENT}%: {message.text}")
+                return True
 
-    command, score, _ = match
-
-    len_ratio = len(text) / len(command)
-    if len_ratio < 0.7 or len_ratio > 1.3:
-        return FuzzyMatch(False, command, score, "За рамками по длине")
-
-    return FuzzyMatch(True, command, score, None) if score >= threshold else FuzzyMatch(False, command, score, f"Низкий балл ({round(score, 2)}%)")
+        return False
 
 async def is_meaningful(text: str, length: int = 3, words_amount: int = 1) -> bool:
     if not text:

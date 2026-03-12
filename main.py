@@ -8,12 +8,13 @@ from aiogram.enums import ParseMode
 from aiogram.exceptions import TelegramBadRequest
 from aiogram.client.default import DefaultBotProperties
 
+from app.core import user_getOrCreate
 import app.config as config
 import app.handlers as handlers
 import app.db as db
 import app.utils as utils
 import app.tasks as tasks
-from app.exceptions import ErrorMiddleware
+from app.middlewares import ErrorMiddleware, UserMiddleware
 from app.i18n import create_translator_hub, I18nMiddleware
 
 log = config.setup_logging(logging.getLogger(__name__))
@@ -69,6 +70,7 @@ async def main():
     dp.callback_query.middleware(ErrorMiddleware())
     dp.message.middleware(I18nMiddleware(create_translator_hub()))
     dp.callback_query.middleware(I18nMiddleware(create_translator_hub()))
+    dp.update.outer_middleware(UserMiddleware(user_getOrCreate=user_getOrCreate))
     dp.include_router(handlers.router)
 
     tasks.scheduler.add_job(tasks.day_reset, 'cron', hour='*', minute=0, coalesce=True, misfire_grace_time=3600)

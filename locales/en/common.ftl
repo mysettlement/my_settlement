@@ -8,5 +8,6 @@ callback-common-work-not_found = Дело не сыскано. Может, ты 
 callback-common-invalid_action = Неверный ход!
 callback-common-invalid_step = Неверный шаг!
 # --- text ---
-text-common-received = <b>Получено:</b>
+text-common-received = Получено
 text-common-work-expired = Долго ты без дела стоял! Труд отложен.
+text-common-none = Неизвестно

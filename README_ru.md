@@ -71,7 +71,7 @@ pip install -r requirements.txt
 ```env
 BOT_TOKEN=your_telegram_bot_token
 DB_URL=postgresql+asyncpg://user:password@localhost/dbname
-ADMIN_IDS=12345678,87654321
+DEVELOPER_IDS=[1234567890, 0987654321]
 DEBUG=True
 ```
 
@@ -124,8 +124,15 @@ docker-compose up -d --build
 
 ## 📝 Лицензия
 
-Распространяется под лицензией GNU. Смотрите [LICENSE](./LICENSE) для получения дополнительной информации.
+**GNUv3** - смотрите файл [LICENSE](./LICENSE) для подробностей.
 
----
+<div align="center">
 
-Сделано с ❤️ от [megatocha](https://github.com/megatocha)
+## 👤 Автор
+
+Создано с ❤️ от [megatocha](https://github.com/megatocha)
+
+<b>⭐ Поставь звезду моему проекту!</b> <br>
+![star](https://github.com/user-attachments/assets/cc66e612-3b0f-4232-9467-e246d2d30f90)<br>
+
+</div>

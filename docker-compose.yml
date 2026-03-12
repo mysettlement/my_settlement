@@ -12,8 +12,6 @@ services:
     environment:
       - DB_HOST=db
       - DB_PORT=5432
-    ports:
-      - "3480:3480"
     volumes:
       - .:/app
       - ./logs:/app/logs
@@ -43,6 +41,28 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+    networks:
+      - app-net
+    restart: unless-stopped
+
+  admin:
+    container_name: admin
+    profiles: ["admin"]
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: my-settlement:latest
+    command: python -m admin-entrypoint
+    env_file:
+      - .env
+    environment:
+      - DB_HOST=db
+      - DB_PORT=5432
+    ports:
+      - "3480:3480"
+    depends_on:
+      db:
+        condition: service_healthy
     networks:
       - app-net
     restart: unless-stopped

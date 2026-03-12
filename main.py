@@ -1,12 +1,7 @@
 import asyncio
 import logging
 import random
-from contextlib import suppress, asynccontextmanager
-import uvicorn # Нужно добавить uvicorn в requirements.txt
-
-from fastapi import FastAPI
-from fastapi.responses import RedirectResponse
-from app.admin import setup_panel
+from contextlib import suppress
 
 from aiogram import Bot, Dispatcher
 from aiogram.enums import ParseMode
@@ -65,8 +60,7 @@ async def set_bot_status(bot: Bot, mood: str):
         )
 
 # === Жизненный цикл ===
-@asynccontextmanager
-async def lifespan(app: FastAPI):
+async def main():
     # --- STARTUP ---
     setup_aiogram_logging()
     await db.init_db()
@@ -86,43 +80,28 @@ async def lifespan(app: FastAPI):
 
     await set_bot_status(bot, "happy")
     
-    polling_task = asyncio.create_task(
-        dp.start_polling(bot, handle_signals=False) 
-    )
-    
     log.info("🟢 Бот запущен!")
     
-    yield
-    
-    # --- SHUTDOWN ---
-    log.info("🟡 Завершение работы...")
-    
-    polling_task.cancel()
     try:
-        await polling_task
-    except asyncio.CancelledError:
-        pass
+        await dp.start_polling(bot)
+    finally:
+        # --- SHUTDOWN ---
+        log.info("🟡 Завершение работы...")
 
-    if tasks.scheduler.running:
-        tasks.scheduler.shutdown(wait=False)
+        if tasks.scheduler.running:
+            tasks.scheduler.shutdown(wait=False)
 
-    for task in utils.work_timeout_tasks.values():
-        task.cancel()
-    utils.work_timeout_tasks.clear()
+        for task in utils.work_timeout_tasks.values():
+            task.cancel()
+        utils.work_timeout_tasks.clear()
 
-    await set_bot_status(bot, "sad")
-    await bot.session.close()
-    log.info("🔴 Бот остановлен!")
-
-app = FastAPI(lifespan=lifespan)
-@app.get("/")
-async def root():
-    return RedirectResponse(url="/admin")
-setup_panel(app)
+        await set_bot_status(bot, "sad")
+        await bot.session.close()
+        log.info("🔴 Бот остановлен!")
 
 if __name__ == "__main__":
     try:
-        uvicorn.run(app, host="0.0.0.0", port=3480)
+        asyncio.run(main())
     except KeyboardInterrupt:
         pass
     except Exception as e:

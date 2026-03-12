@@ -12,6 +12,8 @@ services:
     environment:
       - DB_HOST=db
       - DB_PORT=5432
+    ports:
+      - "3480:3480"
     volumes:
       - .:/app
       - ./logs:/app/logs

@@ -326,7 +326,7 @@ async def show_settings_menu(message: types.Message, user: models.User, submenu:
                 if item_conf.options_map and val in item_conf.options_map:
                     display_val = item_conf.options_map[val]
                 else:
-                    display_val = val if val is not None else "None"
+                    display_val = val if val is not None else i18n.text.common.none()
                 
                 lines.append(f"{item_conf.emoji} {item_label}: <b>{display_val}</b>")
             
@@ -1226,7 +1226,7 @@ async def work_callback(callback: types.CallbackQuery, i18n: TranslatorRunner):
         async with SessionLocal() as session:
             earned = await core.settler_applyRewards(work, settler, session)
             reward_text = await utils.format_reward_text(earned)
-            await callback.message.edit_text(f"{status_text}\n\n📦 " + i18n.text.common.received() + f"\n{reward_text}", reply_markup=None)
+            await callback.message.edit_text(f"{status_text}\n\n📦 <b>" + i18n.text.common.received() + f":</b>\n{reward_text}", reply_markup=None)
             await utils.mark_work_completed(settler, session, callback.message.chat.id)
         
         active_games.pop(user_key, None)

@@ -2,7 +2,7 @@
 text-settlement-view-owner-missing = Отсутствует
 text-settlement-view-owner-fallback = User { $telegram_id }
 text-settlement-rename-empty =
-    <b>Укажите название!</b>
+    Укажите название!
     Пример: <code>/name_settlement Новый Град</code>
 text-settlement-rename-length = Название должно быть от 3 до 30 символов.
 text-settlement-rename-not_owner = Управлять именем поселения токмо <b>мэр</b> может! Иди своим путём, простолюдин.

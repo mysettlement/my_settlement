@@ -11,13 +11,13 @@ text-settings-timezone-title =
     
     ⚠️ Змінювати пояс можна раз в <b>{ $cooldown } днів</b>.
 text-settings-timezone-determine = <b>Натисни на кнопку нижче</b>, щоб визначити часовий пояс автоматично.
-text-settings-timezone-error-determine = Неможливо визначити часовий пояс. Спробуйте вибрати його вручну.
+text-settings-timezone-error-determine = Не удалось определить часовой пояс. Попробуй выбрать его вручную.
 text-settings-timezone-determined = Часовий пояс визначено: <b>{ $timezone }</b>
 text-settings-timezone-changed = Часовий пояс встановлено: <b>{ $tz_name }</b>
 text-settings-language-title =
-    Виберіть мову інтерфейсу. Це не вплине на мову повідомлень від інших гравців.
+    Выбери язык интерфейса. Это не повлияет на язык сообщений от других игроков.
     
-    Поточна мова: <b>{ $lang_name }</b>
+    Текущий язык: <b>{ $lang_name }</b>
 # --- button ---
 button-settings-timezone-determine = Визначити
 button-settings-timezone-share_location = Поділитися геопозицією

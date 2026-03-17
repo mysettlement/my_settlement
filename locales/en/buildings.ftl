@@ -1,22 +1,22 @@
 # --- text ---
-text-buildings-town-title = Городские постройки
-text-buildings-my-title = Мои постройки
-text-buildings-empty = Пока здесь пусто.
-text-buildings-status-active = Активно
-text-buildings-status-construction = Построится { $time_left }
-text-buildings-view-active = В обороте!
-text-buildings-view-construction = Стройка закончится <b>{ $time_left }</b>
-text-buildings-view-bonuses = Бонусы:
-text-buildings-catalog-title = Каталог чертежей
-text-buildings-catalog-scope-town = Городские
-text-buildings-catalog-scope-my = Личные
-text-buildings-preview-requirements = Требуется для постройки:
-text-buildings-preview-time = <b>Время строительства:</b> { $time } секунд
-text-buildings-not_found = Здание уже снесено или не существует.
+text-buildings-town-title = Urban structures
+text-buildings-my-title = My Projects
+text-buildings-empty = It's empty here for now.
+text-buildings-status-active = Active
+text-buildings-status-construction = It will be built { $time_left }
+text-buildings-view-active = In circulation!
+text-buildings-view-construction = Construction will be completed <b>{ $time_left }</b>
+text-buildings-view-bonuses = Bonuses:
+text-buildings-catalog-title = Drawing Catalog
+text-buildings-catalog-scope-town = Urban
+text-buildings-catalog-scope-my = Personal
+text-buildings-preview-requirements = The following is required for construction:
+text-buildings-preview-time = <b>Construction time:</b> { $time } seconds
+text-buildings-not_found = The building has already been demolished or no longer exists.
 # --- button ---
-button-buildings-blueprints = Чертежи
-button-buildings-build = Построить!
-button-buildings-back_blueprints = К чертежам
+button-buildings-blueprints = Drawings
+button-buildings-build = Build it!
+button-buildings-back_blueprints = To the drawings
 # --- callback ---
-callback-buildings-build-success = Работа закипела!
-callback-buildings-build-only_mayor = Только мэр может строить городские здания.
+callback-buildings-build-success = Things are really heating up!
+callback-buildings-build-only_mayor = Only the governor can construct municipal buildings.

@@ -1,47 +1,47 @@
-text-other-referral = Тебя пригласил поселенец с ID:
+text-other-referral = You were invited by a resident with ID:
 # --- text - private/greeting ---
 text-other-private-greeting =
-    <b>Здрав будь!</b> Я вестник для игры в <b>Поселения</b>.
-    Чтоб в сходку свою меня позвать, <b>на знак ниже ткни:</b>
-text-other-cancel = Отменено.
+    <b>Hello there!</b> I'm the messenger for the <b>Settlements</b> game.
+    To invite me to your gathering, <b>click the icon below:</b>
+text-other-cancel = Cancelled.
 # --- text - bot events ---
 text-other-bot-left =
-    <b>Я покинул стены поселения «{ $chat_title }»...</b>
-    Буду признателен, если расскажешь, что пошло не так.
-    Это поможет мне стать лучше для других правителей.
+    <b>I have left the settlement "{ $chat_title }"...</b>
+    I would appreciate it if you could tell me what went wrong.
+    This will help me improve for other rulers.
 text-other-bot-added =
-    <b>Добро пожаловать в игру «Поселения»!</b>
+    <b>Welcome to the game "Settlements"!</b>
     
-    Для начала игры используйте команду /start
-text-other-bot-added-no_admin = Пожалуйста, <b>назначьте меня администратором</b> с правами на <i>закрепление</i> и <i>удаление</i> сообщений, <b>чтобы я мог полноценно функционировать!</b>
-text-other-bot-promoted = <b>Спасибо</b>, что назначили меня администратором!
+    To start the game, use the command /start
+text-other-bot-added-no_admin = Please <b>assign me administrator</b> privileges that allow me to <i>pin</i> and <i>delete</i> posts <b>so that I can perform my duties effectively!</b>
+text-other-bot-promoted = <b>Thank</b> you for appointing me as an administrator!
 # --- text - help ---
 text-other-help =
-    <b>Моё Поселение!</b> — текстовая MMORPG о жизни общины.
-    Ты выбираешь ремесло, трудишься в мини-играх и развиваешь поселенца.
+    <b>My Settlement!</b> — a text-based MMORPG about community life.
+    You choose a craft, work in mini-games, and develop your settler.
     
-    <b>Как играть</b>
-    • /start — начать и осмотреть поселение
-    • /me — профиль и действия
-    • /choose_craft — выбрать ремесло
-    • /craft — начать работу
+    <b>How to play</b>
+    • /start — start and explore the settlement
+    • /me — profile and actions
+    • /choose_craft — choose a craft
+    • /craft — start working
     
-    <a href="https://docs.fiwu.uno/">Полные гайды</a>
+    <a href="https://docs.fiwu.uno/">Complete guides</a>
 # --- text - effects ---
-text-other-effects-title = <b>Эффекты { $name }</b>
-text-other-effects-empty = Нет активных эффектов.
-text-other-effects-hint = Бонусы можно получить от личных или городских построек!
+text-other-effects-title = <b>Effects { $name }</b>
+text-other-effects-empty = There are no active effects.
+text-other-effects-hint = You can earn bonuses from personal or city buildings!
 # --- text - promo ---
-text-other-promo-not_developer = Только разработчики могут выдавать ресурсы.
+text-other-promo-not_developer = Only developers can allocate resources.
 text-other-promo-bad_format =
-    Неверный формат команды.
-    <code>!дать эмодзи количество</code> (в ответ или себе)
-text-other-promo-received = <b>{ $name } получил(а):</b>
+    Invalid command format.
+    <code>!send emoji quantity</code> (to someone else or to yourself)
+text-other-promo-received = <b>{ $name } received:</b>
 # --- button ---
-button-other-add = Добавить
-button-other-bot-left-survey = Пройти опрос (1 мин)
-button-other-bot-help = Помощь
-button-other-bot-inspect = Осмотреть поселение
-button-other-bot-cancel = Отмена
+button-other-add = Add
+button-other-bot-left-survey = Take the survey (1 min)
+button-other-bot-help = Help
+button-other-bot-inspect = Explore the settlement
+button-other-bot-cancel = Cancel
 # --- callback ---
-callback-other-lang-not_found = Язык { $lang_code } не найден
+callback-other-lang-not_found = The language "{ $lang_code }" was not found

@@ -30,6 +30,8 @@ class Settings(BaseSettings):
     # -- DEVELOPER --
     DEVELOPER_IDS: list[int] = [] # Список Telegram ID разработчиков бота
     ENABLE_DEVELOPERS_NOTIFY: bool = True # Уведомлять ли разработчиков о важных событиях
+    ADMIN_USERNAME: str = "admin" # Username администратора для админ-панели
+    ADMIN_PASSWORD: str = "change_me" # Пароль администратора для админ-панели
 
     # -- GAME --
     TYPOS_PERCENT: int = 80 # Процент допустимых опечаток в командах. Меньше 60 не рекомендуется.

@@ -71,7 +71,7 @@ Create a `.env` file in the root directory:
 ```env
 BOT_TOKEN=your_telegram_bot_token
 DB_URL=postgresql+asyncpg://user:password@localhost/dbname
-ADMIN_IDS=12345678,87654321
+DEVELOPER_IDS=[1234567890, 0987654321]
 DEBUG=True
 ```
 
@@ -126,6 +126,13 @@ Contributions are welcome! Please feel free to submit pull requests.
 
 Distributed under the GNU License. See [LICENSE](./LICENSE) for more information.
 
----
+<div align="center">
 
-Made with ❤️ by [megatocha](https://github.com/megatocha)
+## 👤 Author
+
+Created with ❤️ by [megatocha](https://github.com/megatocha)
+
+<b>⭐ Add a star to my project!</b> <br>
+![star](https://github.com/user-attachments/assets/cc66e612-3b0f-4232-9467-e246d2d30f90)<br>
+
+</div>

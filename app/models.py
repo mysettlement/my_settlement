@@ -1,6 +1,6 @@
 from sqlalchemy import func, Table, Column, Integer, BigInteger, String, ForeignKey, PickleType, Boolean, Enum as SAEnum, DateTime, Float, UniqueConstraint
-from sqlalchemy.sql import text
-from sqlalchemy.orm import relationship, declarative_base
+from sqlalchemy.sql import select, text
+from sqlalchemy.orm import column_property, relationship, declarative_base
 from sqlalchemy.ext.mutable import MutableList
 from sqlalchemy.dialects.postgresql import JSONB
 from typing import List, Optional, Dict, Callable, Any
@@ -79,19 +79,8 @@ class User(Base):
     owned = relationship("Settlement", back_populates="owner")
     memberships = relationship("Settler", back_populates="user")
 
-class Settlement(Base):
-    __tablename__ = "settlements"
-
-    id = Column(BigInteger, primary_key=True, index=True)
-    chat_id = Column(BigInteger, unique=True, index=True)
-    name = Column(String)
-    owner_id = Column(BigInteger, ForeignKey("users.id"))
-    created_at = Column(DateTime, server_default=func.now(), nullable=False)
-    last_name_change = Column(DateTime, server_default=text("to_timestamp(0)"), nullable=False)
-
-    owner = relationship("User", back_populates="owned")
-    members = relationship("Settler", back_populates="settlement")
-    buildings = relationship("Building", back_populates="settlement")
+    def __str__(self):
+        return f"{self.name} ({self.telegram_id})"
 
 class Settler(Base):
     __tablename__ = "settlers"
@@ -132,6 +121,32 @@ class Settler(Base):
         UniqueConstraint('user_id', 'settlement_id', name='uq_settler_user_settlement'),
     )
 
+    def __str__(self):
+        return f"Settler {self.id}"
+
+class Settlement(Base):
+    __tablename__ = "settlements"
+
+    id = Column(BigInteger, primary_key=True, index=True)
+    chat_id = Column(BigInteger, unique=True, index=True)
+    name = Column(String)
+    owner_id = Column(BigInteger, ForeignKey("users.id"))
+    created_at = Column(DateTime, server_default=func.now(), nullable=False)
+    last_name_change = Column(DateTime, server_default=text("to_timestamp(0)"), nullable=False)
+    member_count = column_property(
+        select(func.count(Settler.id))
+        .where(Settler.settlement_id == id)
+        .correlate_except(Settler)
+        .scalar_subquery()
+    )
+
+    owner = relationship("User", back_populates="owned")
+    members = relationship("Settler", back_populates="settlement")
+    buildings = relationship("Building", back_populates="settlement")
+
+    def __str__(self):
+        return self.name
+
 class Resource(Base):
     __tablename__ = "resources"
 
@@ -148,6 +163,9 @@ class Resource(Base):
     received = Column(Integer, server_default="0")
     spent = Column(Integer, server_default="0")
 
+    def __str__(self):
+        return f"{self.emoji} {self.name}"
+
 class Profession(Base):
     __tablename__ = "professions"
 
@@ -159,6 +177,9 @@ class Profession(Base):
 
     crafts = Column(String, nullable=True, default=None)
     collects = Column(String, nullable=True, default=None)
+
+    def __str__(self):
+        return f"{self.emoji} {self.name}"
 
 class BuildingType(Base):
     __tablename__ = "building_types"
@@ -189,6 +210,9 @@ class BuildingType(Base):
 
     costs = relationship("Resource", secondary=building_type_costs, backref="used_in_buildings")
 
+    def __str__(self):
+        return f"{self.emoji} {self.name}"
+
 class Building(Base):
     __tablename__ = "buildings"
 
@@ -209,6 +233,9 @@ class Building(Base):
         if self.under_construction_until is None:
             return True
         return datetime.now() >= self.under_construction_until
+    
+    def __str__(self):
+        return f"Постройка {self.id} (Type {self.building_type_id})"
 
 
 

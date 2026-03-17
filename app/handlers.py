@@ -25,8 +25,8 @@ if TYPE_CHECKING:
 from app.config import setup_logging, settings
 from app.db import SessionLocal
 from app.gamer import Workflow, Hitting, Catch, Alternation, ProgressBar
-from app.i18n import I18nMiddleware, LANGUAGES_MAP
-from app.utils import active_games, fuzzy, format_count
+from app.i18n import I18nMiddleware, LANGUAGES_MAP, create_translator_hub
+from app.utils import active_games, format_count, TextCommand
 from app import utils, core, models
 
 bot = Bot(
@@ -45,6 +45,7 @@ async def bot_added_to_chat_event(event: types.ChatMemberUpdated):
     #* Приветствие при добавлении бота в группу
     chat = event.chat
     kb = InlineKeyboardBuilder()
+    i18n = create_translator_hub().get_translator_by_locale("ru")
 
     if event.new_chat_member.status in ["left", "kicked"]:
         log.debug(f"{chat.id} | Бот исключен из группы {chat.title}")
@@ -52,12 +53,10 @@ async def bot_added_to_chat_event(event: types.ChatMemberUpdated):
             await bot.send_message(
                 chat_id=event.from_user.id,
                 text=(
-                    f"🏰 <b>Я покинул стены поселения «{chat.title}»...</b>\n"
-                    "Буду признателен, если расскажешь, что пошло не так.\n"
-                    "Это поможет мне стать лучше для других правителей."
+                    "🏰 " + i18n.text.other.bot.left(chat_title=chat.title)
                 ),
                 reply_markup=InlineKeyboardBuilder()
-                .button(text="✍️ Пройти опрос (1 мин)", url="https://tally.so/r/2EXdND")
+                .button(text="✍️ " + i18n.button.other.bot.left.survey(), url="https://tally.so/r/2EXdND")
                 .as_markup()
             )
         except:
@@ -68,38 +67,35 @@ async def bot_added_to_chat_event(event: types.ChatMemberUpdated):
         text_log = (f"{chat.id} | Бот добавлен в группу {chat.title}")
 
         text = (
-            "🏰 <b>Добро пожаловать в игру «Поселения»!</b>\n\n"
-            "🛖 Для начала игры используйте команду /start"
+            "🏰 " + i18n.text.other.bot.added() + "\n\n"
         )
 
-        kb.button(text="❓ Помощь", switch_inline_query_current_chat="Помощь")
-        kb.button(text="🚶‍➡️ Осмотреть поселение", switch_inline_query_current_chat="Осмотреть поселение")
+        kb.button(text="❓ " + i18n.button.other.bot.help(), switch_inline_query_current_chat=i18n.button.other.bot.help())
+        kb.button(text="🚶‍➡️ " + i18n.button.other.bot.inspect(), switch_inline_query_current_chat=i18n.button.other.bot.inspect())
 
         if event.new_chat_member.status == "member":
-            text += "\n\n⚠️ Пожалуйста, <b>назначьте меня администратором</b> с правами на <i>закрепление</i> и <i>удаление</i> сообщений, <b>чтобы я мог полноценно функционировать!</b>"
+            text += "\n\n⚠️ " + i18n.text.other.bot.added.no_admin()
             text_log += " без прав администратора!"
         
     
     elif event.new_chat_member.status == "administrator" and event.old_chat_member.status in ["member", "restricted"]:
-        text = "✅ <b>Спасибо</b>, что назначили меня администратором!"
+        text = "✅ " + i18n.text.other.bot.promoted()
         text_log = f"{chat.id} | Бот назначен администратором"
     
     elif event.new_chat_member.status in ["member", "restricted"] and event.old_chat_member.status == "administrator":
-        text = "⚠️ Пожалуйста, <b>назначьте меня администратором</b> с правами на <i>закрепление</i> и <i>удаление</i> сообщений, <b>чтобы я мог полноценно функционировать!</b>"
+        text = "⚠️ " + i18n.text.other.bot.added.no_admin()
         text_log = f"{chat.id} | Бот снят с администратора"
     
     await event.answer(text, reply_markup=kb.as_markup())
     log.debug(text_log)
 
 
-@fuzzy("мой айди", "my id", "мій айді", "мой ид", "мій ід")
-@router.message(or_f(Command("my_id"), F.text.lower().in_({"мой айди", "мой ид", f"@{settings.BOT_USERNAME} мой айди", "my id", f"@{settings.BOT_USERNAME} my id", "мій айді", "мій ід", f"@{settings.BOT_USERNAME} мій айді", f"@{settings.BOT_USERNAME} мій ід"})))
-async def my_id_command(message: types.Message):
+@router.message(or_f(Command("my_id"), TextCommand("мой айди", "my id", "мій айді", "мой ид", "мій ід")))
+async def my_id_command(message: types.Message, user: models.User, i18n: TranslatorRunner):
     #* Показать ID пользователя
-    user = await core.user_getOrCreate(message.from_user)
-    await show_id_menu(message, user)
+    await show_id_menu(message, user, i18n)
     
-async def show_id_menu(message: types.Message, user: models.User):
+async def show_id_menu(message: types.Message, user: models.User, i18n: TranslatorRunner = None):
     compact_style = user.compact_style
     if compact_style:
         text = (
@@ -110,25 +106,22 @@ async def show_id_menu(message: types.Message, user: models.User):
     else:
         text = (
             f"👤 <b>{user.name}</b>\n"
-            f"🆔 Internal: <code>{user.id}</code>\n"
-            f"💬 Telegram: <code>{user.telegram_id}</code>\n"
+            f"🆔 {i18n.text.settler.id.internal()}: {user.id}\n"
+            f"💬 {i18n.text.settler.id.telegram()}: {user.telegram_id}\n"
         )
     await message.answer(text)
 
 
-@fuzzy("лик", "мой лик", "my profile", "моя подоба")
-@router.message(or_f(Command("me"), F.text.lower().in_({"лик", f"@{settings.BOT_USERNAME} лик", "мой лик", f"@{settings.BOT_USERNAME} мой лик", "my profile", f"@{settings.BOT_USERNAME} my profile", "моя подоба", f"@{settings.BOT_USERNAME} моя подоба"})))
-async def me_command(message: types.Message):
+@router.message(or_f(Command("me"), TextCommand("лик", "мой лик", "my profile", "моя подоба")))
+async def me_command(message: types.Message, user: models.User, i18n: TranslatorRunner):
     #* Профиль поселенца
-    user = await core.user_getOrCreate(message.from_user)
-
     compact_style = user.compact_style
     kb = InlineKeyboardBuilder()
 
     if message.chat.type == "supergroup" or message.chat.type == "group":
         settlement = await core.settlement_getOrCreate(message.chat)
         settler = await core.settler_getOrCreate(user, settlement)
-        craft_text = f"{settler.profession.emoji} {settler.profession.name}" if settler.profession else "❓ Лодырь"
+        craft_text = f"{settler.profession.emoji} {settler.profession.name}" if settler.profession else "❓ " + i18n.text.settler.profile.craft.none()
         can_choose, when = utils.can_choose_craft(settler.last_profession_change)
         can_work, work_countdown = core.settler_canWorkNow(settler)
         
@@ -149,35 +142,35 @@ async def me_command(message: types.Message):
             kb.button(text="💼", switch_inline_query_current_chat="Выбрать ремесло") if can_choose else None
             
         else:
+            overtime_hint = f" (⏳ {i18n.text.settler.profile.overtime.hint()})" if settler.overtime_is_toggled and not settler.quote_is_completed else ""
+            quote_display = f"<b>{settler.quote}/{settler.target_quote}</b>" if not settler.quote_is_completed else f"{settler.target_quote}/{settler.target_quote}"
             text = (
                 f"👤 <b>{user.name}</b>\n"
-                f"🛠 <b>Ремесло:</b> {craft_text}\n"
-                f"💡 <b>Ступень:</b> {settler.level}\n"
-                f"🗂 <b>Опыт:</b> {round(settler.exp)}/{round(settler.target_exp)}\n"
-                f"🏷 <b>Титул:</b> {settler.emoji} {settler.rank}\n"
-                f"📄 <b>Мера:</b> {f'<b>{settler.quote}/{settler.target_quote}</b>' if not settler.quote_is_completed else f'{settler.target_quote}/{settler.target_quote}'} {'(⏳ Страда взята)' if settler.overtime_is_toggled and not settler.quote_is_completed else ''}\n"
-                f"💰 <b>Мошна:</b> {format_count(round(settler.balance), 'куна')}\n"
-                f"\n{(settler.profession.emoji + ' Труд доступен через <b>' + work_countdown + '</b> 🕒') if (settler.profession and not can_work) else ((settler.profession.emoji + ' <b>Доступен труд!</b> ✅') if settler.profession else '')} "
+                f"🛠 <b>{i18n.text.settler.profile.full.craft()}</b>: {craft_text}\n"
+                f"💡 <b>{i18n.text.settler.profile.full.level()}</b>: {settler.level}\n"
+                f"🗂 <b>{i18n.text.settler.profile.full.exp()}</b>: {round(settler.exp)}/{round(settler.target_exp)}\n"
+                f"🏷 <b>{i18n.text.settler.profile.full.rank()}</b>: {settler.emoji} {settler.rank}\n"
+                f"📄 <b>{i18n.text.settler.profile.full.quote()}</b>: {quote_display}{overtime_hint}\n"
+                f"💰 <b>{i18n.text.settler.profile.full.balance()}</b>: {format_count(round(settler.balance), 'куна')}\n"
+                f"\n{(settler.profession.emoji + ' ' + i18n.text.settler.profile.work.cooldown(countdown=work_countdown) + ' 🕒') if (settler.profession and not can_work) else ((settler.profession.emoji + ' <b>' + i18n.text.settler.profile.work.ready() + '</b> ✅') if settler.profession else '')} "
             )
 
-            kb.button(text="🪭 Обличья", switch_inline_query_current_chat="Обличья")
-            kb.button(text="📦 Скарб", switch_inline_query_current_chat="Скарб")
-            kb.button(text="🕒 Страда", switch_inline_query_current_chat="Страда")
-            kb.button(text=f"{settler.profession.emoji} Трудиться", switch_inline_query_current_chat="Трудиться") if settler.profession and can_work else None
-            kb.button(text="💼 Выбрать ремесло", switch_inline_query_current_chat="Выбрать ремесло") if can_choose else None
+            kb.button(text="🪭 " + i18n.button.settler.cosmetics(), switch_inline_query_current_chat="Обличья")
+            kb.button(text="📦 " + i18n.button.settler.inventory(), switch_inline_query_current_chat="Скарб")
+            kb.button(text="🕒 " + i18n.button.settler.overtime(), switch_inline_query_current_chat="Страда")
+            kb.button(text=f"{settler.profession.emoji} " + i18n.button.settler.work(), switch_inline_query_current_chat="Трудиться") if settler.profession and can_work else None
+            kb.button(text="💼 " + i18n.button.settler.choose_craft(), switch_inline_query_current_chat="Выбрать ремесло") if can_choose else None
         
         kb.adjust(2)
         await message.answer(text, reply_markup=kb.as_markup())
 
     elif message.chat.type == "private":
-        await show_id_menu(message, user)
+        await show_id_menu(message, user, i18n)
 
 
-@fuzzy("настройки", "settings", "налаштування")
-@router.message(or_f(Command("settings"), F.text.lower().in_({"настройки", f"@{settings.BOT_USERNAME} настройки", "settings", f"@{settings.BOT_USERNAME} settings", "налаштування", f"@{settings.BOT_USERNAME} налаштування"})))
-async def settings_command(message: types.Message, i18n: TranslatorRunner):
+@router.message(or_f(Command("settings"), TextCommand("настройки", "settings", "налаштування")))
+async def settings_command(message: types.Message, user: models.User, i18n: TranslatorRunner):
     #* Настройки пользователя
-    user = await core.user_getOrCreate(message.from_user)
     await show_settings_menu(message, user, i18n=i18n)
     
 @router.callback_query(F.data.startswith("settings:"))
@@ -326,7 +319,7 @@ async def show_settings_menu(message: types.Message, user: models.User, submenu:
                 if item_conf.options_map and val in item_conf.options_map:
                     display_val = item_conf.options_map[val]
                 else:
-                    display_val = val if val is not None else "None"
+                    display_val = val if val is not None else i18n.text.common.none()
                 
                 lines.append(f"{item_conf.emoji} {item_label}: <b>{display_val}</b>")
             
@@ -347,7 +340,7 @@ async def show_settings_menu(message: types.Message, user: models.User, submenu:
 @router.callback_query(F.data == "ask_location")
 async def ask_location_callback(callback: types.CallbackQuery, i18n: TranslatorRunner):
     kb = types.ReplyKeyboardMarkup(
-        keyboard=[[types.KeyboardButton(text="📍 " + i18n.button.settings.timezone.share_location(), request_location=True), types.KeyboardButton(text="Отмена")]],
+        keyboard=[[types.KeyboardButton(text="📍 " + i18n.button.settings.timezone.share_location(), request_location=True), types.KeyboardButton(text=i18n.button.other.bot.cancel())]],
         resize_keyboard=True,
         one_time_keyboard=True
     )
@@ -407,7 +400,7 @@ async def set_language(callback: types.CallbackQuery, i18n_middleware: I18nMiddl
     
     lang_code = callback.data.split(":")[1]
     if lang_code not in LANGUAGES_MAP:
-        await callback.answer(f"⚠️ Language {lang_code} not found", show_alert=True)
+        await callback.answer("⚠️ " + i18n.callback.other.lang_not_found(lang_code=lang_code), show_alert=True)
         return
 
     async with SessionLocal() as session:
@@ -426,32 +419,22 @@ async def set_language(callback: types.CallbackQuery, i18n_middleware: I18nMiddl
 
 
 @router.message(F.text.lower() == "отмена")
-async def cancel_location(message: types.Message):
-    await message.answer("Отменено."
-    "", reply_markup=types.ReplyKeyboardRemove())
+async def cancel_location(message: types.Message, i18n: TranslatorRunner):
+    await message.answer(i18n.text.other.cancel(), reply_markup=types.ReplyKeyboardRemove())
 
-@fuzzy("help", "помощь", "допомога")
-@router.message(or_f(Command("help"), F.text.lower().in_({"помощь", f"@{settings.BOT_USERNAME} помощь", "help", f"@{settings.BOT_USERNAME} help", "допомога", f"@{settings.BOT_USERNAME} допомога"})))
-async def help_command(message: types.Message):
+@router.message(or_f(Command("help"), TextCommand("помощь", "help", "допомога")))
+async def help_command(message: types.Message, i18n: TranslatorRunner):
     #* Помощь и руководство по игре
     help_text = (
-        "🛖 <b>Моё Поселение!</b> — текстовая MMORPG о жизни общины.\n"
-        "Ты выбираешь ремесло, трудишься в мини-играх и развиваешь поселенца.\n\n"
-        "▶️ <b>Как играть</b>\n"
-        "• /start — начать и осмотреть поселение\n"
-        "• /me — профиль и действия\n"
-        "• /choose_craft — выбрать ремесло\n"
-        "• /craft — начать работу\n\n"
-        '<a href="https://mysettlement.github.io/">📚 Полные гайды</a>'
+        "🛖 " + i18n.text.other.help()
     )
     await message.answer(help_text)
 
 
 
 @router.message(or_f(and_f(F.chat.type == "private", CommandStart()), F.chat.type == "private"))
-async def private_handler(message: types.Message, command: CommandObject = None, i18n: TranslatorRunner = None):
+async def private_handler(message: types.Message, user: models.User, command: CommandObject = None, i18n: TranslatorRunner = None):
     #* Личные сообщения и рефералы
-    user = await core.user_getOrCreate(message.from_user)
     if command and command.args:
         args = command.args
         args_list = args.split("_")
@@ -475,18 +458,17 @@ async def private_handler(message: types.Message, command: CommandObject = None,
         # _, work_id,  = args.split("_")
 
     kb = InlineKeyboardBuilder()
-    kb.button(text="➕ Добавить", url=f"https://t.me/{settings.BOT_USERNAME}?startgroup=new")
+    kb.button(text="➕ " + i18n.button.other.add(), url=f"https://t.me/{settings.BOT_USERNAME}?startgroup=new")
     kb.button(text="⚙️ " + i18n.text.settings.title(), callback_data="settings:default")
     
-    await message.reply(text="<b>Здрав будь!</b> Я вестник для игры в 🛖 <b>Поселения</b>.\nЧтоб в сходку свою меня позвать, <b>на знак ниже ткни:</b>", reply_markup=kb.as_markup())
+    await message.reply(text="🛖 " + i18n.text.other.private.greeting(), reply_markup=kb.as_markup())
 
 
 
 # ================= Group chats ================
 
-@fuzzy("осмотреть город", "осмотреть поселение", "мое поселение", "моё поселение", "town")
-@router.message(or_f(CommandStart(), Command("town"), F.text.lower().in_({"осмотреть город", f"@{settings.BOT_USERNAME} осмотреть город", "осмотреть поселение", f"@{settings.BOT_USERNAME} осмотреть поселение", "town", f"@{settings.BOT_USERNAME} town"})))
-async def start_command(message: types.Message):
+@router.message(or_f(CommandStart(), Command("town"), Command("settlement"), TextCommand("осмотреть поселение", "оглянути поселення", "town")))
+async def start_command(message: types.Message, i18n: TranslatorRunner):
     #* Осмотр поселения / старт игры
     async with SessionLocal() as session:
         user = await core.user_getOrCreate(message.from_user, session=session)
@@ -496,18 +478,19 @@ async def start_command(message: types.Message):
         await session.refresh(settlement, ['members'])
 
     kb = InlineKeyboardBuilder()
-    kb.button(text="👤 Лик", switch_inline_query_current_chat="Лик")
+    kb.button(text="👤 " + i18n.button.settlement.profile(), switch_inline_query_current_chat="Лик")
     if settlement.owner.telegram_id == message.from_user.id:
-        kb.row(InlineKeyboardButton(text="📜 Переименовать", switch_inline_query_current_chat="Переименовать поселение"), InlineKeyboardButton(text="🏗 Постройки", switch_inline_query_current_chat="Городские постройки"))
+        kb.row(InlineKeyboardButton(text="📜 " + i18n.button.settlement.rename(), switch_inline_query_current_chat="Переименовать поселение"), InlineKeyboardButton(text="🏗 " + i18n.button.settlement.buildings(), switch_inline_query_current_chat="Городские постройки"))
 
+    owner_name = settlement.owner.name or (i18n.text.settlement.view.owner.fallback(telegram_id=settlement.owner.telegram_id) if settlement.owner else i18n.text.settlement.view.owner.missing())
     text = (
         f"<b>{settlement.name}</b> (основан {utils.format_relative_time(settlement.created_at)})\n"
-        f"👥{len(settlement.members)} 👑 <b>{settlement.owner.name or (f"User {settlement.owner.telegram_id}" if settlement.owner else "Отсутствует")}</b>"
+        f"👥{len(settlement.members)} 👑 <b>{owner_name}</b>"
     )
     await message.answer(text, reply_markup=kb.as_markup())
 
 @router.message(or_f(Command("name_settlement"), F.text.lower().startswith(("назвать поселение", f"@{settings.BOT_USERNAME} назвать поселение", "переименовать поселение", f"@{settings.BOT_USERNAME} переименовать поселение", "name settlement", f"@{settings.BOT_USERNAME} name settlement", "назвати поселення", f"@{settings.BOT_USERNAME} назвати поселення"))))
-async def name_settlement(message: types.Message, command: CommandObject = None):
+async def name_settlement(message: types.Message, command: CommandObject = None, i18n: TranslatorRunner = None):
     #* Смена имени поселения
     raw_new_name = ""
     if command:
@@ -520,16 +503,14 @@ async def name_settlement(message: types.Message, command: CommandObject = None)
                 break
     
     if not raw_new_name:
-        await message.answer("⚠️ <b>Укажите название!</b>\nПример: <code>/name_settlement Новый Град</code>")
+        await message.answer("⚠️ <b>" + i18n.text.settlement.rename.empty() + "</b>")
         return
 
     if len(raw_new_name) > 30 or len(raw_new_name) < 3:
-        await message.answer("⚠️ Название должно быть от 3 до 30 символов.")
+        await message.answer("⚠️ " + i18n.text.settlement.rename.length())
         return
 
     new_name = html.escape(raw_new_name)
-
-    user = await core.user_getOrCreate(message.from_user)
     
     async with SessionLocal() as session:
         result = await session.execute(
@@ -543,7 +524,7 @@ async def name_settlement(message: types.Message, command: CommandObject = None)
             return
 
         if not settlement.owner or settlement.owner.telegram_id != message.from_user.id:
-            await message.answer("⚠️ Управлять именем поселения токмо 👑 <b>мэр</b> может! Иди своим путём, простолюдин.")
+            await message.answer("⚠️ " + i18n.text.settlement.rename.not_owner())
             return
 
         now = arrow.now()
@@ -553,18 +534,14 @@ async def name_settlement(message: types.Message, command: CommandObject = None)
         if now < cooldown_expires:
             remaining_time = utils.format_relative_time(cooldown_expires, now)
             await message.answer(
-                f"📜 <b>Не спеши, правитель.</b>\n"
-                f"Чернила на прошлом указе ещё не высохли. Негоже так часто имена менять.\n\n"
-                f"⏳ Новую грамоту сможешь подать <b>{remaining_time}</b>."
+                "📜 " + i18n.text.settlement.rename.cooldown(time_left=remaining_time)
             )
             return
 
         old_name = settlement.name
         if new_name == old_name:
             await message.answer(
-                f"📜 <b>К чему тратить чернила?</b>\n"
-                f"Писарь не станет марать пергамент понапрасну.\n\n"
-                f"Ты меняешь <b>{old_name}</b> на <b>{new_name}</b>. Суть едина."
+                "📜 " + i18n.text.settlement.rename.same(old_name=old_name, new_name=new_name)
             )
             return
         
@@ -574,55 +551,52 @@ async def name_settlement(message: types.Message, command: CommandObject = None)
         await session.commit()
         
         await message.answer(
-            f"📜 <b>Быть по сему!</b>\n\n"
-            f"Имя <b>{old_name}</b> уходит в легенды. Отныне и впредь владения сии величаются <b>{new_name}</b>! 📌\n\n"
-            f"<b>Да здравствует {new_name}!</b> 💪"
+            "📜 " + i18n.text.settlement.rename.success(old_name=old_name, new_name=new_name)
         )
         log.debug(f"{message.chat.id} | Переименовано поселение {old_name} -> {new_name}")
 
 
-@fuzzy("городские постройки", "town buildings", "міські будівлі")
-@router.message(or_f(Command("town_buildings"), F.text.lower().in_({"городские постройки", f"@{settings.BOT_USERNAME} городские постройки", "town buildings", f"@{settings.BOT_USERNAME} town buildings", "міські будівлі", f"@{settings.BOT_USERNAME} міські будівлі"})))
-async def town_buildings_command(message: types.Message):
+@router.message(or_f(Command("town_buildings"), TextCommand("городские постройки", "town buildings", "міські будівлі")))
+async def town_buildings_command(message: types.Message, user: models.User, i18n: TranslatorRunner):
     #* Городские постройки (только для мэра)
-    user = await core.user_getOrCreate(message.from_user)
     settlement = await core.settlement_getOrCreate(message.chat)
 
-    await show_buildings_menu(message, user, settlement, "town")
+    await show_buildings_menu(message, user, settlement, "town", i18n=i18n)
 
-@fuzzy("мои постройки", "my buildings", "мої будівлі")
-@router.message(or_f(Command("my_buildings"), F.text.lower().in_({"мои постройки", f"@{settings.BOT_USERNAME} мои постройки", "my buildings", f"@{settings.BOT_USERNAME} my buildings", "мої будівлі", f"@{settings.BOT_USERNAME} мої будівлі"})))
-async def my_buildings_command(message: types.Message):
+@router.message(or_f(Command("my_buildings"), TextCommand("мои постройки", "my buildings", "мої будівлі")))
+async def my_buildings_command(message: types.Message, user: models.User, i18n: TranslatorRunner):
     #* Личные постройки
-    user = await core.user_getOrCreate(message.from_user)
     settlement = await core.settlement_getOrCreate(message.chat)
     
-    await show_buildings_menu(message, user, settlement, "my")
+    await show_buildings_menu(message, user, settlement, "my", i18n=i18n)
 
-async def show_buildings_menu(message: types.Message, user: models.User, settlement: models.Settlement, scope: str, is_edit: bool = False):
+async def show_buildings_menu(message: types.Message, user: models.User, settlement: models.Settlement, scope: str, is_edit: bool = False, i18n: TranslatorRunner = None):
     """Общая функция для показа меню списка построек"""
     settler = await core.settler_getOrCreate(user, settlement)
     
     async with SessionLocal() as session:
         buildings = await core.building_getByScope(settlement, settler, scope, session)
         
-        text = "🏙 <b>Городские постройки</b>" if scope == "town" else "🏡 <b>Мои постройки</b>"
+        text = ("🏙 <b>" + i18n.text.buildings.town.title() + "</b>") if scope == "town" else ("🏡 <b>" + i18n.text.buildings.my.title() + "</b>") if i18n else ("🏙 <b>Городские постройки</b>" if scope == "town" else "🏡 <b>Мои постройки</b>")
         
         kb = InlineKeyboardBuilder()
         
         if not buildings:
-            text += "\n\n🕸 Пока здесь пусто."
+            text += "\n\n🕸 " + (i18n.text.buildings.empty() if i18n else "Пока здесь пусто.")
         else:
             for b in buildings:
                 time_left = utils.format_relative_time(b.under_construction_until) if not b.is_ready else None
-                status = ("✅" if user.compact_style else "✅ Активно") if b.is_ready else (f"⏳ ({time_left})" if user.compact_style else f"⏳ Построится {time_left}")
+                if b.is_ready:
+                    status = "✅" if user.compact_style else "✅ " + (i18n.text.buildings.status.active() if i18n else "Активно")
+                else:
+                    status = f"⏳ ({time_left})" if user.compact_style else "⏳ " + (i18n.text.buildings.status.construction(time_left=time_left) if i18n else f"Построится {time_left}")
                 text += f"\n\n{b.type.emoji} <b>{b.type.name}</b> ({b.level}/{b.type.max_level}):" + f"\n{status}\n" if not user.compact_style else f"{status}\n"
                 btn_text = f"{b.type.emoji} {b.type.name} ({'✅' if b.is_ready else '⏳'})"
                 kb.button(text=btn_text, callback_data=f"bld_view:{b.id}:{scope}")
             
         kb.adjust(2)
         
-        kb.row(InlineKeyboardButton(text="🏗 Чертежи", callback_data=f"bld_list:{scope}"))
+        kb.row(InlineKeyboardButton(text="🏗 " + (i18n.button.buildings.blueprints() if i18n else "Чертежи"), callback_data=f"bld_list:{scope}"))
         
         if is_edit:
             await message.edit_text(text, reply_markup=kb.as_markup())
@@ -643,7 +617,7 @@ async def buildings_callback(callback: types.CallbackQuery, i18n: TranslatorRunn
     # === ВОЗВРАТ В МЕНЮ ===
     if action == "bld_menu":
         scope = parts[1]
-        await show_buildings_menu(callback.message, user, settlement, scope, is_edit=True)
+        await show_buildings_menu(callback.message, user, settlement, scope, is_edit=True, i18n=i18n)
 
     # === КАТАЛОГ ЧЕРТЕЖЕЙ ===
     elif action == "bld_list":
@@ -653,7 +627,7 @@ async def buildings_callback(callback: types.CallbackQuery, i18n: TranslatorRunn
             stmt = select(models.BuildingType)
             all_types = (await session.execute(stmt)).scalars().all()
             
-            text = f"🏗 <b>Каталог чертежей</b> ({('Городские' if not compact_style else '🏙') if scope == 'town' else ('Личные' if not compact_style else '🏡')})\n\n"
+            text = f"🏗 <b>" + i18n.text.buildings.catalog.title() + f"</b> ({(i18n.text.buildings.catalog.scope.town() if not compact_style else '🏙') if scope == 'town' else (i18n.text.buildings.catalog.scope.my() if not compact_style else '🏡')})\n\n"
             
             kb = InlineKeyboardBuilder()
             buttons = []
@@ -673,7 +647,7 @@ async def buildings_callback(callback: types.CallbackQuery, i18n: TranslatorRunn
                     buttons.append(InlineKeyboardButton(text=f"[{status_icon}] {bt.emoji} {bt.name}", callback_data=f"bld_preview:{bt.id}:{scope}"))
             
             if not buttons:
-                text += "🕸 Пока здесь пусто."
+                text += "🕸 " + i18n.text.buildings.empty()
             
             kb.row(*buttons, width=2)
             kb.row(InlineKeyboardButton(text="🔙 " + i18n.button.common.back(), callback_data=f"bld_menu:{scope}"))
@@ -690,21 +664,21 @@ async def buildings_callback(callback: types.CallbackQuery, i18n: TranslatorRunn
             building = (await session.execute(stmt)).scalars().first()
             
             if not building:
-                await callback.answer("🏚 Здание уже снесено или не существует.", show_alert=True)
-                await show_buildings_menu(callback.message, user, settlement, scope, is_edit=True)
+                await callback.answer("🏚 " + i18n.text.buildings.not_found(), show_alert=True)
+                await show_buildings_menu(callback.message, user, settlement, scope, is_edit=True, i18n=i18n)
                 return
 
             if compact_style:
                 status_text = "⚪️" if building.is_ready else f"🔨 <b>{utils.format_relative_time(building.under_construction_until)}</b>"
             else:
-                status_text = "⚪️ <b>В обороте!</b>" if building.is_ready else f"🔨 Стройка закончится <b>{utils.format_relative_time(building.under_construction_until)}</b>"
+                status_text = ("⚪️ <b>" + i18n.text.buildings.view.active() + "</b>") if building.is_ready else ("🔨 " + i18n.text.buildings.view.construction(time_left=utils.format_relative_time(building.under_construction_until)))
             
             has_bonuses, bonuses = utils.format_bonuses_text(building.type.bonuses)
             
             text = (
                 f"{building.type.emoji} <b>{building.type.name}</b> ({building.level}/{building.type.max_level}) {status_text}\n"
                 f"{building.type.description}\n\n"
-                f"🎁 <b>Бонусы:</b>\n{bonuses}"
+                f"🎁 <b>" + i18n.text.buildings.view.bonuses() + f"</b>\n{bonuses}"
             )
             
             kb = InlineKeyboardBuilder()
@@ -741,16 +715,16 @@ async def buildings_callback(callback: types.CallbackQuery, i18n: TranslatorRunn
             req_content = "\n".join(filter(None, [prof_text, res_text]))
 
             if req_content:
-                lines.append(f"🔨 <b>Требуется для постройки:</b>")
+                lines.append(f"🔨 <b>" + i18n.text.buildings.preview.requirements() + "</b>")
                 lines.append(f"{req_content}")
                 lines.append("")
 
             if has_bonuses:
-                lines.append(f"🎁 <b>Бонусы:</b>")
+                lines.append(f"🎁 <b>" + i18n.text.buildings.view.bonuses() + "</b>")
                 lines.append(f"{bonuses}")
                 lines.append("")
 
-            lines.append(f"⏳ <b>Время строительства:</b> {bt.construction_time} секунд")
+            lines.append("⏳ " + i18n.text.buildings.preview.time(time=bt.construction_time))
 
             text = "\n".join(lines)
 
@@ -759,12 +733,12 @@ async def buildings_callback(callback: types.CallbackQuery, i18n: TranslatorRunn
             if is_res_enough and is_prof_enough:
                 if (scope != "town" or is_mayor):
                     kb.button(
-                        text="🔨 Построить!", 
+                        text="🔨 " + i18n.button.buildings.build(), 
                         callback_data=f"bld_start:{bt.id}:{scope}"
                     )
                 
             
-            kb.row(InlineKeyboardButton(text="🔙 К чертежам", callback_data=f"bld_list:{scope}"))
+            kb.row(InlineKeyboardButton(text="🔙 " + i18n.button.buildings.back_blueprints(), callback_data=f"bld_list:{scope}"))
             
             await callback.message.edit_text(text, reply_markup=kb.as_markup())
 
@@ -774,25 +748,23 @@ async def buildings_callback(callback: types.CallbackQuery, i18n: TranslatorRunn
         scope = parts[2]
 
         if scope == "town" and (not settlement.owner or settlement.owner.telegram_id != callback.from_user.id):
-            await callback.answer("⚠️ Только мэр может строить городские здания.", show_alert=True)
-            await show_buildings_menu(callback.message, user, settlement, scope, is_edit=True)
+            await callback.answer("⚠️ " + i18n.callback.buildings.build.only_mayor(), show_alert=True)
+            await show_buildings_menu(callback.message, user, settlement, scope, is_edit=True, i18n=i18n)
             return
         
         async with SessionLocal() as session:
             is_prof_enough, msg = await core.building_startBuilding(settler, bt_id, scope, session)
             
             if is_prof_enough:
-                await callback.answer("✅ Работа закипела!", show_alert=False)
-                await show_buildings_menu(callback.message, user, settlement, scope, is_edit=True)
+                await callback.answer("✅ " + i18n.callback.buildings.build.success(), show_alert=False)
+                await show_buildings_menu(callback.message, user, settlement, scope, is_edit=True, i18n=i18n)
             else:
                 await callback.answer(f"{msg}", show_alert=True)
 
 
-@fuzzy("бонусы", "bonuses", "эффекты", "бонуси","ефекти")
-@router.message(or_f(Command("bonuses"), Command("effects"), F.text.lower().in_({"бонусы", f"@{settings.BOT_USERNAME} бонусы", "bonuses", "эффекты", f"@{settings.BOT_USERNAME} эффекты", f"@{settings.BOT_USERNAME} bonuses", "бонуси", f"@{settings.BOT_USERNAME} бонуси", "ефекти", f"@{settings.BOT_USERNAME} ефекти"})))
-async def bonuses_command(message: types.Message):
+@router.message(or_f(Command("bonuses"), Command("effects"), TextCommand("бонусы", "bonuses", "эффекты", "бонуси", "ефекти")))
+async def bonuses_command(message: types.Message, user: models.User, i18n: TranslatorRunner):
     #* Просмотр активных эффектов
-    user = await core.user_getOrCreate(message.from_user)
     settlement = await core.settlement_getOrCreate(message.chat)
     settler = await core.settler_getOrCreate(user, settlement)
 
@@ -808,32 +780,30 @@ async def bonuses_command(message: types.Message):
         
         has_bonuses, text_bonuses = utils.format_bonuses_text(data)
     
-    text = f"✨ <b>Эффекты {user.name}</b>\n\n"
+    text = f"✨ " + i18n.text.other.effects.title(name=user.name) + "\n\n"
     
     if not has_bonuses:
-        text += "Нет активных эффектов."
+        text += i18n.text.other.effects.empty()
         if user.show_hints:
-            text += "\n\nℹ️ Бонусы можно получить от личных или городских построек!"
+            text += "\n\nℹ️ " + i18n.text.other.effects.hint()
     else:
         text += text_bonuses
 
     await message.answer(text)
 
 
-@fuzzy("лепота", "обличья", "косметика", "cosmetics", "оздоба", "врода")
-@router.message(or_f(Command("cosmetics"), F.text.lower().in_({"лепота", f"@{settings.BOT_USERNAME} лепота", "обличья", f"@{settings.BOT_USERNAME} обличья", "оздоба", f"@{settings.BOT_USERNAME} оздоба", "врода", f"@{settings.BOT_USERNAME} врода", "cosmetics", f"@{settings.BOT_USERNAME} cosmetics"})))
-async def cosmetics_command(message: types.Message):
+@router.message(or_f(Command("cosmetics"), TextCommand("лепота", "обличья", "cosmetics", "оздоба", "врода")))
+async def cosmetics_command(message: types.Message, user: models.User, i18n: TranslatorRunner):
     #* Лепота поселенца
-    user = await core.user_getOrCreate(message.from_user)
     settlement = await core.settlement_getOrCreate(message.chat)
     settler = await core.settler_getOrCreate(user, settlement)
     
     if not settler:
         log.error(f"Не удалось получить или создать поселенца для пользователя {message.from_user.id} в функции cosmetics_command()")
-        await message.answer("❌ Беда приключилась, вести о тебе не сысканы. Погоди малость, опосля пытай снова.")
+        await message.answer("❌ " + i18n.text.settler.error.not_found())
         return
 
-    text = f"🪭 <b>Доступные обличья</b>\n\n🎭 <b>Текущий эмодзи</b>: {settler.emoji}"
+    text = f"🪭 <b>" + i18n.text.settler.cosmetics.title() + f"</b>\n\n🎭 <b>" + i18n.text.settler.cosmetics.current() + f":</b> {settler.emoji}"
     
     all_emojis = []
     if settler.rank_emoji_available:
@@ -844,7 +814,7 @@ async def cosmetics_command(message: types.Message):
     all_emojis = list(dict.fromkeys(all_emojis))
     
     if not all_emojis:
-        text += "\n❌ Нет доступных эмодзи"
+        text += "\n❌ " + i18n.text.settler.cosmetics.none()
         await message.answer(text=text)
         return
     
@@ -882,7 +852,7 @@ async def cosmetics_select(callback: types.CallbackQuery, i18n: TranslatorRunner
             await session.refresh(db_settler, ["user", "settlement"])
             log.debug(f"{callback.message.chat.id} | {user.id} | ✅ Эмодзи изменен: {emoji}")
 
-    await callback.answer(text=f"🪭 Облик принят: {emoji}")
+    await callback.answer(text=f"🪭 " + i18n.text.settler.cosmetics.accepted(emoji=emoji))
     
     
     all_emojis = []
@@ -903,14 +873,12 @@ async def cosmetics_select(callback: types.CallbackQuery, i18n: TranslatorRunner
                 ))
     
     kb = InlineKeyboardBuilder().row(*buttons).as_markup()
-    await callback.message.edit_text(text=f"🪭 <b>Доступные обличья</b>\n\n🎭 <b>Текущий эмодзи</b>: {db_settler.emoji}", reply_markup=kb)
+    await callback.message.edit_text(text=f"🪭 " + i18n.text.settler.cosmetics.title() + f"\n\n🎭 " + i18n.text.settler.cosmetics.current(emoji=db_settler.emoji), reply_markup=kb)
 
 
-@fuzzy("страда", "overtime", "понадмір", "зайва міра")
-@router.message(or_f(Command("overtime"), F.text.lower().in_({"страда", f"@{settings.BOT_USERNAME} страда", "overtime", f"@{settings.BOT_USERNAME} overtime", "понадмір", f"@{settings.BOT_USERNAME} понадмір", "зайва міра", f"@{settings.BOT_USERNAME} зайва міра"})))
-async def overtime_command(message: types.Message):
+@router.message(or_f(Command("overtime"), TextCommand("страда", "overtime", "понадмір", "зайва міра")))
+async def overtime_command(message: types.Message, user: models.User, i18n: TranslatorRunner):
     #* Страда поселенца
-    user = await core.user_getOrCreate(message.from_user)
     settlement = await core.settlement_getOrCreate(message.chat)
     settler = await core.settler_getOrCreate(user, settlement)
     
@@ -922,21 +890,21 @@ async def overtime_command(message: types.Message):
     buttons = []
     kb = InlineKeyboardBuilder()
 
-    text = f"🕒 <b>Страда</b>\n"
-    text += f"ℹ️ Коль добра тебе мало, можешь <b>страду</b> взять. С каждой страдой работа тяжелеет, мудрости меньше наберёшь, но грошей столько же получишь. Коль <b>не поспеешь труд свершить</b> до нового дня (🕒 {reset_countdown}), на тебя <b>виру</b> наложат в 💰 <b>20</b>.\n\n" if settler.level < 2 and user.show_hints == True else ""
+    text = f"🕒 <b>" + i18n.text.settler.overtime.title() + "</b>\n"
+    text += f"ℹ️ " + i18n.text.settler.overtime.hint(reset_countdown=reset_countdown) + "\n\n" if settler.level < 2 and user.show_hints == True else ""
     if settler.overtime_is_toggled and not settler.quote_is_completed:
         if compact_style:
             text += f"🔘 {overtime_count} (🕒 {reset_countdown}) | 📄 <b>{quote}/{target_quote}</b>"
         else:
-            text += f"Состояние страды: ⚪️ <b>Активна</b>\nСколько страды взято: {overtime_count} (🕒 <b>{reset_countdown}</b> до новой страды)\n📄 Мера: <b>{quote}/{target_quote}</b>"
+            text += i18n.text.settler.overtime.status.active(overtime_count=overtime_count, reset_countdown=reset_countdown, quote=quote, target_quote=target_quote)
     elif not settler.overtime_is_toggled and not settler.quote_is_completed:
-        text += "⚠️ Страду брать можно, токмо основную 📄 меру свершив!"
+        text += "⚠️ " + i18n.text.settler.overtime.status.need_quota()
     else:
         if compact_style:
             text += f"🔘 {overtime_count}"
         else:
-            text += f"Состояние страды: 🔘 <b>Неактивна</b>\nСколько страды взято: {overtime_count}"
-        buttons.append(InlineKeyboardButton(text="🕒 Взять страду", callback_data="overtime_take"))
+            text += i18n.text.settler.overtime.status.inactive(overtime_count=overtime_count)
+        buttons.append(InlineKeyboardButton(text="🕒 " + i18n.button.settler.overtime.take(), callback_data="overtime_take"))
 
     kb.row(*buttons)
     await message.reply(text, reply_markup=kb.as_markup(), disable_notification=True)
@@ -954,7 +922,7 @@ async def overtime_take(callback: types.CallbackQuery, i18n: TranslatorRunner):
         settler = await core.settler_getOrCreate(user, settlement)
 
         if settler.overtime_is_toggled and not settler.quote_is_completed:
-            await callback.answer("⚠️ Страда уже взята!", True)
+            await callback.answer("⚠️ " + i18n.callback.settler.overtime.already(), True)
             return
 
         new_quote = round((settler.level * 0.85 + 6) + (2 * (settler.overtime_count + 1)))
@@ -975,18 +943,16 @@ async def overtime_take(callback: types.CallbackQuery, i18n: TranslatorRunner):
         await session.commit()
         
         reset_countdown = utils.get_daily_reset_countdown(user.timezone)
-        await callback.message.edit_text(f"⏳ <b>Страда взята!</b> (📄 0/{new_quote})\nТебе осталось 🕒 <b>{reset_countdown}</b> чтоб новую меру исполнить!")
+        await callback.message.edit_text("⏳ " + i18n.text.settler.overtime.taken(new_quote=new_quote, reset_countdown=reset_countdown))
 
 
-@fuzzy("скарб", "inventory", "інвентар", "инвентарь")
-@router.message(or_f(Command("inventory"), F.text.lower().in_({"скарб", f"@{settings.BOT_USERNAME} скарб", "инвентарь", f"@{settings.BOT_USERNAME} инвентарь", "інвентар", f"@{settings.BOT_USERNAME} інвентар", "inventory", f"@{settings.BOT_USERNAME} inventory"})))
-async def inventory_command(message: types.Message):
+@router.message(or_f(Command("inventory"), TextCommand("скарб", "инвентарь", "інвентар", "inventory")))
+async def inventory_command(message: types.Message, user: models.User, i18n: TranslatorRunner):
     #* Скарб поселенца
-    user = await core.user_getOrCreate(message.from_user)
     settlement = await core.settlement_getOrCreate(message.chat)
     settler = await core.settler_getOrCreate(user, settlement)
 
-    text = f"📦 <b>Скарби</b>\n\n"
+    text = f"📦 <b>" + i18n.text.settler.inventory.title() + "</b>\n\n"
     
     async with SessionLocal() as session:
         compact_style = user.compact_style
@@ -998,9 +964,9 @@ async def inventory_command(message: types.Message):
         resources_data = result.all()
         
         if not resources_data:
-            text += "❌ Пусто"
+            text += "❌ " + i18n.text.settler.inventory.empty()
             if settler.level < 5 and user.show_hints == True:
-                text += "\n\nℹ️ Ресурсы могут добывать разные специалисты, а также их можно получить в награду за выполнение событий."
+                text += "\n\nℹ️ " + i18n.text.settler.inventory.hint()
             await message.answer(text=text)
             return
         
@@ -1020,11 +986,9 @@ async def inventory_command(message: types.Message):
     await message.answer(text=text)
 
 
-@fuzzy("выбрать ремесло", "choose craft", "вибрати ремесло")
-@router.message(or_f(Command("choose_craft"), F.text.lower().in_({"выбрать ремесло", f"@{settings.BOT_USERNAME} выбрать ремесло", "choose craft", f"@{settings.BOT_USERNAME} choose craft"})))
-async def choose_craft_command(message: types.Message):
+@router.message(or_f(Command("choose_craft"), TextCommand("выбрать ремесло", "обрати ремесло", "choose craft")))
+async def choose_craft_command(message: types.Message, user: models.User, i18n: TranslatorRunner):
     #* Выбор ремесла поселенца
-    user = await core.user_getOrCreate(message.from_user)
     settlement = await core.settlement_getOrCreate(message.chat)
     settler = await core.settler_getOrCreate(user, settlement)
 
@@ -1033,14 +997,14 @@ async def choose_craft_command(message: types.Message):
         professions = result.scalars().all()
     
     if not professions:
-        await message.answer('❌ Нет доступных ремесел. Обратитесь к <a href="https://t.me/megatocha">создателю.</a>')
+        await message.answer('❌ ' + i18n.text.craft.no_professions())
         return
     
     can_choose, when = True, ""
     if settler.profession_id:
             can_choose, when = utils.can_choose_craft(settler.last_profession_change)
     
-    text = f"💼 <b>Выбор ремесла</b>\n{'⚠️ Сменить ремесло можно через <b>' + when + '</b>\n' if not can_choose and settler.profession else ''}\n"
+    text = f"💼 <b>" + i18n.text.craft.choose.title() + "</b>\n" + ('⚠️ ' + i18n.text.craft.choose.cooldown() + f' {when}\n' if not can_choose and settler.profession else '') + "\n"
     kb = InlineKeyboardBuilder()
 
     async with SessionLocal() as session:
@@ -1051,13 +1015,15 @@ async def choose_craft_command(message: types.Message):
             if compact_style:
                 text += f"{prof.emoji} <b>{prof.name}:</b> {prof.description}\n{'✅' if settler.profession_id == prof.id else '☑️'} <b>{settler.level}/{prof.required_level}</b>💡\n\n"
             else:
-                text += f"{prof.emoji} <b>{prof.name}:</b> {prof.description}\n{'✅ <b>Выбрано</b>' if settler.profession_id == prof.id else '☑️ Доступно'} (Требуется ступень <b>{settler.level}/{prof.required_level}</b>💡)\n\n"
+                selected = ("<b>" + i18n.text.craft.status.selected() + "</b>") if settler.profession_id == prof.id else (i18n.text.craft.status.available())
+                req_level = i18n.text.craft.status.required_level()
+                text += f"{prof.emoji} <b>{prof.name}:</b> {prof.description}\n{'✅ ' + selected if settler.profession_id == prof.id else '☑️ ' + i18n.text.craft.status.available()} ({req_level} <b>{settler.level}/{prof.required_level}</b>💡)\n\n"
             buttons.append(InlineKeyboardButton(text=f"{prof.emoji} {prof.name}", callback_data=f"select_craft:{prof.id}")) if settler.profession_id != prof.id and can_choose else None
         else:
             if compact_style:
                 text += f"{prof.emoji} {prof.name}: {prof.description}\n🔒 {settler.level}/<b>{prof.required_level}</b>💡\n\n"
             else:
-                text += f"{prof.emoji} {prof.name}: {prof.description}\n🔒 Недоступно (Требуется ступень {settler.level}/<b>{prof.required_level}</b>💡)\n\n"
+                text += f"{prof.emoji} {prof.name}: {prof.description}\n🔒 " + i18n.text.craft.status.locked() + f" ({i18n.text.craft.status.required_level()} {settler.level}/<b>{prof.required_level}</b>💡)\n\n"
     
     kb.row(*buttons, width=2)
     await message.reply(text=text, reply_markup=kb.as_markup(), disable_notification=True)
@@ -1077,19 +1043,19 @@ async def select_craft_callback(callback: types.CallbackQuery, i18n: TranslatorR
             return
         
         if settler.profession_id == prof_id:
-            await callback.answer("⚠️ Ты уж сие ремесло избрал! Аль сменить хочешь, то другое избери.")
+            await callback.answer("⚠️ " + i18n.callback.craft.already_selected())
             return
         
         prof_result = await session.execute(select(models.Profession).where(models.Profession.id == prof_id))
         profession = prof_result.scalars().first()
         
         if not profession or settler.level < profession.required_level:
-            await callback.answer(f"⚠️ Ремесло сие тебе не по плечу! {settler.level}/<b>{profession.required_level}</b>💡")
+            await callback.answer("⚠️ " + i18n.callback.craft.level_too_low())
             return
         if settler.profession_id:
             can_choose, when = utils.can_choose_craft(settler.last_profession_change)
             if not can_choose:
-                await callback.answer(f"⚠️ Недавно ты ремесло своё сменил, человече! Новое взять можно, как <b>{when}</b> пройдёт.", True)
+                await callback.answer("⚠️ " + i18n.callback.craft.cooldown(when=when), True)
         
         await session.execute(
             update(models.Settler)
@@ -1098,15 +1064,13 @@ async def select_craft_callback(callback: types.CallbackQuery, i18n: TranslatorR
         )
         await session.commit()
         
-        kb = InlineKeyboardBuilder().row(InlineKeyboardButton(text=profession.emoji + i18n.callback.craft.craft(), switch_inline_query_current_chat=i18n.callback.craft.craft()))
-        await callback.message.edit_text(f"✅ <b>{callback.from_user.full_name}</b> ремесло себе избрал: {profession.emoji} <b>{profession.name}!</b>", reply_markup=kb.as_markup())
+        kb = InlineKeyboardBuilder().row(InlineKeyboardButton(text=profession.emoji + " " + i18n.callback.craft.craft(), switch_inline_query_current_chat=i18n.callback.craft.craft()))
+        await callback.message.edit_text("✅ " + i18n.text.craft.selected.success(user_name=callback.from_user.full_name, profession_name=profession.name), reply_markup=kb.as_markup())
         log.debug(f"{callback.message.chat.id} | {settler.user_id} | 💼 Выбрано ремесло: {profession.name}")
 
-@fuzzy("трудиться", "craft", "трудитися", "працювати")
-@router.message(or_f(Command("craft"), F.text.lower().in_({"трудиться", f"@{settings.BOT_USERNAME} трудиться", "craft", f"@{settings.BOT_USERNAME} craft", "трудитися", f"@{settings.BOT_USERNAME} трудитися", "працювати", f"@{settings.BOT_USERNAME} працювати"})))
-async def craft_command(message: types.Message):
+@router.message(or_f(Command("craft"), TextCommand("трудиться", "craft", "трудитися", "працювати")))
+async def craft_command(message: types.Message, user: models.User, i18n: TranslatorRunner):
     #* Начало труда поселенца
-    user = await core.user_getOrCreate(message.from_user)
     settlement = await core.settlement_getOrCreate(message.chat)
     settler = await core.settler_getOrCreate(user, settlement)
 
@@ -1116,11 +1080,11 @@ async def craft_command(message: types.Message):
     ]
 
     if not settler.profession_id:
-        await message.answer("⚠️ Ты ещё ремесла не избрал.", reply_markup=InlineKeyboardBuilder().row(InlineKeyboardButton(text="💼 Выбрать ремесло", switch_inline_query_current_chat="Выбрать ремесло")).as_markup())
+        await message.answer("⚠️ " + i18n.text.craft.no_profession(), reply_markup=InlineKeyboardBuilder().row(InlineKeyboardButton(text="💼 " + i18n.button.settler.choose_craft(), switch_inline_query_current_chat="Выбрать ремесло")).as_markup())
         return
 
     if not available_works:
-        await message.answer("🕸 Твоё ремесло пока не имеет доступных трудов. Жди вестей новых!")
+        await message.answer("🕸 " + i18n.text.craft.no_works())
         return
     
     kb = InlineKeyboardBuilder()
@@ -1148,11 +1112,11 @@ async def work_selection_callback(callback: types.CallbackQuery, i18n: Translato
     
     work = models.WORKS_REGISTRY.get(work_id)
     if not work:
-        await callback.answer("⚠️ Труд не сыскан!", True)
+        await callback.answer("⚠️ " + i18n.callback.craft.work_not_found(), True)
         return
     
     if work.profession_id != settler.profession_id:
-        await callback.answer("⚠️ Сие дело твоему ремеслу не по плечу!", True)
+        await callback.answer("⚠️ " + i18n.callback.craft.wrong_profession(), True)
         return
 
     success = await core.settler_startWorkflow(callback, work, user, settler)
@@ -1160,7 +1124,7 @@ async def work_selection_callback(callback: types.CallbackQuery, i18n: Translato
         return
 
 @router.callback_query(F.data.startswith("work:"))
-async def work_callback(callback: types.CallbackQuery):
+async def work_callback(callback: types.CallbackQuery, i18n: TranslatorRunner):
     #* Callback-кнопки для работы
     user = await core.user_getOrCreate(callback.from_user)
     settlement = await core.settlement_getOrCreate(callback.message.chat)
@@ -1168,25 +1132,25 @@ async def work_callback(callback: types.CallbackQuery):
 
     user_key = f"{callback.message.chat.id}_{user.telegram_id}"
     if not utils.can_click_button(user_key):
-        await callback.answer("⏳ Погоди миг единый!")
+        await callback.answer("⏳ " + i18n.callback.common.wait())
         return
     
     remaining = utils.get_work_remaining_time(callback.message.chat.id)
     if remaining <= 0:
-        await callback.answer("⏰ Пора труда миновала! Дело отложено.", True)
-        await callback.message.edit_text("⏰ Долго ты без дела стоял! Труд отложен.")
+        await callback.answer("⏰ " + i18n.callback.common.work.expired.toast(), True)
+        await callback.message.edit_text("⏰ " + i18n.text.common.work.expired())
         utils.end_work(callback.message.chat.id)
         active_games.pop(user_key, None)
         return
     
     workflow: Workflow = active_games.get(user_key)
     if not workflow or workflow.game_over:
-        await callback.answer("⚠️ Дело не сыскано. Может, ты уж его свершил, али вовсе не твоё то дело?")
+        await callback.answer("⚠️ " + i18n.callback.common.work.not_found())
         return
     
     parts = callback.data.split(":")
     if len(parts) < 4:
-        await callback.answer("⚠️ Неверный ход!")
+        await callback.answer("⚠️ " + i18n.callback.common.invalid_action())
         return
     
     _, work_id, step_idx_str, *action_parts = parts
@@ -1196,11 +1160,11 @@ async def work_callback(callback: types.CallbackQuery):
     
     work: models.Work = models.WORKS_REGISTRY.get(work_id)
     if not work:
-        await callback.answer("⚠️ Труд не сыскан!")
+        await callback.answer("⚠️ " + i18n.callback.craft.work_not_found())
         return
     
     if step_idx >= len(workflow.steps):
-        await callback.answer("⚠️ Неверный шаг!")
+        await callback.answer("⚠️ " + i18n.callback.common.invalid_step())
         return
 
     current_step = workflow.get_current_step()
@@ -1234,7 +1198,7 @@ async def work_callback(callback: types.CallbackQuery):
         async with SessionLocal() as session:
             earned = await core.settler_applyRewards(work, settler, session)
             reward_text = await utils.format_reward_text(earned)
-            await callback.message.edit_text(f"{status_text}\n\n📦 <b>Получено:</b>\n{reward_text}", reply_markup=None)
+            await callback.message.edit_text(f"{status_text}\n\n📦 <b>" + i18n.text.common.received() + f":</b>\n{reward_text}", reply_markup=None)
             await utils.mark_work_completed(settler, session, callback.message.chat.id)
         
         active_games.pop(user_key, None)
@@ -1286,17 +1250,17 @@ async def work_callback(callback: types.CallbackQuery):
 
 
 @router.message(F.text.lower().startswith("!дать"))
-async def promo_command(message: types.Message):
+async def promo_command(message: types.Message, i18n: TranslatorRunner):
     #* Выдача ресурса разработчиком
     if message.from_user.id not in settings.DEVELOPER_IDS:
-        await message.answer("⚠️ Только разработчики могут выдавать ресурсы.")
+        await message.answer("⚠️ " + i18n.text.other.promo.not_developer())
         return
 
     try:
         _ , emoji, qty = message.text.split(" ")
         qty = int(qty)
     except:
-        await message.answer(f"⚠️ Неверный формат команды.\n<code>!дать эмодзи количество</code> (в ответ или себе)")
+        await message.answer("⚠️ " + i18n.text.other.promo.bad_format())
         return
     
     try:
@@ -1314,56 +1278,16 @@ async def promo_command(message: types.Message):
 
         await session.commit()
 
-    await message.answer(f"🌟 <b>{recipient.full_name} получил(а):</b>\n{text}")
-
-
-def collect_commands(router) -> dict[str, callable]:
-    result = {}
-    for handler in router.message.handlers:
-        cb = handler.callback
-        aliases = getattr(cb, "__fuzzy_aliases__", None)
-        if not aliases:
-            continue
-        for alias in aliases:
-            result[alias] = cb
-    return result
-FUZZY_COMMANDS = collect_commands(router)
+    await message.answer("🌟 " + i18n.text.other.promo.received(name=recipient.full_name) + f"\n{text}")
 
 
 @router.message(or_f(F.chat.type == "supergroup", F.chat.type == "group"))
-async def quote_handler(message: types.Message):
+async def quote_handler(message: types.Message, **kwargs):
     #* Обработка сообщений для меры
-    user = await core.user_getOrCreate(message.from_user)
-    match = await utils.is_text_command(
-        message,
-        user,
-        FUZZY_COMMANDS,
-        threshold=settings.TYPOS_PERCENT
-    )
-    
-    if match.matched:
-        handler = FUZZY_COMMANDS[match.command]
-        await handler(message)
-        log.debug(f"{message.chat.id} | {user.telegram_id} | 🔍 {message.text} → {match.command} ({match.score}%)")
-        return
-    
-    log.debug(f"{message.chat.id} | {user.telegram_id} | 🔍 {message.text} / {match.log_text}")
-    
     async with SessionLocal() as session:
-        result = await session.execute(
-            select(models.Settlement).where(models.Settlement.chat_id == message.chat.id)
-        )
-        settlement = result.scalars().first()
-        
-        if not settlement:
-            return
-            
-        settler = await core.settler_getOrCreate(user, settlement)
-        
-        if not settler:
-            log.error(f"Не удалось получить или создать поселенца для пользователя {message.from_user.id} во время quote_handler()")
-            return
-            
+        user = await core.user_getOrCreate(message.from_user, session)
+        settlement = await core.settlement_getOrCreate(message.chat, session)
+        settler = await core.settler_getOrCreate(user, settlement, session)
         try:
             if await utils.is_meaningful(message.text) and not settler.quote_is_completed:
                 await core.settler_updateQuote(settler, settlement, session, 1)

@@ -1,6 +1,8 @@
+# --- callback ---
 callback-settings-language-changed = Language successfully changed to { $lang_name }!
 callback-settings-timezone-changed = Timezone has been saved!
 callback-settings-timezone-error-locked = You can change timezone { $time_left }
+# --- text ---
 text-settings-title = Settings
 text-settings-subtitle = You can customize the bot's behavior by changing the following parameters:
 text-settings-timezone-title =
@@ -9,16 +11,18 @@ text-settings-timezone-title =
     
     ⚠️ You can change your timezone once every <b>{ $cooldown } days</b>.
 text-settings-timezone-determine = <b>Click the button below</b> to automatically determine your timezone.
-text-settings-timezone-error-determine = Unable to determine time zone. Try selecting it manually.
+text-settings-timezone-error-determine = Не удалось определить часовой пояс. Попробуй выбрать его вручную.
 text-settings-timezone-determined = Timezone determined: <b>{ $timezone }</b>
 text-settings-timezone-changed = Timezone set: <b>{ $tz_name }</b>
 text-settings-language-title =
-    Select the interface language. This will not affect the language of messages from other players.
+    Выбери язык интерфейса. Это не повлияет на язык сообщений от других игроков.
     
-    Current language: <b>{ $lang_name }</b>
+    Текущий язык: <b>{ $lang_name }</b>
+# --- button ---
 button-settings-timezone-determine = Determine
 button-settings-timezone-share_location = Share location
 button-settings-timezone-set = Set!
+# --- constant ---
 constant-settings-common-on = Enabled
 constant-settings-common-off = Disabled
 constant-settings-common-enabled = Enabled

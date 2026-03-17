@@ -5,7 +5,6 @@ text-craft-no_professions = Нет доступных ремесел. Обрат
 text-craft-status-selected = Выбрано
 text-craft-status-available = Доступно
 text-craft-status-locked = Недоступно
-text-craft-status-required_level = Требуемая ступень:
 text-craft-selected-success = <b>{ $user_name }</b> избрал своё ремесло: <b>{ $profession_name }!</b>
 text-craft-no_profession = Ты ещё ремесла не избрал.
 text-craft-no_works = Твоё ремесло пока не имеет доступных трудов. Жди вестей новых!

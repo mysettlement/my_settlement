@@ -3,7 +3,6 @@ services:
     container_name: app
     profiles: ["main"]
     build:
-      context: .
       dockerfile: Dockerfile
     image: my-settlement:latest
     command: python -m main
@@ -12,9 +11,6 @@ services:
     environment:
       - DB_HOST=db
       - DB_PORT=5432
-    volumes:
-      - .:/app
-      - ./logs:/app/logs
     depends_on:
       db:
         condition: service_healthy

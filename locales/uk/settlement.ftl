@@ -5,7 +5,7 @@ text-settlement-rename-empty =
     Укажите название!
     Пример: <code>/name_settlement Новый Град</code>
 text-settlement-rename-length = Название должно быть от 3 до 30 символов.
-text-settlement-rename-not_owner = Управлять именем поселения токмо <b>мэр</b> может! Иди своим путём, простолюдин.
+text-settlement-rename-not_owner = Управлять именем поселения токмо <b>правитель</b> может! Иди своим путём, простолюдин.
 text-settlement-rename-cooldown =
     <b>Не спеши, правитель.</b>
     Чернила на прошлом указе ещё не высохли. Негоже так часто имена менять.

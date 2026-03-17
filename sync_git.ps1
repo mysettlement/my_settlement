@@ -50,7 +50,7 @@ while ($true) {
             git pull origin main 2>&1 | ForEach-Object { Log $_ }
 
             Log "Rebuilding containers..."
-            docker compose --profile main --profile tools up -d --build 2>&1 | ForEach-Object { Log $_ }
+            docker compose --profile main --profile tools --profile admin up -d --build 2>&1 | ForEach-Object { Log $_ }
 
             Log "Update complete."
         }

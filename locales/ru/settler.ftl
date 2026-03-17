@@ -1,6 +1,5 @@
 # --- text - profile ---
 text-settler-id-internal = Внутренний ID
-text-settler-id-telegram = Telegram ID
 
 text-settler-profile-craft-none = Лодырь
 text-settler-profile-full-craft = Ремесло

@@ -11,7 +11,7 @@ text-settings-timezone-title =
     
     ⚠️ You can change your timezone once every <b>{ $cooldown } days</b>.
 text-settings-timezone-determine = <b>Click the button below</b> to automatically determine your timezone.
-text-settings-timezone-error-determine = We couldn't determine your time zone. Please try selecting it manually.
+text-settings-timezone-error-determine = Unable determine your time zone. Try selecting it manually.
 text-settings-timezone-determined = Timezone determined: <b>{ $timezone }</b>
 text-settings-timezone-changed = Timezone set: <b>{ $tz_name }</b>
 text-settings-language-title =

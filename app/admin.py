@@ -86,7 +86,7 @@ class SettlementAdmin(ModelView, model=Settlement):
     column_labels = {
         Settlement.chat_id: "ID чата",
         Settlement.name: "Название",
-        Settlement.owner: "Мэр",
+        Settlement.owner: "Правитель",
         Settlement.created_at: "Создано",
         Settlement.member_count: "Жители"
     }

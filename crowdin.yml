@@ -6,5 +6,5 @@ files:
 pull_request_title: "Изменения в переводе от Crowdin"
 pull_request_labels: ["crowdin"]
 
-commit_message: "Новые изменения для %language% (%original_file_name%) от Crowdin"
+commit_message: "%language%: изменения в %original_file_name% от Crowdin"
 append_commit_message: false

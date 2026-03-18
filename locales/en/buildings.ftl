@@ -18,5 +18,5 @@ button-buildings-blueprints = Drawings
 button-buildings-build = Build it!
 button-buildings-back_blueprints = To the drawings
 # --- callback ---
-callback-buildings-build-success = Things are really heating up!
-callback-buildings-build-only_mayor = Only the governor can construct municipal buildings.
+callback-buildings-build-success = Работа закипела!
+callback-buildings-build-only_mayor = Только мэр может строить городские здания.

@@ -1,6 +1,5 @@
 # --- text - profile ---
 text-settler-id-internal = Внутренний ID
-text-settler-id-telegram = Telegram ID
 
 text-settler-profile-craft-none = Лодырь
 text-settler-profile-full-craft = Ремесло
@@ -23,7 +22,6 @@ text-settler-cosmetics-none = Нет доступных эмодзи
 text-settler-cosmetics-accepted = Облик принят: { $emoji }
 
 # --- text - overtime ---
-text-settler-overtime-title = Страда
 text-settler-overtime-hint = Коль добра тебе мало, можешь <b>страду</b> взять. С каждой страдой работа тяжелеет, мудрости меньше наберёшь, но грошей столько же получишь. Коль <b>не поспеешь труд свершить</b> до нового дня ({ $reset_countdown }), на тебя <b>виру</b> наложат.
 text-settler-overtime-status-active = Состояние страды: <b>Активна</b>
     Сколько страды взято: { $overtime_count } (<b>{ $reset_countdown }</b> до новой страды)
@@ -38,7 +36,7 @@ text-settler-overtime-taken = <b>Страда взята!</b> (📄 0/{ $new_quo
 callback-settler-overtime-already = Страда уже взята!
 
 # --- text - inventory ---
-text-settler-inventory-title = Скарби
+text-settler-inventory-title = Скарбы
 text-settler-inventory-empty = Пусто
 text-settler-inventory-hint = Ресурсы могут добывать разные специалисты, а также их можно получить в награду за выполнение событий.
 

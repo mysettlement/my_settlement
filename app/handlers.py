@@ -107,7 +107,7 @@ async def show_id_menu(message: types.Message, user: models.User, i18n: Translat
         text = (
             f"👤 <b>{user.name}</b>\n"
             f"🆔 {i18n.text.settler.id.internal()}: {user.id}\n"
-            f"💬 {i18n.text.settler.id.telegram()}: {user.telegram_id}\n"
+            f"💬 Telegram ID: {user.telegram_id}\n"
         )
     await message.answer(text)
 
@@ -255,7 +255,8 @@ async def show_settings_menu(message: types.Message, user: models.User, submenu:
         
         if now < unlock_time:
             time_left = utils.format_relative_time(unlock_time, now)
-            await callback.answer("⏳ " + i18n.callback.settings.timezone.error.locked(time_left=time_left), show_alert=True)
+            if callback: await callback.answer("⏳ " + i18n.callback.settings.timezone.error.locked(time_left=time_left), show_alert=True)
+            else: message.reply("⏳ " + i18n.text.settings.timezone.error.locked(time_left=time_left))
             return
 
         determine_text = "📍 " + i18n.button.settings.timezone.determine()
@@ -558,7 +559,7 @@ async def name_settlement(message: types.Message, command: CommandObject = None,
 
 @router.message(or_f(Command("town_buildings"), TextCommand("городские постройки", "town buildings", "міські будівлі")))
 async def town_buildings_command(message: types.Message, user: models.User, i18n: TranslatorRunner):
-    #* Городские постройки (только для мэра)
+    #* Городские постройки (только для правителя)
     settlement = await core.settlement_getOrCreate(message.chat)
 
     await show_buildings_menu(message, user, settlement, "town", i18n=i18n)
@@ -890,7 +891,7 @@ async def overtime_command(message: types.Message, user: models.User, i18n: Tran
     buttons = []
     kb = InlineKeyboardBuilder()
 
-    text = f"🕒 <b>" + i18n.text.settler.overtime.title() + "</b>\n"
+    text = f"🕒 <b>" + i18n.text.settler.overtime() + "</b>\n"
     text += f"ℹ️ " + i18n.text.settler.overtime.hint(reset_countdown=reset_countdown) + "\n\n" if settler.level < 2 and user.show_hints == True else ""
     if settler.overtime_is_toggled and not settler.quote_is_completed:
         if compact_style:
@@ -1016,14 +1017,13 @@ async def choose_craft_command(message: types.Message, user: models.User, i18n: 
                 text += f"{prof.emoji} <b>{prof.name}:</b> {prof.description}\n{'✅' if settler.profession_id == prof.id else '☑️'} <b>{settler.level}/{prof.required_level}</b>💡\n\n"
             else:
                 selected = ("<b>" + i18n.text.craft.status.selected() + "</b>") if settler.profession_id == prof.id else (i18n.text.craft.status.available())
-                req_level = i18n.text.craft.status.required_level()
-                text += f"{prof.emoji} <b>{prof.name}:</b> {prof.description}\n{'✅ ' + selected if settler.profession_id == prof.id else '☑️ ' + i18n.text.craft.status.available()} ({req_level} <b>{settler.level}/{prof.required_level}</b>💡)\n\n"
+                text += f"{prof.emoji} <b>{prof.name}:</b> {prof.description}\n{'✅ ' + selected if settler.profession_id == prof.id else '☑️ ' + i18n.text.craft.status.available()} (<b>{settler.level}/{prof.required_level}</b>💡)\n\n"
             buttons.append(InlineKeyboardButton(text=f"{prof.emoji} {prof.name}", callback_data=f"select_craft:{prof.id}")) if settler.profession_id != prof.id and can_choose else None
         else:
             if compact_style:
                 text += f"{prof.emoji} {prof.name}: {prof.description}\n🔒 {settler.level}/<b>{prof.required_level}</b>💡\n\n"
             else:
-                text += f"{prof.emoji} {prof.name}: {prof.description}\n🔒 " + i18n.text.craft.status.locked() + f" ({i18n.text.craft.status.required_level()} {settler.level}/<b>{prof.required_level}</b>💡)\n\n"
+                text += f"{prof.emoji} {prof.name}: {prof.description}\n🔒 " + i18n.text.craft.status.locked() + f" ({settler.level}/<b>{prof.required_level}</b>💡)\n\n"
     
     kb.row(*buttons, width=2)
     await message.reply(text=text, reply_markup=kb.as_markup(), disable_notification=True)
@@ -1249,7 +1249,7 @@ async def work_callback(callback: types.CallbackQuery, i18n: TranslatorRunner):
         await callback.message.edit_text(status_text, reply_markup=kb)
 
 
-@router.message(F.text.lower().startswith("!дать"))
+@router.message(or_f(F.text.lower().startswith("!дать"), F.text.lower().startswith("!give")))
 async def promo_command(message: types.Message, i18n: TranslatorRunner):
     #* Выдача ресурса разработчиком
     if message.from_user.id not in settings.DEVELOPER_IDS:

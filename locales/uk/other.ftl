@@ -44,4 +44,4 @@ button-other-bot-help = Допомога
 button-other-bot-inspect = Оглянути поселення
 button-other-bot-cancel = Скасувати
 # --- callback ---
-callback-other-lang-not_found = Мова { $lang_code } не знайдено
+callback-other-lang-not_found = Мова { $lang_code } не знайдена

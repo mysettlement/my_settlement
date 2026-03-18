@@ -1,6 +1,6 @@
 # --- text ---
-text-buildings-town-title = Urban structures
-text-buildings-my-title = My Projects
+text-buildings-town-title = City buildings
+text-buildings-my-title = My buildings
 text-buildings-empty = It's empty here for now.
 text-buildings-status-active = Active
 text-buildings-status-construction = It will be built { $time_left }

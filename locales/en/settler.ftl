@@ -31,7 +31,7 @@ text-settler-overtime-taken =
     You have 🕒 <b>{ $reset_countdown }</b> to fulfill the new measure!
 callback-settler-overtime-already = The harvest has already been gathered!
 # --- text - inventory ---
-text-settler-inventory-title = Скарбы
+text-settler-inventory-title = Treasures
 text-settler-inventory-empty = Empty
 text-settler-inventory-hint = Resources can be obtained by various specialists, or earned as rewards for completing events.
 # --- button ---

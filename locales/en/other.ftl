@@ -1,8 +1,8 @@
-text-other-referral = You were invited by a resident with ID:
+text-other-referral = You were invited by a settler with ID:
 # --- text - private/greeting ---
 text-other-private-greeting =
     <b>Hello there!</b> I'm the messenger for the <b>Settlements</b> game.
-    To invite me to your gathering, <b>click the icon below:</b>
+    To invite me to your gathering, <b>click the button below:</b>
 text-other-cancel = Cancelled.
 # --- text - bot events ---
 text-other-bot-left =
@@ -10,11 +10,11 @@ text-other-bot-left =
     I would appreciate it if you could tell me what went wrong.
     This will help me improve for other rulers.
 text-other-bot-added =
-    <b>Welcome to the game "Settlements"!</b>
+    <b>Welcome to the «Settlements» game!</b>
     
     To start the game, use the command /start
 text-other-bot-added-no_admin = Please <b>assign me administrator</b> privileges that allow me to <i>pin</i> and <i>delete</i> posts <b>so that I can perform my duties effectively!</b>
-text-other-bot-promoted = <b>Thank</b> you for appointing me as an administrator!
+text-other-bot-promoted = <b>Thank</b> you for assigning me as an administrator!
 # --- text - help ---
 text-other-help =
     <b>My Settlement!</b> — a text-based MMORPG about community life.
@@ -28,14 +28,14 @@ text-other-help =
     
     <a href="https://docs.fiwu.uno/">Complete guides</a>
 # --- text - effects ---
-text-other-effects-title = <b>Effects { $name }</b>
+text-other-effects-title = <b>{ $name }'s effects</b>
 text-other-effects-empty = There are no active effects.
-text-other-effects-hint = You can earn bonuses from personal or city buildings!
+text-other-effects-hint = You can get bonuses from personal or city buildings!
 # --- text - promo ---
-text-other-promo-not_developer = Only developers can allocate resources.
+text-other-promo-not_developer = Only developers can issue resources.
 text-other-promo-bad_format =
     Invalid command format.
-    <code>!send emoji quantity</code> (to someone else or to yourself)
+    <code>!give emoji quantity</code> (to someone else or to yourself)
 text-other-promo-received = <b>{ $name } received:</b>
 # --- button ---
 button-other-add = Add

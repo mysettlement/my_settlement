@@ -17,7 +17,6 @@ text-settler-cosmetics-current = Current emoji
 text-settler-cosmetics-none = No emojis available
 text-settler-cosmetics-accepted = Appearance accepted: { $emoji }
 # --- text - overtime ---
-text-settler-overtime-title = Suffering
 text-settler-overtime-hint = If a little good isn't enough for you, you can take on <b>a hardship</b>. With each hardship, the work gets harder, you'll gain less wisdom, but you'll get just as much money. If <b>you don't finish the work</b> by the next day ({ $reset_countdown }), <b>a curse</b> will be placed upon you.
 text-settler-overtime-status-active =
     Strada status: <b>Active</b>
@@ -32,13 +31,13 @@ text-settler-overtime-taken =
     You have 🕒 <b>{ $reset_countdown }</b> to fulfill the new measure!
 callback-settler-overtime-already = The harvest has already been gathered!
 # --- text - inventory ---
-text-settler-inventory-title = Treasures
+text-settler-inventory-title = Скарбы
 text-settler-inventory-empty = Empty
 text-settler-inventory-hint = Resources can be obtained by various specialists, or earned as rewards for completing events.
 # --- button ---
-button-settler-cosmetics = Faces
+button-settler-cosmetics = Guises
 button-settler-inventory = Treasure
-button-settler-overtime = Suffering
+button-settler-overtime = Toil
 button-settler-work = Craft
 button-settler-choose_craft = Choose a craft
-button-settler-overtime-take = Take the burden
+button-settler-overtime-take = Take the toil

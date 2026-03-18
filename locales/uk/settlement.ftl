@@ -1,6 +1,6 @@
 # --- text ---
 text-settlement-view-owner-missing = Немає
-text-settlement-view-owner-fallback = User { $telegram_id }
+text-settlement-view-owner-fallback = Користувач { $telegram_id }
 text-settlement-rename-empty =
     Вкажіть назву!
     Приклад: <code>/name_settlement Новий Град</code>

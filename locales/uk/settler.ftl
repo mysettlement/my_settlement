@@ -1,43 +1,43 @@
 # --- text - profile ---
-text-settler-id-internal = Внутренний ID
-text-settler-profile-craft-none = Лодырь
+text-settler-id-internal = Внутрішній ID
+text-settler-profile-craft-none = Ледащо
 text-settler-profile-full-craft = Ремесло
-text-settler-profile-full-level = Ступень
-text-settler-profile-full-exp = Опыт
+text-settler-profile-full-level = Щабель
+text-settler-profile-full-exp = Досвід
 text-settler-profile-full-rank = Титул
-text-settler-profile-full-quote = Мера
-text-settler-profile-full-balance = Мошна
-text-settler-profile-work-cooldown = Труд доступен <b>{ $countdown }</b>
-text-settler-profile-work-ready = Доступен труд!
+text-settler-profile-full-quote = Міра
+text-settler-profile-full-balance = Капшук
+text-settler-profile-work-cooldown = Твір доступний <b>{ $countdown }</b>
+text-settler-profile-work-ready = Праця доступна!
 text-settler-profile-overtime-hint = Страда взята
-text-settler-error-not_found = Беда приключилась, вести о тебе не сысканы. Погоди малость, опосля пытай снова.
+text-settler-error-not_found = Сталася біда, новини о тобі не знайдені. Зачекай трохи, потім спробуй ще раз.
 # --- text - cosmetics ---
-text-settler-cosmetics-title = Доступные обличья
-text-settler-cosmetics-current = Текущий эмодзи
-text-settler-cosmetics-none = Нет доступных эмодзи
-text-settler-cosmetics-accepted = Облик принят: { $emoji }
+text-settler-cosmetics-title = Доступні образи
+text-settler-cosmetics-current = Поточний емодзі
+text-settler-cosmetics-none = Немає доступних емодзі
+text-settler-cosmetics-accepted = Зовнішній вигляд прийнято: { $emoji }
 # --- text - overtime ---
-text-settler-overtime-hint = Коль добра тебе мало, можешь <b>страду</b> взять. С каждой страдой работа тяжелеет, мудрости меньше наберёшь, но грошей столько же получишь. Коль <b>не поспеешь труд свершить</b> до нового дня ({ $reset_countdown }), на тебя <b>виру</b> наложат.
+text-settler-overtime-hint = Якщо тобі мало добра, можеш взяти <b>страду</b>. З кожною страдою робота стає важчою, мудрості набереш менше, але грошей отримаєш стільки ж. Якщо <b>не встигнеш виконати роботу</b> до нового дня ({ $reset_countdown }), на тебе накладуть <b>виру</b>.
 text-settler-overtime-status-active =
-    Состояние страды: <b>Активна</b>
-    Сколько страды взято: { $overtime_count } (<b>{ $reset_countdown }</b> до новой страды)
-    📄 Мера: <b>{ $quote }/{ $target_quote }</b>
-text-settler-overtime-status-need_quota = Страду брать можно, токмо основную 📄 меру свершив!
+    Стан стради: <b>Активна</b>
+    Скільки стради взято: { $overtime_count } (<b>{ $reset_countdown }</b> до нової стради)
+    📄 Міра: <b>{ $quote }/{ $target_quote }</b>
+text-settler-overtime-status-need_quota = Страду можна брати, але тільки після виконання основної 📄 міри!
 text-settler-overtime-status-inactive =
-    Состояние страды: 🔘 <b>Неактивна</b>
-    Сколько страды взято: { $overtime_count }
+    Стан стради: 🔘 <b>Неактивна</b>
+    Скільки стради взято: { $overtime_count }
 text-settler-overtime-taken =
     <b>Страда взята!</b> (📄 0/{ $new_quote })
-    Тебе осталось 🕒 <b>{ $reset_countdown }</b> чтоб новую меру исполнить!
-callback-settler-overtime-already = Страда уже взята!
+    Тобі залишилося 🕒 <b>{ $reset_countdown }</b> щоб нову міру виконати!
+callback-settler-overtime-already = Страда вже взята!
 # --- text - inventory ---
 text-settler-inventory-title = Скарби
-text-settler-inventory-empty = Пусто
-text-settler-inventory-hint = Ресурсы могут добывать разные специалисты, а также их можно получить в награду за выполнение событий.
+text-settler-inventory-empty = Порожньо
+text-settler-inventory-hint = Ресурси можуть добувати різні фахівці, а також їх можна отримати як нагороду за виконання подій.
 # --- button ---
-button-settler-cosmetics = Обличья
+button-settler-cosmetics = Обличчя
 button-settler-inventory = Скарб
 button-settler-overtime = Страда
 button-settler-work = Працювати
-button-settler-choose_craft = Выбрать ремесло
-button-settler-overtime-take = Взять страду
+button-settler-choose_craft = Обрати ремесло
+button-settler-overtime-take = Взяти страду

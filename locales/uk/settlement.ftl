@@ -1,28 +1,28 @@
 # --- text ---
-text-settlement-view-owner-missing = Отсутствует
-text-settlement-view-owner-fallback = User { $telegram_id }
+text-settlement-view-owner-missing = Немає
+text-settlement-view-owner-fallback = Користувач { $telegram_id }
 text-settlement-rename-empty =
-    Укажите название!
-    Пример: <code>/name_settlement Новый Град</code>
-text-settlement-rename-length = Название должно быть от 3 до 30 символов.
-text-settlement-rename-not_owner = Управлять именем поселения токмо <b>правитель</b> может! Иди своим путём, простолюдин.
+    Вкажіть назву!
+    Приклад: <code>/name_settlement Новий Град</code>
+text-settlement-rename-length = Назва має містити від 3 до 30 символів.
+text-settlement-rename-not_owner = Лише <b>правитель</b> може розпоряджатися назвою поселення! Йди своєю дорогою, простолюдине.
 text-settlement-rename-cooldown =
-    <b>Не спеши, правитель.</b>
-    Чернила на прошлом указе ещё не высохли. Негоже так часто имена менять.
+    <b>Не поспішай, правителю.</b>
+    Чорнило на минулому указі ще не висохло. Не личить так часто змінювати імена.
     
-    Новую грамоту сможешь подать <b>{ $time_left }</b>.
+    Нову грамоту зможеш подати <b>{ $time_left }</b>.
 text-settlement-rename-same =
-    <b>К чему тратить чернила?</b>
-    Писарь не станет марать пергамент понапрасну.
+    <b>Навіщо витрачати чорнило?</b>
+    Писар не стане марно бруднити пергамент.
     
-    Ты меняешь <b>{ $old_name }</b> на <b>{ $new_name }</b>. Суть едина.
+    Ти змінюєш <b>{ $old_name }</b> на <b>{ $new_name }</b>. Суть одна.
 text-settlement-rename-success =
-    <b>Быть по сему!</b>
+    <b>Нехай буде так!</b>
     
-    Имя <b>{ $old_name }</b> уходит в легенды. Отныне и впредь владения сии величаются <b>{ $new_name }</b>!
+    Ім'я <b>{ $old_name }</b> входить у легенди. Відтепер і надалі ці володіння величаються <b>{ $new_name }</b>!
     
-    <b>Да здравствует { $new_name }!</b>
+    <b>Хай живе { $new_name }!</b>
 # --- button ---
-button-settlement-profile = Лик
-button-settlement-rename = Переименовать
-button-settlement-buildings = Постройки
+button-settlement-profile = Обличчя
+button-settlement-rename = Перейменувати
+button-settlement-buildings = Будівлі

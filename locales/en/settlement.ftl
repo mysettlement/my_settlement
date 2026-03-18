@@ -1,28 +1,28 @@
 # --- text ---
-text-settlement-view-owner-missing = Отсутствует
+text-settlement-view-owner-missing = Not available
 text-settlement-view-owner-fallback = User { $telegram_id }
 text-settlement-rename-empty =
-    Укажите название!
-    Пример: <code>/name_settlement Новый Град</code>
-text-settlement-rename-length = Название должно быть от 3 до 30 символов.
-text-settlement-rename-not_owner = Управлять именем поселения токмо <b>правитель</b> может! Иди своим путём, простолюдин.
+    Enter the name!
+    Example: <code>/name_settlement Novy Grad</code>
+text-settlement-rename-length = The title must be between 3 and 30 characters long.
+text-settlement-rename-not_owner = Only <b>the ruler</b> can decide the name of the settlement! Go your own way, commoner.
 text-settlement-rename-cooldown =
-    <b>Не спеши, правитель.</b>
-    Чернила на прошлом указе ещё не высохли. Негоже так часто имена менять.
+    <b>Take your time, ruler.</b>
+    The ink on the previous decree hasn’t dried yet. It’s not proper to change names so often.
     
-    Новую грамоту сможешь подать <b>{ $time_left }</b>.
+    You can submit the new charter <b>{ $time_left }</b>.
 text-settlement-rename-same =
-    <b>К чему тратить чернила?</b>
-    Писарь не станет марать пергамент понапрасну.
+    <b>Why waste ink?</b>
+    A scribe would not defile parchment needlessly.
     
-    Ты меняешь <b>{ $old_name }</b> на <b>{ $new_name }</b>. Суть едина.
+    You are changing <b>{ $old_name }</b> to <b>{ $new_name }</b>. The essence is the same.
 text-settlement-rename-success =
-    <b>Быть по сему!</b>
+    <b>So be it!</b>
     
-    Имя <b>{ $old_name }</b> уходит в легенды. Отныне и впредь владения сии величаются <b>{ $new_name }</b>!
+    The name <b>{ $old_name }</b> is becoming legendary. From now on, these lands shall be known as <b>{ $new_name }</b>!
     
-    <b>Да здравствует { $new_name }!</b>
+    <b>Long live { $new_name }!</b>
 # --- button ---
-button-settlement-profile = Лик
-button-settlement-rename = Переименовать
-button-settlement-buildings = Постройки
+button-settlement-profile = Face
+button-settlement-rename = Rename
+button-settlement-buildings = Buildings

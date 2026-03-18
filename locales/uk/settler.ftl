@@ -17,7 +17,6 @@ text-settler-cosmetics-current = Текущий эмодзи
 text-settler-cosmetics-none = Нет доступных эмодзи
 text-settler-cosmetics-accepted = Облик принят: { $emoji }
 # --- text - overtime ---
-text-settler-overtime-title = Страда
 text-settler-overtime-hint = Коль добра тебе мало, можешь <b>страду</b> взять. С каждой страдой работа тяжелеет, мудрости меньше наберёшь, но грошей столько же получишь. Коль <b>не поспеешь труд свершить</b> до нового дня ({ $reset_countdown }), на тебя <b>виру</b> наложат.
 text-settler-overtime-status-active =
     Состояние страды: <b>Активна</b>

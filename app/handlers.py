@@ -255,7 +255,8 @@ async def show_settings_menu(message: types.Message, user: models.User, submenu:
         
         if now < unlock_time:
             time_left = utils.format_relative_time(unlock_time, now)
-            await callback.answer("⏳ " + i18n.callback.settings.timezone.error.locked(time_left=time_left), show_alert=True)
+            if callback: await callback.answer("⏳ " + i18n.callback.settings.timezone.error.locked(time_left=time_left), show_alert=True)
+            else: message.reply("⏳ " + i18n.text.settings.timezone.error.locked(time_left=time_left))
             return
 
         determine_text = "📍 " + i18n.button.settings.timezone.determine()
@@ -890,7 +891,7 @@ async def overtime_command(message: types.Message, user: models.User, i18n: Tran
     buttons = []
     kb = InlineKeyboardBuilder()
 
-    text = f"🕒 <b>" + i18n.text.settler.overtime.title() + "</b>\n"
+    text = f"🕒 <b>" + i18n.text.settler.overtime() + "</b>\n"
     text += f"ℹ️ " + i18n.text.settler.overtime.hint(reset_countdown=reset_countdown) + "\n\n" if settler.level < 2 and user.show_hints == True else ""
     if settler.overtime_is_toggled and not settler.quote_is_completed:
         if compact_style:

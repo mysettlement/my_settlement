@@ -36,7 +36,7 @@ text-settler-overtime-taken = <b>Страда взята!</b> (📄 0/{ $new_quo
 callback-settler-overtime-already = Страда уже взята!
 
 # --- text - inventory ---
-text-settler-inventory-title = Скарби
+text-settler-inventory-title = Скарбы
 text-settler-inventory-empty = Пусто
 text-settler-inventory-hint = Ресурсы могут добывать разные специалисты, а также их можно получить в награду за выполнение событий.
 

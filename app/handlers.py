@@ -1249,7 +1249,7 @@ async def work_callback(callback: types.CallbackQuery, i18n: TranslatorRunner):
         await callback.message.edit_text(status_text, reply_markup=kb)
 
 
-@router.message(F.text.lower().startswith("!дать"))
+@router.message(or_f(F.text.lower().startswith("!дать"), F.text.lower().startswith("!give")))
 async def promo_command(message: types.Message, i18n: TranslatorRunner):
     #* Выдача ресурса разработчиком
     if message.from_user.id not in settings.DEVELOPER_IDS:

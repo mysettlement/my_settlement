@@ -31,7 +31,7 @@ text-settler-overtime-taken =
     Тебе осталось 🕒 <b>{ $reset_countdown }</b> чтоб новую меру исполнить!
 callback-settler-overtime-already = Страда уже взята!
 # --- text - inventory ---
-text-settler-inventory-title = Скарби
+text-settler-inventory-title = Скарбы
 text-settler-inventory-empty = Пусто
 text-settler-inventory-hint = Ресурсы могут добывать разные специалисты, а также их можно получить в награду за выполнение событий.
 # --- button ---

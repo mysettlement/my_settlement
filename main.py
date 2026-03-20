@@ -68,8 +68,7 @@ async def main():
 
     dp.message.middleware(ErrorMiddleware())
     dp.callback_query.middleware(ErrorMiddleware())
-    dp.message.middleware(I18nMiddleware(create_translator_hub()))
-    dp.callback_query.middleware(I18nMiddleware(create_translator_hub()))
+    dp.update.middleware(I18nMiddleware(create_translator_hub()))
     dp.update.outer_middleware(UserMiddleware(user_getOrCreate=user_getOrCreate))
     dp.include_router(handlers.router)
 

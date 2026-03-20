@@ -26,7 +26,7 @@ from app.config import setup_logging, settings
 from app.db import SessionLocal
 from app.gamer import Workflow, Hitting, Catch, Alternation, ProgressBar
 from app.i18n import I18nMiddleware, LANGUAGES_MAP, create_translator_hub
-from app.utils import active_games, format_count, TextCommand
+from app.utils import active_games, TextCommand
 from app import utils, core, models
 
 bot = Bot(
@@ -151,7 +151,7 @@ async def me_command(message: types.Message, user: models.User, i18n: Translator
                 f"🗂 <b>{i18n.text.settler.profile.full.exp()}</b>: {round(settler.exp)}/{round(settler.target_exp)}\n"
                 f"🏷 <b>{i18n.text.settler.profile.full.rank()}</b>: {settler.emoji} {settler.rank}\n"
                 f"📄 <b>{i18n.text.settler.profile.full.quote()}</b>: {quote_display}{overtime_hint}\n"
-                f"💰 <b>{i18n.text.settler.profile.full.balance()}</b>: {format_count(round(settler.balance), 'куна')}\n"
+                f"💰 <b>{i18n.text.settler.profile.full.balance()}</b>: {round(settler.balance)}\n"
                 f"\n{(settler.profession.emoji + ' ' + i18n.text.settler.profile.work.cooldown(countdown=work_countdown) + ' 🕒') if (settler.profession and not can_work) else ((settler.profession.emoji + ' <b>' + i18n.text.settler.profile.work.ready() + '</b> ✅') if settler.profession else '')} "
             )
 
@@ -392,7 +392,6 @@ async def set_tz_callback(callback: types.CallbackQuery, i18n: TranslatorRunner)
     await callback.message.edit_reply_markup()
     await callback.message.edit_text(text="✅ " + i18n.text.settings.timezone.changed(tz_name=tz_name), reply_markup=InlineKeyboardBuilder().button(text="🔙 " + i18n.button.common.back(), callback_data="settings:default").as_markup())
 
-
 @router.callback_query(F.data.startswith("set_lang:"))
 async def set_language(callback: types.CallbackQuery, i18n_middleware: I18nMiddleware, i18n: TranslatorRunner):
     if callback.from_user.id != callback.message.reply_to_message.from_user.id:
@@ -409,12 +408,12 @@ async def set_language(callback: types.CallbackQuery, i18n_middleware: I18nMiddl
         user.language = lang_code
         await session.commit()
     
-    i18n_middleware.cache[user.telegram_id] = lang_code
+    i18n_middleware.cache[callback.from_user.id] = lang_code
     i18n = i18n_middleware.hub.get_translator_by_locale(lang_code)
     
     lang_name = LANGUAGES_MAP.get(lang_code, lang_code)
 
-    log.debug(f"{user.telegram_id} | 🗣 language > {lang_code}")
+    log.debug(f"{callback.from_user.id} | 🗣 language > {lang_code}")
     await callback.answer("✅ " + i18n.callback.settings.language.changed(lang_name=lang_name))
     await show_settings_menu(callback.message, user, "language", callback, i18n)
 

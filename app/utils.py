@@ -58,6 +58,7 @@ KNOWN_TYPOS: Dict[str, str] = {
 }
 
 class TextCommand(BaseFilter):
+    """Фильтр для обработки текстовых сообщений, которые не являются командами, и могут содержать опечатки."""
     def __init__(self, *aliases: str):
         self.aliases = [a.lower() for a in aliases]
 
@@ -250,18 +251,6 @@ def format_relative_time(target: Union[datetime, int, timedelta], now: Union[dat
 
     result = arrow.get(target)
     return result.humanize(other=now, locale='ru', only_distance=disable_affixes)
-
-def format_count(count: int, word: str) -> str:
-    """
-    Автоматически согласует слово с числом.
-    Например: 2, 'куна' -> '2 куны'
-              5, 'куна' -> '5 кун'
-    """
-    parsed_word = morph.parse(word)[0]
-    
-    agreed_word = parsed_word.make_agree_with_number(count).word
-    
-    return f"{count} {agreed_word}"
 
 
 def can_click_button(user_key: str) -> bool:

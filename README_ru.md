@@ -44,9 +44,9 @@
 
 ### Требования
 
-* Python 3.10+
-* PostgreSQL
-* Docker (опционально)
+* Python 3.11+
+* [uv](https://docs.astral.sh/uv/getting-started/installation/)
+* PostgreSQL ИЛИ Docker (опционально)
 
 ### Локальная установка
 
@@ -55,13 +55,8 @@
 git clone [https://github.com/mysettlement/my_settlement.git](https://github.com/mysettlement/my_settlement.git)
 cd my_settlement
 
-# 2. Создайте виртуальное окружение
-python -m venv venv
-source venv/bin/activate  # Linux/Mac
-. venv\Scripts\activate  # Windows
-
-# 3. Установите зависимости
-pip install -r requirements.txt
+# 2. Синхронизируйте зависимости и создайте .venv
+uv sync --locked
 ```
 
 ### Конфигурация
@@ -78,7 +73,13 @@ DEBUG=True
 ### Запуск
 
 ```bash
-python main.py
+uv run python -m main
+```
+
+### Админ-панель
+
+```bash
+uv run python admin-entrypoint.py
 ```
 
 ## 🐳 Поддержка Docker
@@ -86,7 +87,8 @@ python main.py
 Вы можете легко запустить бота с помощью Docker Compose:
 
 ```bash
-docker-compose up -d --build
+# Доступные профили: main, admin, tools
+docker-compose up --profile main -d --build
 ```
 
 ## 📂 Структура проекта
@@ -111,10 +113,10 @@ docker-compose up -d --build
     ├── example.env
     ├── LICENSE
     ├── main.py
+    ├── pyproject.toml
     ├── README_ru.md
     ├── README.md
-    ├── requirements.in
-    ├── requirements.txt
+    ├── uv.lock
     └── sync_git.ps1
 ```
 

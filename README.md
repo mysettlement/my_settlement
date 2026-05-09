@@ -44,9 +44,9 @@ This is not just a simple bot; it features a custom [**Game Engine**](./app/game
 
 ### Prerequisites
 
-* Python 3.10+
-* PostgreSQL
-* Docker (optional)
+* Python 3.11+
+* [uv](https://docs.astral.sh/uv/getting-started/installation/)
+* PostgreSQL OR Docker (optional)
 
 ### Local Installation
 
@@ -55,13 +55,8 @@ This is not just a simple bot; it features a custom [**Game Engine**](./app/game
 git clone [https://github.com/mysettlement/my_settlement.git](https://github.com/mysettlement/my_settlement.git)
 cd my_settlement
 
-# 2. Create virtual environment
-python -m venv venv
-source venv/bin/activate  # Linux/Mac
-. venv\Scripts\activate  # Windows
-
-# 3. Install dependencies
-pip install -r requirements.txt
+# 2. Sync dependencies and create .venv
+uv sync --locked
 ```
 
 ### Configuration
@@ -78,7 +73,13 @@ DEBUG=True
 ### Running
 
 ```bash
-python main.py
+uv run python -m main
+```
+
+### Admin Panel
+
+```bash
+uv run python admin-entrypoint.py
 ```
 
 ## 🐳 Docker Support
@@ -86,7 +87,8 @@ python main.py
 You can easily run the bot using Docker Compose:
 
 ```bash
-docker-compose up -d --build
+# Available profiles: main, admin, tools
+docker-compose up --profile main -d --build
 ```
 
 ## 📂 Project Structure
@@ -111,10 +113,10 @@ docker-compose up -d --build
     ├── example.env
     ├── LICENSE
     ├── main.py
+    ├── pyproject.toml
     ├── README_ru.md
     ├── README.md
-    ├── requirements.in
-    ├── requirements.txt
+    ├── uv.lock
     └── sync_git.ps1
 ```
 

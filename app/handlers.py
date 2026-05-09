@@ -254,7 +254,7 @@ async def show_settings_menu(message: types.Message, user: models.User, submenu:
         now = arrow.now()
         
         if now < unlock_time:
-            time_left = utils.format_relative_time(unlock_time, now)
+            time_left = utils.format_relative_time(unlock_time, now, fallback=True)
             if callback: await callback.answer("⏳ " + i18n.callback.settings.timezone.error.locked(time_left=time_left), show_alert=True)
             else: message.reply("⏳ " + i18n.text.settings.timezone.error.locked(time_left=time_left))
             return
@@ -378,7 +378,7 @@ async def set_tz_callback(callback: types.CallbackQuery, i18n: TranslatorRunner)
         unlock_time = last_change.shift(days=settings.TZ_CHANGE_COOLDOWN_DAYS)
         now = arrow.now()
         if now < unlock_time:
-            time_left = utils.format_relative_time(unlock_time, now)
+            time_left = utils.format_relative_time(unlock_time, now, fallback=True)
             await callback.answer("⏳ " + i18n.callback.settings.timezone.error.locked(time_left=time_left), show_alert=True)
             return
 
@@ -1052,7 +1052,7 @@ async def select_craft_callback(callback: types.CallbackQuery, i18n: TranslatorR
             await callback.answer("⚠️ " + i18n.callback.craft.level_too_low())
             return
         if settler.profession_id:
-            can_choose, when = utils.can_choose_craft(settler.last_profession_change)
+            can_choose, when = utils.can_choose_craft(settler.last_profession_change, fallback=True)
             if not can_choose:
                 await callback.answer("⚠️ " + i18n.callback.craft.cooldown(when=when), True)
         

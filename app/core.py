@@ -203,7 +203,7 @@ async def building_startBuilding(settler: models.Settler, building_type_id: int,
     session.add(new_building)
     await session.commit()
     
-    return True, f"<b>🏗 Стройка началась!</b>\n{b_type.emoji} <b>{b_type.name}</b> будет готов <b>{utils.format_relative_time(finish_time)}</b>."
+    return True, f"<b>🏗 Стройка началась!</b>\n{b_type.emoji} <b>{b_type.name}</b> будет готов <b>{utils.format_relative_time(finish_time, fallback=True)}</b>."
 
 
 
@@ -515,7 +515,7 @@ async def settler_updateQuote(settler: models.Settler, settlement: models.Settle
         await session.refresh(current, ["user", "settlement"])
 
 
-def settler_canWorkNow(settler: models.Settler) -> tuple[bool, str]:
+def settler_canWorkNow(settler: models.Settler, fallback: bool = False) -> tuple[bool, str]:
     #* Проверка, может ли поселенец начать новую работу с учётом кулдауна
     last_work = arrow.get(settler.last_work_time)
     now = arrow.now()
@@ -526,7 +526,7 @@ def settler_canWorkNow(settler: models.Settler) -> tuple[bool, str]:
     if settler.work_is_completed and now < cooldown_end:
         can_work = False
 
-    return can_work, utils.format_relative_time(cooldown_end, now)
+    return can_work, utils.format_relative_time(cooldown_end, now, fallback=fallback)
 
 async def settler_startWorkflow(message_or_callback: Union[types.Message, types.CallbackQuery], work: models.Work, user: models.User, settler: models.Settler):
     #* Запуск рабочего процесса для поселенца
@@ -534,7 +534,7 @@ async def settler_startWorkflow(message_or_callback: Union[types.Message, types.
     chat_id = message_or_callback.chat.id if is_message else message_or_callback.message.chat.id
     user_key = f"{chat_id}_{user.telegram_id}"
 
-    can_work, countdown = settler_canWorkNow(settler)
+    can_work, countdown = settler_canWorkNow(settler, fallback=not is_message)
     if not can_work:
         text = f"⏳ Труд уж завершён. Новая работа появится через: {countdown}"
         await message_or_callback.answer(text) if is_message else await message_or_callback.answer(text, show_alert=True)

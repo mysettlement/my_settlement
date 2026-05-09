@@ -22,10 +22,15 @@ try:
 except ImportError as e:
     if "sqlalchemy-data-model-visualizer" in str(e):
         print("Ошибка: библиотека sqlalchemy-data-model-visualizer не установлена.")
-        print("Установите её командой: pip install sqlalchemy-data-model-visualizer")
+        print("Запустите скрипт через: uv run --group visualizer additional/db_visualizer/visualizer.py")
     elif "cairosvg" in str(e):
         print("Ошибка: библиотека cairosvg не установлена.")
-        print("Установите её командой: pip install cairosvg")
+        print("Запустите скрипт через: uv run --group visualizer additional/db_visualizer/visualizer.py")
+    sys.exit(1)
+except OSError as e:
+    print("Ошибка: системная библиотека Cairo недоступна для cairosvg.")
+    print("Установите Cairo для вашей ОС, затем повторите запуск через uv.")
+    print(f"Подробности: {e}")
     sys.exit(1)
 
 try:

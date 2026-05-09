@@ -240,7 +240,7 @@ def format_bonuses_text(bonuses: dict) -> tuple[bool, str]:
 
     return True, "\n".join(lines)
 
-def format_relative_time(target: Union[datetime, int, timedelta], now: Union[datetime, arrow.Arrow] = None, disable_affixes: bool = False, tg_format: str = "r") -> str:
+def format_relative_time(target: Union[datetime, int, timedelta], now: Union[datetime, arrow.Arrow] = None, disable_affixes: bool = False, fallback: bool = False, tg_format: str = "r") -> str:
     now = arrow.get(now) if now is not None else arrow.now()
     
     if isinstance(target, int):
@@ -254,7 +254,7 @@ def format_relative_time(target: Union[datetime, int, timedelta], now: Union[dat
     
     unix_time = int(result.timestamp())
     
-    return f'<tg-time unix="{unix_time}" format="{tg_format}">{fallback_text}</tg-time>'
+    return f'<tg-time unix="{unix_time}" format="{tg_format}">{fallback_text}</tg-time>' if not fallback else fallback_text
 
 
 def can_click_button(user_key: str) -> bool:
@@ -267,14 +267,14 @@ def can_click_button(user_key: str) -> bool:
     user_last_click_time[user_key] = current_time
     return True
 
-def can_choose_craft(last_profession_change) -> tuple[bool, str]:
+def can_choose_craft(last_profession_change, fallback: bool = False) -> tuple[bool, str]:
     last = arrow.get(last_profession_change or 0)
     now = arrow.now()
     
     cooldown_end = last.shift(hours=settings.CRAFT_COOLDOWN_HOURS)
     
     if cooldown_end > now:
-        return False, cooldown_end.humanize(other=now, locale='ru', only_distance=True)
+        return False, format_relative_time(cooldown_end, now, fallback=fallback)
         
     return True, ""
 

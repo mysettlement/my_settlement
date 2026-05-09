@@ -240,17 +240,21 @@ def format_bonuses_text(bonuses: dict) -> tuple[bool, str]:
 
     return True, "\n".join(lines)
 
-def format_relative_time(target: Union[datetime, int, timedelta], now: Union[datetime, arrow.Arrow] = None, disable_affixes: bool = False) -> str:
+def format_relative_time(target: Union[datetime, int, timedelta], now: Union[datetime, arrow.Arrow] = None, disable_affixes: bool = False, tg_format: str = "r") -> str:
     now = arrow.get(now) if now is not None else arrow.now()
     
     if isinstance(target, int):
         target = arrow.now().shift(seconds=target)
-    
     elif isinstance(target, timedelta):
-        target = arrow.get((now or arrow.now()) + target)
+        target = arrow.get(now + target)
 
     result = arrow.get(target)
-    return result.humanize(other=now, locale='ru', only_distance=disable_affixes)
+    
+    fallback_text = result.humanize(other=now, locale='ru', only_distance=disable_affixes)
+    
+    unix_time = int(result.timestamp())
+    
+    return f'<tg-time unix="{unix_time}" format="{tg_format}">{fallback_text}</tg-time>'
 
 
 def can_click_button(user_key: str) -> bool:

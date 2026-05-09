@@ -152,7 +152,7 @@ async def me_command(message: types.Message, user: models.User, i18n: Translator
                 f"🏷 <b>{i18n.text.settler.profile.full.rank()}</b>: {settler.emoji} {settler.rank}\n"
                 f"📄 <b>{i18n.text.settler.profile.full.quote()}</b>: {quote_display}{overtime_hint}\n"
                 f"💰 <b>{i18n.text.settler.profile.full.balance()}</b>: {round(settler.balance)}\n"
-                f"\n{(settler.profession.emoji + ' ' + i18n.text.settler.profile.work.cooldown(countdown=work_countdown) + ' 🕒') if (settler.profession and not can_work) else ((settler.profession.emoji + ' <b>' + i18n.text.settler.profile.work.ready() + '</b> ✅') if settler.profession else '')} "
+                f"\n{(settler.profession.emoji + ': ' + i18n.text.settler.profile.work.cooldown(countdown=work_countdown)) if (settler.profession and not can_work) else ((settler.profession.emoji + ' <b>' + i18n.text.settler.profile.work.ready() + '</b> ✅') if settler.profession else '')} "
             )
 
             kb.button(text="🪭 " + i18n.button.settler.cosmetics(), switch_inline_query_current_chat="Обличья")

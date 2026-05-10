@@ -27,8 +27,8 @@ text-settler-overtime-status-inactive =
     Стан стради: 🔘 <b>Неактивна</b>
     Скільки стради взято: { $overtime_count }
 text-settler-overtime-taken =
-    <b>Страда взята!</b> (📄 0/{ $new_quote })
-    Новая мера должна быть исполнена 🕒 <b>{ $reset_countdown }</b>!
+    <b>Завдання виконано!</b> (📄 0/{ $new_quote })
+    Нове завдання має бути виконано 🕒 <b>{ $reset_countdown }</b>!
 callback-settler-overtime-already = Страда вже взята!
 # --- text - inventory ---
 text-settler-inventory-title = Скарби

@@ -17,6 +17,7 @@ text-settler-cosmetics-current = Current emoji
 text-settler-cosmetics-none = No emojis available
 text-settler-cosmetics-accepted = Appearance accepted: { $emoji }
 # --- text - overtime ---
+text-settler-overtime-title = Overtime
 text-settler-overtime-hint = If a little good isn't enough for you, you can take on <b>a hardship</b>. With each hardship, the work gets harder, you'll gain less wisdom, but you'll get just as much money. If <b>you don't finish the work</b> by the next day ({ $reset_countdown }), <b>a curse</b> will be placed upon you.
 text-settler-overtime-status-active =
     Strada status: <b>Active</b>

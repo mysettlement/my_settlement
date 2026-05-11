@@ -44,9 +44,9 @@ This is not just a simple bot; it features a custom [**Game Engine**](./app/game
 
 ### Prerequisites
 
-* Python 3.11+
+* [Python 3.11+](https://www.python.org/downloads/)
 * [uv](https://docs.astral.sh/uv/getting-started/installation/)
-* PostgreSQL OR Docker (optional)
+* [PostgreSQL](https://www.postgresql.org/download/) OR [Docker](https://www.docker.com/) (optional)
 
 ### Local Installation
 
@@ -91,42 +91,13 @@ You can easily run the bot using Docker Compose:
 docker-compose up --profile main -d --build
 ```
 
-## 📂 Project Structure
-
-```Structure
-└── 📁my_settlement
-    └── 📁app
-        ├── __init__.py
-        ├── config.py
-        ├── core.py
-        ├── db.py
-        ├── exceptions.py
-        ├── gamer.py
-        ├── handlers.py
-        ├── models.py
-        ├── tasks.py
-        ├── utils.py
-    ├── .dockerignore
-    ├── .gitignore
-    ├── docker-compose.yml
-    ├── Dockerfile
-    ├── example.env
-    ├── LICENSE
-    ├── main.py
-    ├── pyproject.toml
-    ├── README_ru.md
-    ├── README.md
-    ├── uv.lock
-    └── sync_git.ps1
-```
-
 ## 🤝 Contributing
 
 Contributions are welcome! Please feel free to submit pull requests.
 
 ## 📝 License
 
-Distributed under the GNU License. See [LICENSE](./LICENSE) for more information.
+**GNUv3** - see [LICENSE](./LICENSE) for more information.
 
 <div align="center">
 

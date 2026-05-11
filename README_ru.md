@@ -44,9 +44,9 @@
 
 ### Требования
 
-* Python 3.11+
+* [Python 3.11+](https://www.python.org/downloads/)
 * [uv](https://docs.astral.sh/uv/getting-started/installation/)
-* PostgreSQL ИЛИ Docker (опционально)
+* [PostgreSQL](https://www.postgresql.org/download/) ИЛИ [Docker](https://www.docker.com/) (опционально)
 
 ### Локальная установка
 
@@ -89,35 +89,6 @@ uv run python admin-entrypoint.py
 ```bash
 # Доступные профили: main, admin, tools
 docker-compose up --profile main -d --build
-```
-
-## 📂 Структура проекта
-
-```Structure
-└── 📁my_settlement
-    └── 📁app
-        ├── __init__.py
-        ├── config.py
-        ├── core.py
-        ├── db.py
-        ├── exceptions.py
-        ├── gamer.py
-        ├── handlers.py
-        ├── models.py
-        ├── tasks.py
-        ├── utils.py
-    ├── .dockerignore
-    ├── .gitignore
-    ├── docker-compose.yml
-    ├── Dockerfile
-    ├── example.env
-    ├── LICENSE
-    ├── main.py
-    ├── pyproject.toml
-    ├── README_ru.md
-    ├── README.md
-    ├── uv.lock
-    └── sync_git.ps1
 ```
 
 ## 🤝 Вклад в проект

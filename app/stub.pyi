@@ -9,62 +9,39 @@ PossibleValue: TypeAlias = str | int | float | Decimal | bool | FluentType
 class TranslatorRunner:
     def get(self, path: str, **kwargs: PossibleValue) -> str: ...
     text: Text
-    button: Button
     callback: Callback
+    button: Button
     constant: Constant
 
-class TextBuildingsTown:
+class TextCraftChoose:
     @staticmethod
-    def title() -> Literal["""Городские постройки"""]: ...
+    def title() -> Literal["""Выбор ремесла"""]: ...
+    @staticmethod
+    def cooldown() -> Literal["""Сменить ремесло можно через"""]: ...
 
-class TextBuildingsMy:
+class TextCraftStatus:
     @staticmethod
-    def title() -> Literal["""Мои постройки"""]: ...
+    def selected() -> Literal["""Выбрано"""]: ...
+    @staticmethod
+    def available() -> Literal["""Доступно"""]: ...
+    @staticmethod
+    def locked() -> Literal["""Недоступно"""]: ...
 
-class TextBuildingsStatus:
+class TextCraftSelected:
     @staticmethod
-    def active() -> Literal["""Активно"""]: ...
-    @staticmethod
-    def construction(*, time_left: PossibleValue) -> Literal["""Построится { $time_left }"""]: ...
+    def success(*, profession_name: PossibleValue, user_name: PossibleValue) -> Literal["""&lt;b&gt;{ $user_name }&lt;/b&gt; избрал своё ремесло: &lt;b&gt;{ $profession_name }!&lt;/b&gt;"""]: ...
 
-class TextBuildingsView:
-    @staticmethod
-    def active() -> Literal["""В обороте!"""]: ...
-    @staticmethod
-    def construction(*, time_left: PossibleValue) -> Literal["""Стройка закончится &lt;b&gt;{ $time_left }&lt;/b&gt;"""]: ...
-    @staticmethod
-    def bonuses() -> Literal["""Бонусы:"""]: ...
-
-class TextBuildingsCatalogScope:
-    @staticmethod
-    def town() -> Literal["""Городские"""]: ...
-    @staticmethod
-    def my() -> Literal["""Личные"""]: ...
-
-class TextBuildingsCatalog:
-    scope: TextBuildingsCatalogScope
+class TextCraft:
+    choose: TextCraftChoose
+    status: TextCraftStatus
+    selected: TextCraftSelected
 
     @staticmethod
-    def title() -> Literal["""Каталог чертежей"""]: ...
-
-class TextBuildingsPreview:
+    def no_professions() -> Literal["""Нет доступных ремесел. Обратитесь к &lt;a href=&#34;https://t.me/megatocha&#34;&gt;создателю.&lt;/a&gt;"""]: ...
     @staticmethod
-    def requirements() -> Literal["""Требуется для постройки:"""]: ...
+    def no_profession() -> Literal["""Ты ещё ремесла не избрал."""]: ...
     @staticmethod
-    def time(*, time: PossibleValue) -> Literal["""&lt;b&gt;Время строительства:&lt;/b&gt; { $time } секунд"""]: ...
-
-class TextBuildings:
-    town: TextBuildingsTown
-    my: TextBuildingsMy
-    status: TextBuildingsStatus
-    view: TextBuildingsView
-    catalog: TextBuildingsCatalog
-    preview: TextBuildingsPreview
-
-    @staticmethod
-    def empty() -> Literal["""Пока здесь пусто."""]: ...
-    @staticmethod
-    def not_found() -> Literal["""Здание уже снесено или не существует."""]: ...
+    def no_works() -> Literal["""Твоё ремесло пока не имеет доступных трудов. Жди вестей новых!"""]: ...
 
 class TextOtherPrivate:
     @staticmethod
@@ -128,45 +105,47 @@ class TextOther:
 
 &lt;a href=&#34;https://docs.fiwu.uno/&#34;&gt;Полные гайды&lt;/a&gt;"""]: ...
 
-class TextSettingsTimezoneError:
+class TextSettlementViewOwner:
     @staticmethod
-    def determine() -> Literal["""Не удалось определить часовой пояс. Попробуй выбрать его вручную."""]: ...
+    def missing() -> Literal["""Отсутствует"""]: ...
+    @staticmethod
+    def fallback(*, telegram_id: PossibleValue) -> Literal["""Пользователь { $telegram_id }"""]: ...
 
-class TextSettingsTimezone:
-    error: TextSettingsTimezoneError
+class TextSettlementView:
+    owner: TextSettlementViewOwner
 
+class TextSettlementRename:
     @staticmethod
-    def title(*, cooldown: PossibleValue, timezone: PossibleValue) -> Literal["""Текущий пояс: &lt;code&gt;{ $timezone }&lt;/code&gt;
-Дневной сброс происходит в &lt;b&gt;00:00&lt;/b&gt; по этому времени.
+    def empty() -> Literal["""Укажите название!
+Пример: &lt;code&gt;/name_settlement Новый Град&lt;/code&gt;"""]: ...
+    @staticmethod
+    def length() -> Literal["""Название должно быть от 3 до 30 символов."""]: ...
+    @staticmethod
+    def not_owner() -> Literal["""Управлять именем поселения токмо &lt;b&gt;правитель&lt;/b&gt; может! Иди своим путём, простолюдин."""]: ...
+    @staticmethod
+    def cooldown(*, time_left: PossibleValue) -> Literal["""&lt;b&gt;Не спеши, правитель.&lt;/b&gt;
+Чернила на прошлом указе ещё не высохли. Негоже так часто имена менять.
 
-⚠️ Менять пояс можно раз в &lt;b&gt;{ $cooldown } дней&lt;/b&gt;."""]: ...
+Новую грамоту сможешь подать &lt;b&gt;{ $time_left }&lt;/b&gt;."""]: ...
     @staticmethod
-    def determine() -> Literal["""&lt;b&gt;Нажми на кнопку ниже&lt;/b&gt;, чтобы определить часовой пояс автоматически."""]: ...
-    @staticmethod
-    def determined(*, timezone: PossibleValue) -> Literal["""Часовой пояс определён: &lt;b&gt;{ $timezone }&lt;/b&gt;"""]: ...
-    @staticmethod
-    def changed(*, tz_name: PossibleValue) -> Literal["""Часовой пояс установлен: &lt;b&gt;{ $tz_name }&lt;/b&gt;"""]: ...
+    def same(*, new_name: PossibleValue, old_name: PossibleValue) -> Literal["""&lt;b&gt;К чему тратить чернила?&lt;/b&gt;
+Писарь не станет марать пергамент понапрасну.
 
-class TextSettingsLanguage:
+Ты меняешь &lt;b&gt;{ $old_name }&lt;/b&gt; на &lt;b&gt;{ $new_name }&lt;/b&gt;. Суть едина."""]: ...
     @staticmethod
-    def title(*, lang_name: PossibleValue) -> Literal["""Выбери язык интерфейса. Это не повлияет на язык сообщений от других игроков.
+    def success(*, new_name: PossibleValue, old_name: PossibleValue) -> Literal["""&lt;b&gt;Быть по сему!&lt;/b&gt;
 
-Текущий язык: &lt;b&gt;{ $lang_name }&lt;/b&gt;"""]: ...
+Имя &lt;b&gt;{ $old_name }&lt;/b&gt; уходит в легенды. Отныне и впредь владения сии величаются &lt;b&gt;{ $new_name }&lt;/b&gt;!
 
-class TextSettings:
-    timezone: TextSettingsTimezone
-    language: TextSettingsLanguage
+&lt;b&gt;Да здравствует { $new_name }!&lt;/b&gt;"""]: ...
 
-    @staticmethod
-    def title() -> Literal["""Настройки"""]: ...
-    @staticmethod
-    def subtitle() -> Literal["""Вы можете настроить поведение бота под себя, изменив следующие параметры:"""]: ...
+class TextSettlement:
+    view: TextSettlementView
+    rename: TextSettlementRename
 
 class TextSettlerId:
     @staticmethod
     def internal() -> Literal["""Внутренний ID"""]: ...
-    @staticmethod
-    def telegram() -> Literal["""Telegram ID"""]: ...
 
 class TextSettlerProfileCraft:
     @staticmethod
@@ -236,11 +215,11 @@ class TextSettlerOvertime:
     def hint(*, reset_countdown: PossibleValue) -> Literal["""Коль добра тебе мало, можешь &lt;b&gt;страду&lt;/b&gt; взять. С каждой страдой работа тяжелеет, мудрости меньше наберёшь, но грошей столько же получишь. Коль &lt;b&gt;не поспеешь труд свершить&lt;/b&gt; до нового дня ({ $reset_countdown }), на тебя &lt;b&gt;виру&lt;/b&gt; наложат."""]: ...
     @staticmethod
     def taken(*, new_quote: PossibleValue, reset_countdown: PossibleValue) -> Literal["""&lt;b&gt;Страда взята!&lt;/b&gt; (📄 0/{ $new_quote })
-Тебе осталось 🕒 &lt;b&gt;{ $reset_countdown }&lt;/b&gt; чтоб новую меру исполнить!"""]: ...
+Новая мера должна быть исполнена 🕒 &lt;b&gt;{ $reset_countdown }&lt;/b&gt;!"""]: ...
 
 class TextSettlerInventory:
     @staticmethod
-    def title() -> Literal["""Скарби"""]: ...
+    def title() -> Literal["""Скарбы"""]: ...
     @staticmethod
     def empty() -> Literal["""Пусто"""]: ...
     @staticmethod
@@ -254,36 +233,6 @@ class TextSettler:
     overtime: TextSettlerOvertime
     inventory: TextSettlerInventory
 
-class TextCraftChoose:
-    @staticmethod
-    def title() -> Literal["""Выбор ремесла"""]: ...
-    @staticmethod
-    def cooldown() -> Literal["""Сменить ремесло можно через"""]: ...
-
-class TextCraftStatus:
-    @staticmethod
-    def selected() -> Literal["""Выбрано"""]: ...
-    @staticmethod
-    def available() -> Literal["""Доступно"""]: ...
-    @staticmethod
-    def locked() -> Literal["""Недоступно"""]: ...
-
-class TextCraftSelected:
-    @staticmethod
-    def success(*, profession_name: PossibleValue, user_name: PossibleValue) -> Literal["""&lt;b&gt;{ $user_name }&lt;/b&gt; избрал своё ремесло: &lt;b&gt;{ $profession_name }!&lt;/b&gt;"""]: ...
-
-class TextCraft:
-    choose: TextCraftChoose
-    status: TextCraftStatus
-    selected: TextCraftSelected
-
-    @staticmethod
-    def no_professions() -> Literal["""Нет доступных ремесел. Обратитесь к &lt;a href=&#34;https://t.me/megatocha&#34;&gt;создателю.&lt;/a&gt;"""]: ...
-    @staticmethod
-    def no_profession() -> Literal["""Ты ещё ремесла не избрал."""]: ...
-    @staticmethod
-    def no_works() -> Literal["""Твоё ремесло пока не имеет доступных трудов. Жди вестей новых!"""]: ...
-
 class TextCommonWork:
     @staticmethod
     def expired() -> Literal["""Долго ты без дела стоял! Труд отложен."""]: ...
@@ -296,170 +245,101 @@ class TextCommon:
     @staticmethod
     def none() -> Literal["""Неизвестно"""]: ...
 
-class TextSettlementViewOwner:
+class TextBuildingsTown:
     @staticmethod
-    def missing() -> Literal["""Отсутствует"""]: ...
-    @staticmethod
-    def fallback(*, telegram_id: PossibleValue) -> Literal["""Пользователь { $telegram_id }"""]: ...
+    def title() -> Literal["""Городские постройки"""]: ...
 
-class TextSettlementView:
-    owner: TextSettlementViewOwner
-
-class TextSettlementRename:
+class TextBuildingsMy:
     @staticmethod
-    def empty() -> Literal["""Укажите название!
-Пример: &lt;code&gt;/name_settlement Новый Град&lt;/code&gt;"""]: ...
-    @staticmethod
-    def length() -> Literal["""Название должно быть от 3 до 30 символов."""]: ...
-    @staticmethod
-    def not_owner() -> Literal["""Управлять именем поселения токмо &lt;b&gt;правитель&lt;/b&gt; может! Иди своим путём, простолюдин."""]: ...
-    @staticmethod
-    def cooldown(*, time_left: PossibleValue) -> Literal["""&lt;b&gt;Не спеши, правитель.&lt;/b&gt;
-Чернила на прошлом указе ещё не высохли. Негоже так часто имена менять.
+    def title() -> Literal["""Мои постройки"""]: ...
 
-Новую грамоту сможешь подать &lt;b&gt;{ $time_left }&lt;/b&gt;."""]: ...
+class TextBuildingsStatus:
     @staticmethod
-    def same(*, new_name: PossibleValue, old_name: PossibleValue) -> Literal["""&lt;b&gt;К чему тратить чернила?&lt;/b&gt;
-Писарь не станет марать пергамент понапрасну.
-
-Ты меняешь &lt;b&gt;{ $old_name }&lt;/b&gt; на &lt;b&gt;{ $new_name }&lt;/b&gt;. Суть едина."""]: ...
+    def active() -> Literal["""Активно"""]: ...
     @staticmethod
-    def success(*, new_name: PossibleValue, old_name: PossibleValue) -> Literal["""&lt;b&gt;Быть по сему!&lt;/b&gt;
+    def construction(*, time_left: PossibleValue) -> Literal["""Построится { $time_left }"""]: ...
 
-Имя &lt;b&gt;{ $old_name }&lt;/b&gt; уходит в легенды. Отныне и впредь владения сии величаются &lt;b&gt;{ $new_name }&lt;/b&gt;!
+class TextBuildingsView:
+    @staticmethod
+    def active() -> Literal["""В обороте!"""]: ...
+    @staticmethod
+    def construction(*, time_left: PossibleValue) -> Literal["""Стройка закончится &lt;b&gt;{ $time_left }&lt;/b&gt;"""]: ...
+    @staticmethod
+    def bonuses() -> Literal["""Бонусы:"""]: ...
 
-&lt;b&gt;Да здравствует { $new_name }!&lt;/b&gt;"""]: ...
+class TextBuildingsCatalogScope:
+    @staticmethod
+    def town() -> Literal["""Городские"""]: ...
+    @staticmethod
+    def my() -> Literal["""Личные"""]: ...
 
-class TextSettlement:
-    view: TextSettlementView
-    rename: TextSettlementRename
+class TextBuildingsCatalog:
+    scope: TextBuildingsCatalogScope
+
+    @staticmethod
+    def title() -> Literal["""Каталог чертежей"""]: ...
+
+class TextBuildingsPreview:
+    @staticmethod
+    def requirements() -> Literal["""Требуется для постройки:"""]: ...
+    @staticmethod
+    def time(*, time: PossibleValue) -> Literal["""&lt;b&gt;Время строительства:&lt;/b&gt; { $time } секунд"""]: ...
+
+class TextBuildings:
+    town: TextBuildingsTown
+    my: TextBuildingsMy
+    status: TextBuildingsStatus
+    view: TextBuildingsView
+    catalog: TextBuildingsCatalog
+    preview: TextBuildingsPreview
+
+    @staticmethod
+    def empty() -> Literal["""Пока здесь пусто."""]: ...
+    @staticmethod
+    def not_found() -> Literal["""Здание уже снесено или не существует."""]: ...
+
+class TextSettingsTimezoneError:
+    @staticmethod
+    def determine() -> Literal["""Не удалось определить часовой пояс. Попробуй выбрать его вручную."""]: ...
+
+class TextSettingsTimezone:
+    error: TextSettingsTimezoneError
+
+    @staticmethod
+    def title(*, cooldown: PossibleValue, timezone: PossibleValue) -> Literal["""Текущий пояс: &lt;code&gt;{ $timezone }&lt;/code&gt;
+Дневной сброс происходит в &lt;b&gt;00:00&lt;/b&gt; по этому времени.
+
+⚠️ Менять пояс можно раз в &lt;b&gt;{ $cooldown } дней&lt;/b&gt;."""]: ...
+    @staticmethod
+    def determine() -> Literal["""&lt;b&gt;Нажми на кнопку ниже&lt;/b&gt;, чтобы определить часовой пояс автоматически."""]: ...
+    @staticmethod
+    def determined(*, timezone: PossibleValue) -> Literal["""Часовой пояс определён: &lt;b&gt;{ $timezone }&lt;/b&gt;"""]: ...
+    @staticmethod
+    def changed(*, tz_name: PossibleValue) -> Literal["""Часовой пояс установлен: &lt;b&gt;{ $tz_name }&lt;/b&gt;"""]: ...
+
+class TextSettingsLanguage:
+    @staticmethod
+    def title(*, lang_name: PossibleValue) -> Literal["""Выбери язык интерфейса. Это не повлияет на язык сообщений от других игроков.
+
+Текущий язык: &lt;b&gt;{ $lang_name }&lt;/b&gt;"""]: ...
+
+class TextSettings:
+    timezone: TextSettingsTimezone
+    language: TextSettingsLanguage
+
+    @staticmethod
+    def title() -> Literal["""Настройки"""]: ...
+    @staticmethod
+    def subtitle() -> Literal["""Вы можете настроить поведение бота под себя, изменив следующие параметры:"""]: ...
 
 class Text:
-    buildings: TextBuildings
-    other: TextOther
-    settings: TextSettings
-    settler: TextSettler
     craft: TextCraft
-    common: TextCommon
+    other: TextOther
     settlement: TextSettlement
-
-class ButtonBuildings:
-    @staticmethod
-    def blueprints() -> Literal["""Чертежи"""]: ...
-    @staticmethod
-    def build() -> Literal["""Построить!"""]: ...
-    @staticmethod
-    def back_blueprints() -> Literal["""К чертежам"""]: ...
-
-class ButtonOtherBotLeft:
-    @staticmethod
-    def survey() -> Literal["""Пройти опрос (1 мин)"""]: ...
-
-class ButtonOtherBot:
-    left: ButtonOtherBotLeft
-
-    @staticmethod
-    def help() -> Literal["""Помощь"""]: ...
-    @staticmethod
-    def inspect() -> Literal["""Осмотреть поселение"""]: ...
-    @staticmethod
-    def cancel() -> Literal["""Отмена"""]: ...
-
-class ButtonOther:
-    bot: ButtonOtherBot
-
-    @staticmethod
-    def add() -> Literal["""Добавить"""]: ...
-
-class ButtonSettingsTimezone:
-    @staticmethod
-    def determine() -> Literal["""Определить"""]: ...
-    @staticmethod
-    def share_location() -> Literal["""Поделиться геопозицией"""]: ...
-    @staticmethod
-    def set() -> Literal["""Установить!"""]: ...
-
-class ButtonSettings:
-    timezone: ButtonSettingsTimezone
-
-class ButtonSettlerOvertime:
-    @staticmethod
-    def __call__() -> Literal["""Страда"""]: ...
-    @staticmethod
-    def take() -> Literal["""Взять страду"""]: ...
-
-class ButtonSettler:
-    overtime: ButtonSettlerOvertime
-
-    @staticmethod
-    def cosmetics() -> Literal["""Обличья"""]: ...
-    @staticmethod
-    def inventory() -> Literal["""Скарб"""]: ...
-    @staticmethod
-    def work() -> Literal["""Трудиться"""]: ...
-    @staticmethod
-    def choose_craft() -> Literal["""Выбрать ремесло"""]: ...
-
-class ButtonCommon:
-    @staticmethod
-    def back() -> Literal["""Назад"""]: ...
-
-class ButtonSettlement:
-    @staticmethod
-    def profile() -> Literal["""Лик"""]: ...
-    @staticmethod
-    def rename() -> Literal["""Переименовать"""]: ...
-    @staticmethod
-    def buildings() -> Literal["""Постройки"""]: ...
-
-class Button:
-    buildings: ButtonBuildings
-    other: ButtonOther
-    settings: ButtonSettings
-    settler: ButtonSettler
-    common: ButtonCommon
-    settlement: ButtonSettlement
-
-class CallbackBuildingsBuild:
-    @staticmethod
-    def success() -> Literal["""Работа закипела!"""]: ...
-    @staticmethod
-    def only_mayor() -> Literal["""Только правитель может строить городские здания."""]: ...
-
-class CallbackBuildings:
-    build: CallbackBuildingsBuild
-
-class CallbackOtherLang:
-    @staticmethod
-    def not_found(*, lang_code: PossibleValue) -> Literal["""Язык { $lang_code } не найден"""]: ...
-
-class CallbackOther:
-    lang: CallbackOtherLang
-
-class CallbackSettingsLanguage:
-    @staticmethod
-    def changed(*, lang_name: PossibleValue) -> Literal["""Язык успешно изменён на { $lang_name }!"""]: ...
-
-class CallbackSettingsTimezoneError:
-    @staticmethod
-    def locked(*, time_left: PossibleValue) -> Literal["""Сменить пояс можно { $time_left }"""]: ...
-
-class CallbackSettingsTimezone:
-    error: CallbackSettingsTimezoneError
-
-    @staticmethod
-    def changed() -> Literal["""Часовой пояс сохранен!"""]: ...
-
-class CallbackSettings:
-    language: CallbackSettingsLanguage
-    timezone: CallbackSettingsTimezone
-
-class CallbackSettlerOvertime:
-    @staticmethod
-    def already() -> Literal["""Страда уже взята!"""]: ...
-
-class CallbackSettler:
-    overtime: CallbackSettlerOvertime
+    settler: TextSettler
+    common: TextCommon
+    buildings: TextBuildings
+    settings: TextSettings
 
 class CallbackCraft:
     @staticmethod
@@ -474,6 +354,20 @@ class CallbackCraft:
     def work_not_found() -> Literal["""Труд не сыскан!"""]: ...
     @staticmethod
     def wrong_profession() -> Literal["""Сие дело твоему ремеслу не по плечу!"""]: ...
+
+class CallbackOtherLang:
+    @staticmethod
+    def not_found(*, lang_code: PossibleValue) -> Literal["""Язык { $lang_code } не найден"""]: ...
+
+class CallbackOther:
+    lang: CallbackOtherLang
+
+class CallbackSettlerOvertime:
+    @staticmethod
+    def already() -> Literal["""Страда уже взята!"""]: ...
+
+class CallbackSettler:
+    overtime: CallbackSettlerOvertime
 
 class CallbackCommonWorkExpired:
     @staticmethod
@@ -497,13 +391,117 @@ class CallbackCommon:
     @staticmethod
     def invalid_step() -> Literal["""Неверный шаг!"""]: ...
 
+class CallbackBuildingsBuild:
+    @staticmethod
+    def success() -> Literal["""Работа закипела!"""]: ...
+    @staticmethod
+    def only_mayor() -> Literal["""Только правитель может строить городские здания."""]: ...
+
+class CallbackBuildings:
+    build: CallbackBuildingsBuild
+
+class CallbackSettingsLanguage:
+    @staticmethod
+    def changed(*, lang_name: PossibleValue) -> Literal["""Язык успешно изменён на { $lang_name }!"""]: ...
+
+class CallbackSettingsTimezoneError:
+    @staticmethod
+    def locked(*, time_left: PossibleValue) -> Literal["""Сменить пояс можно { $time_left }"""]: ...
+
+class CallbackSettingsTimezone:
+    error: CallbackSettingsTimezoneError
+
+    @staticmethod
+    def changed() -> Literal["""Часовой пояс сохранен!"""]: ...
+
+class CallbackSettings:
+    language: CallbackSettingsLanguage
+    timezone: CallbackSettingsTimezone
+
 class Callback:
-    buildings: CallbackBuildings
-    other: CallbackOther
-    settings: CallbackSettings
-    settler: CallbackSettler
     craft: CallbackCraft
+    other: CallbackOther
+    settler: CallbackSettler
     common: CallbackCommon
+    buildings: CallbackBuildings
+    settings: CallbackSettings
+
+class ButtonOtherBotLeft:
+    @staticmethod
+    def survey() -> Literal["""Пройти опрос (1 мин)"""]: ...
+
+class ButtonOtherBot:
+    left: ButtonOtherBotLeft
+
+    @staticmethod
+    def help() -> Literal["""Помощь"""]: ...
+    @staticmethod
+    def inspect() -> Literal["""Осмотреть поселение"""]: ...
+    @staticmethod
+    def cancel() -> Literal["""Отмена"""]: ...
+
+class ButtonOther:
+    bot: ButtonOtherBot
+
+    @staticmethod
+    def add() -> Literal["""Добавить"""]: ...
+
+class ButtonSettlement:
+    @staticmethod
+    def profile() -> Literal["""Лик"""]: ...
+    @staticmethod
+    def rename() -> Literal["""Переименовать"""]: ...
+    @staticmethod
+    def buildings() -> Literal["""Постройки"""]: ...
+
+class ButtonSettlerOvertime:
+    @staticmethod
+    def __call__() -> Literal["""Страда"""]: ...
+    @staticmethod
+    def take() -> Literal["""Взять страду"""]: ...
+
+class ButtonSettler:
+    overtime: ButtonSettlerOvertime
+
+    @staticmethod
+    def cosmetics() -> Literal["""Обличья"""]: ...
+    @staticmethod
+    def inventory() -> Literal["""Скарб"""]: ...
+    @staticmethod
+    def work() -> Literal["""Трудиться"""]: ...
+    @staticmethod
+    def choose_craft() -> Literal["""Выбрать ремесло"""]: ...
+
+class ButtonCommon:
+    @staticmethod
+    def back() -> Literal["""Назад"""]: ...
+
+class ButtonBuildings:
+    @staticmethod
+    def blueprints() -> Literal["""Чертежи"""]: ...
+    @staticmethod
+    def build() -> Literal["""Построить!"""]: ...
+    @staticmethod
+    def back_blueprints() -> Literal["""К чертежам"""]: ...
+
+class ButtonSettingsTimezone:
+    @staticmethod
+    def determine() -> Literal["""Определить"""]: ...
+    @staticmethod
+    def share_location() -> Literal["""Поделиться геопозицией"""]: ...
+    @staticmethod
+    def set() -> Literal["""Установить!"""]: ...
+
+class ButtonSettings:
+    timezone: ButtonSettingsTimezone
+
+class Button:
+    other: ButtonOther
+    settlement: ButtonSettlement
+    settler: ButtonSettler
+    common: ButtonCommon
+    buildings: ButtonBuildings
+    settings: ButtonSettings
 
 class ConstantSettingsCommon:
     @staticmethod

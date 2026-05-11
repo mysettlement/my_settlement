@@ -890,7 +890,7 @@ async def overtime_command(message: types.Message, user: models.User, i18n: Tran
     buttons = []
     kb = InlineKeyboardBuilder()
 
-    text = f"🕒 <b>" + i18n.text.settler.overtime() + "</b>\n"
+    text = f"🕒 <b>" + i18n.text.settler.overtime.title() + "</b>\n"
     text += f"ℹ️ " + i18n.text.settler.overtime.hint(reset_countdown=reset_countdown) + "\n\n" if settler.level < 2 and user.show_hints == True else ""
     if settler.overtime_is_toggled and not settler.quote_is_completed:
         if compact_style:

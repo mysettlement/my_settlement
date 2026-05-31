@@ -17,6 +17,7 @@ text-settler-cosmetics-current = Поточний емодзі
 text-settler-cosmetics-none = Немає доступних емодзі
 text-settler-cosmetics-accepted = Зовнішній вигляд прийнято: { $emoji }
 # --- text - overtime ---
+text-settler-overtime-title = Страда
 text-settler-overtime-hint = Якщо тобі мало добра, можеш взяти <b>страду</b>. З кожною страдою робота стає важчою, мудрості набереш менше, але грошей отримаєш стільки ж. Якщо <b>не встигнеш виконати роботу</b> до нового дня ({ $reset_countdown }), на тебе накладуть <b>виру</b>.
 text-settler-overtime-status-active =
     Стан стради: <b>Активна</b>
@@ -27,8 +28,8 @@ text-settler-overtime-status-inactive =
     Стан стради: 🔘 <b>Неактивна</b>
     Скільки стради взято: { $overtime_count }
 text-settler-overtime-taken =
-    <b>Завдання виконано!</b> (📄 0/{ $new_quote })
-    Нове завдання має бути виконано 🕒 <b>{ $reset_countdown }</b>!
+    <b>Страда взята!</b> (📄 0/{ $new_quote })
+    Тобі залишилося 🕒 <b>{ $reset_countdown }</b> щоб нову міру виконати!
 callback-settler-overtime-already = Страда вже взята!
 # --- text - inventory ---
 text-settler-inventory-title = Скарби

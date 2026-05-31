@@ -5,7 +5,7 @@ text-craft-no_professions = Немає доступних ремесел. Зве
 text-craft-status-selected = Вибрано
 text-craft-status-available = Доступно
 text-craft-status-locked = Недоступно
-text-craft-selected-success = <b>{ $user_name }</b> обрав свою справу: <b>{ $profession_name }!</b>
+text-craft-selected-success = <b>{ $user_name }</b> обрав(ла) своє ремесло: <b>{ $profession_name }!</b>
 text-craft-no_profession = Ти ще ремесло не обрав.
 text-craft-no_works = Твоє ремесло поки що не має доступних праць. Чекай на нові новини!
 # --- callback ---

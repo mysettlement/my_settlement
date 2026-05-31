@@ -1,0 +1,85 @@
+name: Tests
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+jobs:
+  unit:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - uses: astral-sh/setup-uv@v5
+
+      - name: Install dependencies
+        run: uv sync --locked --group test
+
+      - name: Run unit tests
+        run: uv run pytest -m unit
+
+  integration:
+    runs-on: ubuntu-latest
+    env:
+      DB_HOST: 127.0.0.1
+      DB_PORT: 5432
+      DB_USER: postgres
+      DB_PASS: postgres
+      DB_NAME: my_settlement_test
+      BOT_TOKEN: 123456:TEST_TOKEN_FOR_PYTEST_1234567890
+      BOT_USERNAME: mysettlement_test_bot
+      ENABLE_DEVELOPERS_NOTIFY: "False"
+      ADMIN_USERNAME: admin_test
+      ADMIN_PASSWORD: admin_test_password
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: my_settlement_test
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d my_settlement_test"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - uses: astral-sh/setup-uv@v5
+
+      - name: Install dependencies
+        run: uv sync --locked --group test
+
+      - name: Run integration and e2e tests
+        run: uv run pytest -m "integration or e2e"
+
+      - name: Export coverage json
+        run: uv run coverage json -o coverage.json
+
+      - name: Check total coverage threshold
+        run: uv run coverage report --fail-under=80
+
+      - name: Check per-file coverage thresholds
+        run: uv run python tests/support/check_coverage.py coverage.json
+
+      - name: Upload coverage artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-xml
+          path: coverage.xml

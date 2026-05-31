@@ -3,9 +3,9 @@
 /backups
 
 /__pycache__
-/app/__pycache__
-/alembic/__pycache__
-/alembic/versions/__pycache__
+/*/__pycache__
+/*/__pycache__
+/*/*/__pycache__
 
 /.vscode
 /.venv
@@ -13,5 +13,8 @@
 /.obsidian
 
 .env
+.env.test.local
 my_settlement.code-workspace
 docker-compose.override.yml
+coverage.xml
+.coverage

@@ -12,8 +12,9 @@ import arrow
 
 from app.middlewares import UserCreationError, SettlementCreationError, SettlerCreationError
 from app.config import setup_logging, settings
-from app.db import SessionLocal, try_session
+import app.db as app_db
 import app.models as models
+import app.telegram_gateway as telegram_gateway
 import app.utils as utils
 
 log = setup_logging(logging.getLogger(__name__))
@@ -21,7 +22,7 @@ log = setup_logging(logging.getLogger(__name__))
 
 async def resource_getByEmoji(session: AsyncSession | None, emoji: str) -> models.Resource | None:
     if session is None:
-        async with SessionLocal() as new_session:
+        async with app_db.SessionLocal() as new_session:
             result = await new_session.execute(
                 select(models.Resource).filter_by(emoji=emoji)
             )
@@ -211,7 +212,7 @@ async def user_getOrCreate(telegram_user: types.User, session: AsyncSession = No
     #* Получение или создание пользователя
     telegram_name = getattr(telegram_user, 'full_name', None) or f"User {telegram_user.id}"
     
-    async with try_session(session) as session:
+    async with app_db.try_session(session) as session:
         result = await session.execute(
             select(models.User).where(models.User.telegram_id == telegram_user.id)
         )
@@ -249,7 +250,7 @@ async def settlement_getOrCreate(chat: types.Chat, session: AsyncSession = None)
     if chat.type == "private":
         return None
 
-    async with try_session(session) as session:
+    async with app_db.try_session(session) as session:
         stmt = select(models.Settlement).options(
             selectinload(models.Settlement.members),
             selectinload(models.Settlement.owner)
@@ -292,7 +293,7 @@ async def settlement_getOrCreate(chat: types.Chat, session: AsyncSession = None)
 
 async def settler_getOrCreate(user: models.User, settlement: models.Settlement, session: AsyncSession = None) -> models.Settler:
     #* Получение или создание поселенца
-    async with try_session(session) as session:
+    async with app_db.try_session(session) as session:
         stmt = select(models.Settler).options(
             selectinload(models.Settler.profession)
         ).where(
@@ -383,9 +384,8 @@ async def settler_addExp(settler: models.Settler, session: AsyncSession, exp: in
     await session.refresh(settler, ["settlement"])
 
     if text:
-        from main import bot
         log.debug(f"{settler.settlement_id} | {settler.user_id} | ⬆️ Повышение ступени: {old_level} → {settler.level} (🗂 {settler.exp}/{settler.target_exp})")
-        await bot.send_message(settler.settlement.chat_id, text)
+        await telegram_gateway.send_message(settler.settlement.chat_id, text)
 
     return settler
 
@@ -454,7 +454,7 @@ async def settler_add(settler: models.Settler, session: AsyncSession, emoji: str
 
 async def settler_updateQuote(settler: models.Settler, settlement: models.Settlement, session: AsyncSession, add_quote: int = 0):
     #* Обновление меры поселенца и обработка её выполнения
-    async with try_session(session) as session:
+    async with app_db.try_session(session) as session:
         current = await session.get(models.Settler, settler.id)
         if not current:
             return None
@@ -506,8 +506,7 @@ async def settler_updateQuote(settler: models.Settler, settlement: models.Settle
                     f"\nℹ️ Чтоб в мудрости возрасти, доведётся каталог 🗂 до конца довести; каталог 🗂 опыт заменяет" if current.level <= 2 and user.show_hints else ""
                 )
                 
-                from main import bot
-                await bot.send_message(settlement.chat_id, text)
+                await telegram_gateway.send_message(settlement.chat_id, text)
                 log.debug(f"{settlement.id} | {current.user_id} | ✅ Мера исполнена: {current.quote}/{current.target_quote}")
 
         log.debug(f"{settlement.id} | {current.user_id} | 🔄 Мера обновлена: {current.quote}/{current.target_quote}")
@@ -545,7 +544,7 @@ async def settler_startWorkflow(message_or_callback: Union[types.Message, types.
         await message_or_callback.answer(error) if is_message else await message_or_callback.answer(error, show_alert=True)
         return False
     
-    async with SessionLocal() as session:
+    async with app_db.SessionLocal() as session:
         for emoji, qty in work.requirements.items():
             if emoji == "level":
                 if settler.level < qty:

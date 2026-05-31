@@ -232,6 +232,8 @@ class Building(Base):
     def is_ready(self) -> bool:
         if self.under_construction_until is None:
             return True
+        if self.under_construction_until.tzinfo is not None and self.under_construction_until.tzinfo.utcoffset(self.under_construction_until) is not None:
+            return datetime.now(self.under_construction_until.tzinfo) >= self.under_construction_until
         return datetime.now() >= self.under_construction_until
     
     def __str__(self):

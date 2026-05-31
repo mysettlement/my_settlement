@@ -3,13 +3,14 @@ from pathlib import Path
 from fluent_compiler.bundle import FluentBundle
 
 from typing import Any, Dict, Awaitable, Callable, Optional
+from functools import lru_cache
 import logging
 
 from aiogram import BaseMiddleware
 from aiogram.types import TelegramObject, User
 from sqlalchemy import select
 
-from app.db import SessionLocal
+import app.db as app_db
 from app.models import User as DBUser
 from app import config
 
@@ -22,7 +23,8 @@ LANGUAGES_MAP = {
     "en": "English 🇬🇧"
 }
 
-def create_translator_hub() -> TranslatorHub:
+@lru_cache(maxsize=None)
+def _create_translator_hub_cached(base_dir: str) -> TranslatorHub:
     locale_config = {
         "ru": "ru-RU",
         "uk": "uk-UA",
@@ -30,10 +32,10 @@ def create_translator_hub() -> TranslatorHub:
     }
     
     translators = []
-    base_dir = Path("/app/locales")
+    base_path = Path(base_dir)
 
     for lang_code, full_locale in locale_config.items():
-        lang_dir = base_dir / lang_code
+        lang_dir = base_path / lang_code
         filenames = [str(path) for path in lang_dir.glob("*.ftl")]
         
         translators.append(
@@ -52,6 +54,11 @@ def create_translator_hub() -> TranslatorHub:
         translators=translators,
         root_locale="ru",
     )
+
+
+def create_translator_hub(locales_path: Path | None = None) -> TranslatorHub:
+    base_dir = locales_path or (Path(__file__).resolve().parent.parent / "locales")
+    return _create_translator_hub_cached(str(base_dir.resolve()))
 
 
 class I18nMiddleware(BaseMiddleware):
@@ -74,7 +81,7 @@ class I18nMiddleware(BaseMiddleware):
         lang_code = self.cache.get(user.id)
 
         if lang_code is None:
-            async with SessionLocal() as session:
+            async with app_db.SessionLocal() as session:
                 result = await session.execute(
                     select(DBUser.language).where(DBUser.telegram_id == user.id)
                 )

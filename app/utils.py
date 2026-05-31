@@ -14,23 +14,18 @@ from typing import Dict, Union, Callable
 from datetime import datetime, timedelta
 from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
-from aiogram import Bot, types
+from aiogram import types
 from aiogram.types import Message
 from aiogram.enums import ParseMode
 from aiogram.filters import BaseFilter
-from aiogram.client.default import DefaultBotProperties
 
 from app.config import setup_logging, settings
 from app.gamer import Harvesting, Hitting, Timer, Catch, Alternation, Workflow
 from app.middlewares import GroupOwnerError
 import app.models as models
+import app.telegram_gateway as telegram_gateway
 
 
-
-bot = Bot(
-    token=settings.BOT_TOKEN,
-    default=DefaultBotProperties(parse_mode=ParseMode.HTML)
-)
 GameType = Union[Harvesting, Hitting, Catch, Alternation, Timer, Workflow]
 active_games: Dict[str, GameType] = {}
 log = setup_logging(logging.getLogger(__name__))
@@ -140,7 +135,7 @@ async def is_meaningful(text: str, length: int = 3, words_amount: int = 1) -> bo
 
 async def get_group_owner(chat_id: int) -> types.User:
     try:
-        chat_admins = await bot.get_chat_administrators(chat_id)
+        chat_admins = await telegram_gateway.get_chat_administrators(chat_id)
         for admin in chat_admins:
             if admin.status == "creator":
                 return admin.user
@@ -340,6 +335,18 @@ def end_work(chat_id: int):
     
     work_start_time.pop(chat_id, None)
 
+
+def reset_runtime_state():
+    for task in list(work_timeout_tasks.values()):
+        task.cancel()
+
+    active_games.clear()
+    work_in_progress.clear()
+    last_work_end_time.clear()
+    work_start_time.clear()
+    work_timeout_tasks.clear()
+    user_last_click_time.clear()
+
 async def mark_work_completed(settler: models.Settler, session: AsyncSession, chat_id: int):
     current_time = arrow.now().int_timestamp
     await session.execute(
@@ -358,7 +365,7 @@ async def notify_developers(message: str):
     
     for dev_id in settings.DEVELOPER_IDS:
         try:
-            await bot.send_message(dev_id, message)
+            await telegram_gateway.send_message(dev_id, message)
         except Exception as e:
             log.error(f"Ошибка при отправке сообщения разработчику {dev_id}: {e}")
 

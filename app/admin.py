@@ -7,7 +7,7 @@ from starlette.requests import Request
 from fastapi import FastAPI
 from wtforms import TextAreaField, ValidationError
 
-from app.db import engine
+import app.db as app_db
 from app.config import settings
 from app.models import (
     User, Settlement, Settler, Resource, 
@@ -214,12 +214,12 @@ class BuildingAdmin(ModelView, model=Building):
 
 # === 3. Функция инициализации ===
 
-def setup_panel(app: FastAPI):
+def setup_panel(app: FastAPI, db_engine=None):
     authentication_backend = AdminAuth(secret_key=settings.BOT_TOKEN) 
     
     admin = Admin(
         app=app, 
-        engine=engine, 
+        engine=db_engine or app_db.engine, 
         authentication_backend=authentication_backend,
         title="My Settlement! - Admin Panel"
     )

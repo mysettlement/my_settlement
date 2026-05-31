@@ -1,11 +1,9 @@
 from __future__ import annotations
 
-from aiogram import Router, types, F, Bot
+from aiogram import Router, types, F
 from aiogram.filters import Command, CommandObject, CommandStart, or_f, and_f
 from aiogram.types import InlineKeyboardButton
-from aiogram.enums import ParseMode
 from aiogram.exceptions import TelegramBadRequest
-from aiogram.client.default import DefaultBotProperties
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 
 from sqlalchemy import select, update
@@ -23,16 +21,12 @@ if TYPE_CHECKING:
     from stub import TranslatorRunner
 
 from app.config import setup_logging, settings
-from app.db import SessionLocal
+import app.db as app_db
 from app.gamer import Workflow, Hitting, Catch, Alternation, ProgressBar
 from app.i18n import I18nMiddleware, LANGUAGES_MAP, create_translator_hub
 from app.utils import active_games, TextCommand
 from app import utils, core, models
-
-bot = Bot(
-        token=settings.BOT_TOKEN,
-        default=DefaultBotProperties(parse_mode=ParseMode.HTML, disable_notification=True, link_preview_is_disabled=True)
-    )
+import app.telegram_gateway as telegram_gateway
 router = Router()
 log = setup_logging(logging.getLogger(__name__))
 tf = TimezoneFinder()
@@ -50,7 +44,7 @@ async def bot_added_to_chat_event(event: types.ChatMemberUpdated):
     if event.new_chat_member.status in ["left", "kicked"]:
         log.debug(f"{chat.id} | Бот исключен из группы {chat.title}")
         try:
-            await bot.send_message(
+            await telegram_gateway.send_message(
                 chat_id=event.from_user.id,
                 text=(
                     "🏰 " + i18n.text.other.bot.left(chat_title=chat.title)
@@ -227,7 +221,7 @@ async def show_settings_menu(message: types.Message, user: models.User, submenu:
     current_conf = SETTINGS_MAP.get(submenu)
     menu_label_text = i18n.get(current_conf.label_key) if current_conf else ""
 
-    async with SessionLocal() as session:
+    async with app_db.SessionLocal() as session:
         user = await session.merge(user)
         
         if current_conf and current_conf.is_boolean:
@@ -371,7 +365,7 @@ async def location_handler(message: types.Message, i18n: TranslatorRunner):
 async def set_tz_callback(callback: types.CallbackQuery, i18n: TranslatorRunner):    
     tz_name = callback.data.split(":")[1]
 
-    async with SessionLocal() as session:
+    async with app_db.SessionLocal() as session:
         result = await session.execute(select(models.User).where(models.User.telegram_id == callback.from_user.id))
         user = result.scalars().first()
         last_change = arrow.get(user.last_tz_change) or arrow.get(datetime.min)
@@ -403,7 +397,7 @@ async def set_language(callback: types.CallbackQuery, i18n_middleware: I18nMiddl
         await callback.answer("⚠️ " + i18n.callback.other.lang_not_found(lang_code=lang_code), show_alert=True)
         return
 
-    async with SessionLocal() as session:
+    async with app_db.SessionLocal() as session:
         user = await core.user_getOrCreate(callback.from_user, session=session)
         user.language = lang_code
         await session.commit()
@@ -470,7 +464,7 @@ async def private_handler(message: types.Message, user: models.User, command: Co
 @router.message(or_f(CommandStart(), Command("town"), Command("settlement"), TextCommand("осмотреть поселение", "оглянути поселення", "town")))
 async def start_command(message: types.Message, i18n: TranslatorRunner):
     #* Осмотр поселения / старт игры
-    async with SessionLocal() as session:
+    async with app_db.SessionLocal() as session:
         user = await core.user_getOrCreate(message.from_user, session=session)
         settlement = await core.settlement_getOrCreate(message.chat, session=session)
         settler = await core.settler_getOrCreate(user, settlement, session=session)
@@ -512,7 +506,7 @@ async def name_settlement(message: types.Message, command: CommandObject = None,
 
     new_name = html.escape(raw_new_name)
     
-    async with SessionLocal() as session:
+    async with app_db.SessionLocal() as session:
         result = await session.execute(
             select(models.Settlement)
             .options(selectinload(models.Settlement.owner))
@@ -574,7 +568,7 @@ async def show_buildings_menu(message: types.Message, user: models.User, settlem
     """Общая функция для показа меню списка построек"""
     settler = await core.settler_getOrCreate(user, settlement)
     
-    async with SessionLocal() as session:
+    async with app_db.SessionLocal() as session:
         buildings = await core.building_getByScope(settlement, settler, scope, session)
         
         text = ("🏙 <b>" + i18n.text.buildings.town.title() + "</b>") if scope == "town" else ("🏡 <b>" + i18n.text.buildings.my.title() + "</b>") if i18n else ("🏙 <b>Городские постройки</b>" if scope == "town" else "🏡 <b>Мои постройки</b>")
@@ -623,7 +617,7 @@ async def buildings_callback(callback: types.CallbackQuery, i18n: TranslatorRunn
     elif action == "bld_list":
         scope = parts[1]
         
-        async with SessionLocal() as session:
+        async with app_db.SessionLocal() as session:
             stmt = select(models.BuildingType)
             all_types = (await session.execute(stmt)).scalars().all()
             
@@ -659,7 +653,7 @@ async def buildings_callback(callback: types.CallbackQuery, i18n: TranslatorRunn
         building_id = int(parts[1])
         scope = parts[2]
         
-        async with SessionLocal() as session:
+        async with app_db.SessionLocal() as session:
             stmt = select(models.Building).options(selectinload(models.Building.type)).where(models.Building.id == building_id)
             building = (await session.execute(stmt)).scalars().first()
             
@@ -697,7 +691,7 @@ async def buildings_callback(callback: types.CallbackQuery, i18n: TranslatorRunn
         if scope == "town" and not settlement.owner or settlement.owner.telegram_id != callback.from_user.id:
             is_mayor = False
     
-        async with SessionLocal() as session:
+        async with app_db.SessionLocal() as session:
             stmt = select(models.BuildingType).where(models.BuildingType.id == bt_id)
             bt = (await session.execute(stmt)).scalars().first()
                       
@@ -752,7 +746,7 @@ async def buildings_callback(callback: types.CallbackQuery, i18n: TranslatorRunn
             await show_buildings_menu(callback.message, user, settlement, scope, is_edit=True, i18n=i18n)
             return
         
-        async with SessionLocal() as session:
+        async with app_db.SessionLocal() as session:
             is_prof_enough, msg = await core.building_startBuilding(settler, bt_id, scope, session)
             
             if is_prof_enough:
@@ -768,7 +762,7 @@ async def bonuses_command(message: types.Message, user: models.User, i18n: Trans
     settlement = await core.settlement_getOrCreate(message.chat)
     settler = await core.settler_getOrCreate(user, settlement)
 
-    async with SessionLocal() as session:
+    async with app_db.SessionLocal() as session:
         bonuses = core.BonusSet()
 
         personal, settlement = await core.setter_getBonuses(settler, session)
@@ -841,7 +835,7 @@ async def cosmetics_select(callback: types.CallbackQuery, i18n: TranslatorRunner
     
     emoji = callback.data.split("_")[2]
 
-    async with SessionLocal() as session:
+    async with app_db.SessionLocal() as session:
         result = await session.execute(
             select(models.Settler).where(models.Settler.id == settler.id)
         )
@@ -912,7 +906,7 @@ async def overtime_command(message: types.Message, user: models.User, i18n: Tran
 @router.callback_query(F.data == "overtime_take")
 async def overtime_take(callback: types.CallbackQuery, i18n: TranslatorRunner):
     #* Взять страду
-    async with SessionLocal() as session:
+    async with app_db.SessionLocal() as session:
         if callback.from_user.id != callback.message.reply_to_message.from_user.id:
             await callback.answer("⚠️ " + i18n.callback.common.dont_touch(), True)
             return
@@ -954,7 +948,7 @@ async def inventory_command(message: types.Message, user: models.User, i18n: Tra
 
     text = f"📦 <b>" + i18n.text.settler.inventory.title() + "</b>\n\n"
     
-    async with SessionLocal() as session:
+    async with app_db.SessionLocal() as session:
         compact_style = user.compact_style
         result = await session.execute(
             select(models.settler_resources.c.resource_id, models.settler_resources.c.quantity, models.Resource.name, models.Resource.emoji, models.Resource.category)
@@ -992,7 +986,7 @@ async def choose_craft_command(message: types.Message, user: models.User, i18n: 
     settlement = await core.settlement_getOrCreate(message.chat)
     settler = await core.settler_getOrCreate(user, settlement)
 
-    async with SessionLocal() as session:
+    async with app_db.SessionLocal() as session:
         result = await session.execute(select(models.Profession))
         professions = result.scalars().all()
     
@@ -1007,7 +1001,7 @@ async def choose_craft_command(message: types.Message, user: models.User, i18n: 
     text = f"💼 <b>" + i18n.text.craft.choose.title() + "</b>\n" + ('⚠️ ' + i18n.text.craft.choose.cooldown() + f' {when}\n' if not can_choose and settler.profession else '') + "\n"
     kb = InlineKeyboardBuilder()
 
-    async with SessionLocal() as session:
+    async with app_db.SessionLocal() as session:
         compact_style = user.compact_style
     buttons = []
     for prof in professions:
@@ -1032,7 +1026,7 @@ async def select_craft_callback(callback: types.CallbackQuery, i18n: TranslatorR
     #* Кнопка выбора ремесла
     prof_id = int(callback.data.split(":")[1])
 
-    async with SessionLocal() as session:
+    async with app_db.SessionLocal() as session:
         user = await core.user_getOrCreate(callback.from_user)
         settlement = await core.settlement_getOrCreate(callback.message.chat)
         settler = await core.settler_getOrCreate(user, settlement)
@@ -1194,7 +1188,7 @@ async def work_callback(callback: types.CallbackQuery, i18n: TranslatorRunner):
 
     if result == "win" and workflow.completed:
         status_text = workflow.get_status_text()
-        async with SessionLocal() as session:
+        async with app_db.SessionLocal() as session:
             earned = await core.settler_applyRewards(work, settler, session)
             reward_text = await utils.format_reward_text(earned)
             await callback.message.edit_text(f"{status_text}\n\n📦 <b>" + i18n.text.common.received() + f":</b>\n{reward_text}", reply_markup=None)
@@ -1238,7 +1232,7 @@ async def work_callback(callback: types.CallbackQuery, i18n: TranslatorRunner):
 
         await callback.message.edit_text(status_text, reply_markup=None)
         if work.cooldown_on_fail:
-            async with SessionLocal() as session:
+            async with app_db.SessionLocal() as session:
                 await utils.mark_work_completed(settler, session, callback.message.chat.id)
         active_games.pop(user_key, None)
         utils.end_work(callback.message.chat.id)
@@ -1271,7 +1265,7 @@ async def promo_command(message: types.Message, i18n: TranslatorRunner):
     settlement = await core.settlement_getOrCreate(message.chat)
     settler = await core.settler_getOrCreate(user, settlement)
     
-    async with SessionLocal() as session:
+    async with app_db.SessionLocal() as session:
         obtained = await core.settler_add(settler, session, emoji, qty)
         text = await utils.format_reward_text(obtained)
 
@@ -1283,7 +1277,7 @@ async def promo_command(message: types.Message, i18n: TranslatorRunner):
 @router.message(or_f(F.chat.type == "supergroup", F.chat.type == "group"))
 async def quote_handler(message: types.Message, **kwargs):
     #* Обработка сообщений для меры
-    async with SessionLocal() as session:
+    async with app_db.SessionLocal() as session:
         user = await core.user_getOrCreate(message.from_user, session)
         settlement = await core.settlement_getOrCreate(message.chat, session)
         settler = await core.settler_getOrCreate(user, settlement, session)

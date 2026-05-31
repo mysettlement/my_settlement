@@ -14,6 +14,7 @@ import app.handlers as handlers
 import app.db as db
 import app.utils as utils
 import app.tasks as tasks
+import app.telegram_gateway as telegram_gateway
 from app.middlewares import ErrorMiddleware, UserMiddleware
 from app.i18n import create_translator_hub, I18nMiddleware
 
@@ -55,50 +56,77 @@ async def set_bot_status(bot: Bot, mood: str):
     }
     selected_emoji = random.choice(emojis.get(mood, ["🤖"]))
     with suppress(TelegramBadRequest, Exception):
-        await bot.set_my_name(
+        await telegram_gateway.set_my_name(
             name=f"🛖 Моё Поселение! {selected_emoji}", 
             language_code="ru"
         )
 
-# === Жизненный цикл ===
-async def main():
-    # --- STARTUP ---
+async def setup_runtime(dispatcher: Dispatcher, bot: Bot, initialize_db: bool = True):
     setup_aiogram_logging()
-    await db.init_db()
+    telegram_gateway.configure_bot(bot)
+    if initialize_db:
+        await db.init_db()
 
-    dp.message.middleware(ErrorMiddleware())
-    dp.callback_query.middleware(ErrorMiddleware())
-    dp.update.middleware(I18nMiddleware(create_translator_hub()))
-    dp.update.outer_middleware(UserMiddleware(user_getOrCreate=user_getOrCreate))
-    dp.include_router(handlers.router)
+    if not getattr(dispatcher, "_my_settlement_runtime_configured", False):
+        dispatcher.message.middleware(ErrorMiddleware())
+        dispatcher.callback_query.middleware(ErrorMiddleware())
+        dispatcher.update.middleware(I18nMiddleware(create_translator_hub()))
+        dispatcher.update.outer_middleware(UserMiddleware(user_getOrCreate=user_getOrCreate))
+        dispatcher.include_router(handlers.router)
+        dispatcher._my_settlement_runtime_configured = True
 
-    tasks.scheduler.add_job(tasks.day_reset, 'cron', hour='*', minute=0, coalesce=True, misfire_grace_time=3600)
-    tasks.scheduler.add_job(tasks.remind_overtime, "cron", hour="*", minute=0, coalesce=True, misfire_grace_time=3600)
-    try:
-        tasks.scheduler.start()
-    except Exception as e:
-        log.error(f"Ошибка запуска планировщика: {e}")
+    tasks.scheduler.add_job(
+        tasks.day_reset,
+        "cron",
+        id="day_reset",
+        hour="*",
+        minute=0,
+        coalesce=True,
+        misfire_grace_time=3600,
+        replace_existing=True,
+    )
+    tasks.scheduler.add_job(
+        tasks.remind_overtime,
+        "cron",
+        id="remind_overtime",
+        hour="*",
+        minute=0,
+        coalesce=True,
+        misfire_grace_time=3600,
+        replace_existing=True,
+    )
+    if not tasks.scheduler.running:
+        try:
+            tasks.scheduler.start()
+        except Exception as e:
+            log.error(f"Ошибка запуска планировщика: {e}")
 
     await set_bot_status(bot, "happy")
-    
     log.info("🟢 Бот запущен!")
-    
+
+
+async def shutdown_runtime(bot: Bot, close_bot_session: bool = True):
+    log.info("🟡 Завершение работы...")
+
+    if tasks.scheduler.running:
+        tasks.scheduler.shutdown(wait=False)
+
+    utils.reset_runtime_state()
+
+    await set_bot_status(bot, "sad")
+    if close_bot_session:
+        await bot.session.close()
+    log.info("🔴 Бот остановлен!")
+
+
+# === Жизненный цикл ===
+async def main():
+    await setup_runtime(dp, bot)
+
     try:
         await dp.start_polling(bot)
     finally:
-        # --- SHUTDOWN ---
-        log.info("🟡 Завершение работы...")
-
-        if tasks.scheduler.running:
-            tasks.scheduler.shutdown(wait=False)
-
-        for task in utils.work_timeout_tasks.values():
-            task.cancel()
-        utils.work_timeout_tasks.clear()
-
-        await set_bot_status(bot, "sad")
-        await bot.session.close()
-        log.info("🔴 Бот остановлен!")
+        await shutdown_runtime(bot)
 
 if __name__ == "__main__":
     try:

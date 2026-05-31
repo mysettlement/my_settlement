@@ -5,19 +5,13 @@ from sqlalchemy.orm import selectinload
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 import logging
 import pytz
-from aiogram import Bot
-from aiogram.client.default import DefaultBotProperties
-from aiogram.enums import ParseMode
 
 from app.config import setup_logging, settings
-from app.db import SessionLocal
+import app.db as app_db
+import app.telegram_gateway as telegram_gateway
 from app.models import Settler, User, Settlement
 from app.utils import get_timezones_at_hour
 
-bot = Bot(
-    token=settings.BOT_TOKEN,
-    default=DefaultBotProperties(parse_mode=ParseMode.HTML)
-)
 scheduler = AsyncIOScheduler(timezone=pytz.timezone('Europe/Kiev'))
 logger = logging.getLogger(__name__)
 log = setup_logging(logger)
@@ -32,7 +26,7 @@ async def remind_overtime():
     if not target_timezones:
         return
 
-    async with SessionLocal() as session:
+    async with app_db.SessionLocal() as session:
         try:
             stmt = (
                 select(Settler)
@@ -79,7 +73,7 @@ async def remind_overtime():
                 text = "⏰ <b>Не забудьте выполнить страду!</b>\n" + "\n".join(mentions)
 
                 try:
-                    await bot.send_message(chat_id, text)
+                    await telegram_gateway.send_message(chat_id, text)
                     await asyncio.sleep(0.1)
                 except Exception as e:
                     log.error(f"Ошибка при отправке батча в чат {chat_id}: {e}")
@@ -93,7 +87,7 @@ async def day_reset():
         log.warning("🕐 Час прошел, но полночь нигде из активных зон не наступила.")
         return
     
-    async with SessionLocal() as session:
+    async with app_db.SessionLocal() as session:
         log.debug(f"↪️ Запуск почасового сброса для зон: {target_timezones[:5]}...")
         
         try:
@@ -143,7 +137,7 @@ async def day_reset():
                         + "\n".join(lines)
                     )
                     try:
-                        await bot.send_message(chat_id, text, disable_notification=False)
+                        await telegram_gateway.send_message(chat_id, text, disable_notification=False)
                         await asyncio.sleep(0.1)
                     except Exception as e:
                         log.error(f"Ошибка при отправке штрафов в чат {chat_id}: {e}")

@@ -1,5 +1,5 @@
 from contextlib import asynccontextmanager
-from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy import text, select
 
 import logging
@@ -12,16 +12,32 @@ import app.utils as utils
 
 log = setup_logging(logging.getLogger(__name__))
 
-engine = create_async_engine(
-    url=settings.DB_URL,
-    pool_size=20
-)
 
-SessionLocal = async_sessionmaker(
-    bind=engine,
-    class_=AsyncSession,
-    expire_on_commit=False
-)
+def create_engine_and_sessionmaker(db_url: str | None = None, **engine_kwargs):
+    resolved_db_url = db_url or settings.DB_URL
+    if (
+        "pool_size" not in engine_kwargs
+        and "poolclass" not in engine_kwargs
+        and resolved_db_url.startswith("postgresql")
+    ):
+        engine_kwargs["pool_size"] = 20
+
+    engine = create_async_engine(url=resolved_db_url, **engine_kwargs)
+    session_factory = async_sessionmaker(
+        bind=engine,
+        class_=AsyncSession,
+        expire_on_commit=False,
+    )
+    return engine, session_factory
+
+
+def configure_database(db_url: str | None = None, **engine_kwargs):
+    global engine, SessionLocal
+    engine, SessionLocal = create_engine_and_sessionmaker(db_url, **engine_kwargs)
+    return engine, SessionLocal
+
+
+engine, SessionLocal = create_engine_and_sessionmaker()
 
 @asynccontextmanager
 async def try_session(session: AsyncSession | None = None):
@@ -29,7 +45,7 @@ async def try_session(session: AsyncSession | None = None):
     Если сессия передана — использует её (не закрывая).
     Если нет — создает новую, использует и закрывает.
     """
-    if session:
+    if session is not None:
         yield session
     else:
         async with SessionLocal() as new_session:

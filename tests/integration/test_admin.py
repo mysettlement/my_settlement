@@ -53,6 +53,15 @@ async def test_admin_auth_login_logout_and_authenticate():
     assert request.session == {}
 
 
+@pytest.mark.asyncio
+async def test_admin_auth_rejects_wrong_or_missing_credentials():
+    auth = AdminAuth(secret_key="secret")
+
+    assert await auth.login(_FakeRequest({"username": settings.ADMIN_USERNAME, "password": "wrong"})) is False
+    assert await auth.login(_FakeRequest({"username": settings.ADMIN_USERNAME})) is False
+    assert await auth.login(_FakeRequest({})) is False
+
+
 def test_create_admin_app_redirects_to_admin(test_engine, monkeypatch):
     monkeypatch.setattr(app_db, "engine", test_engine)
     app = admin_entrypoint.create_admin_app()

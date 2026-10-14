@@ -19,7 +19,7 @@ dependencies = [
     "rapidfuzz==3.14.3",
     "requests==2.32.5",
     "sqladmin==0.23.0",
-    "sqlalchemy==2.0.45",
+    "sqlalchemy[asyncio]==2.0.45",
     "timezonefinder==8.2.1",
     "tzdata==2025.3",
     "uvicorn==0.40.0",

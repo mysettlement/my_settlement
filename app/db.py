@@ -66,19 +66,23 @@ async def init_db():
             if not tables:
                 log.warning("🛠️ Таблицы не найдены. Пересоздание...")
                 await utils.notify_developers("⚠️ <b>Таблицы в базе данных не найдены.</b>\nВыполняется пересоздание...")
-                await conn.run_sync(Base.metadata.create_all)
-                
-                result = await conn.execute(text("""
-                    SELECT table_name 
-                    FROM information_schema.tables 
-                    WHERE table_schema = 'public' 
-                    AND table_type = 'BASE TABLE'
-                """))
-                
-                tables = [row[0] for row in result.fetchall()]
-                log.info(f"📋 Созданные таблицы: {', '.join(tables)}.")
             else:
                 log.info(f"🔍 Найдены таблицы: {', '.join(tables)}.")
+
+            # create_all создаёт только отсутствующие таблицы, поэтому новые модели попадают и в существующую БД.
+            # Новые колонки в существующих таблицах так не добавляются, для них нужны миграции.
+            await conn.run_sync(Base.metadata.create_all)
+
+            result = await conn.execute(text("""
+                SELECT table_name 
+                FROM information_schema.tables 
+                WHERE table_schema = 'public' 
+                AND table_type = 'BASE TABLE'
+            """))
+
+            created_tables = sorted(set(row[0] for row in result.fetchall()) - set(tables))
+            if created_tables:
+                log.info(f"📋 Созданные таблицы: {', '.join(created_tables)}.")
 
     except Exception as e:
         log.error(f"❌ Ошибка при перезагрузке базы данных: {e}")
@@ -234,6 +238,5 @@ async def init_db():
     except Exception as e:
         log.error(f"❌ Ошибка при инициализации базы данных: {e}")
         await utils.notify_developers(f"❌ Ошибка при инициализации базы данных: {e}")
-        await session.rollback()
         raise
         

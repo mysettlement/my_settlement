@@ -74,3 +74,29 @@ async def test_day_reset_applies_fines_and_resets_quotes(db_session, monkeypatch
     assert settler.target_quote == round(settler.level * 0.85 + 6)
     assert settler.balance < 100
     sender.assert_awaited()
+
+
+@pytest.mark.asyncio
+async def test_day_reset_fine_is_whole_number(db_session, monkeypatch):
+    sender = AsyncMock()
+    monkeypatch.setattr(tasks, "get_timezones_at_hour", lambda hour: ["Europe/Berlin"])
+    monkeypatch.setattr(tasks.telegram_gateway, "send_message", sender)
+
+    owner = await create_user(db_session, telegram_id=9001, timezone="Europe/Berlin")
+    settlement = await create_settlement(db_session, owner=owner, chat_id=-9001)
+    settler = await create_settler(
+        db_session,
+        user=owner,
+        settlement=settlement,
+        level=1,
+        balance=100,
+        overtime_is_toggled=True,
+    )
+    await db_session.commit()
+
+    await tasks.day_reset()
+    await db_session.refresh(settler)
+
+    # 20 + 1 * 1.5 = 21.5 → 22, как и раньше списывалось из integer-колонки
+    assert settler.balance == 78
+    assert "💰 <b>22</b>" in sender.await_args.args[1]

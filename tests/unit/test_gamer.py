@@ -57,13 +57,13 @@ def test_hitting_flow_wins_then_game_over(monkeypatch):
     assert hitting.click(1) == "game_over"
 
 
-def test_catch_miss_marks_game_over(monkeypatch):
+def test_catch_miss_loses_game(monkeypatch):
     monkeypatch.setattr("app.gamer.random.randint", lambda start, end: 3)
 
     catch = Catch(target="🐟", size=2, rounds=1)
     catch.set_context("work", 0)
 
-    assert catch.click(0) == "miss"
+    assert catch.click(0) == "lose"
     assert catch.game_over is True
     assert catch.won is False
 
@@ -112,3 +112,13 @@ def test_workflow_transitions_and_reset(monkeypatch):
     workflow.reset()
     assert workflow.completed is False
     assert workflow.current_step == 0
+
+
+def test_workflow_fails_after_catch_miss(monkeypatch):
+    monkeypatch.setattr("app.gamer.random.randint", lambda start, end: 3)
+
+    workflow = Workflow(steps=[Catch(target="🐟", size=2, rounds=1)]).build_with_context("work")
+
+    assert workflow.click(0) == "lose"
+    assert workflow.game_over is True
+    assert workflow.failed is True

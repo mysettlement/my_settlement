@@ -1,11 +1,13 @@
 from __future__ import annotations
 
+import asyncio
 from types import SimpleNamespace
 from unittest.mock import AsyncMock
 
 import pytest
 from sqlalchemy import select
 
+import app.db as app_db
 from app import core, models
 import app.telegram_gateway as telegram_gateway
 from tests.support.aiogram_builders import build_chat, build_user
@@ -91,6 +93,67 @@ async def test_building_start_building_consumes_resources_and_creates_building(d
 
 
 @pytest.mark.asyncio
+async def test_building_start_building_rejects_blueprint_from_other_scope(db_session):
+    owner = await create_user(db_session, telegram_id=4002)
+    settlement = await create_settlement(db_session, owner=owner, chat_id=-4002)
+    settler = await create_settler(db_session, user=owner, settlement=settlement)
+    town_type = await create_building_type(db_session, name="Площадь", emoji="⛲", is_private=False)
+    private_type = await create_building_type(db_session, name="Изба", emoji="🛖", is_private=True)
+    await db_session.commit()
+
+    town_as_private, _ = await core.building_startBuilding(settler, town_type.id, "my", db_session)
+    private_as_town, _ = await core.building_startBuilding(settler, private_type.id, "town", db_session)
+
+    assert town_as_private is False
+    assert private_as_town is False
+    buildings = (await db_session.execute(select(models.Building))).scalars().all()
+    assert buildings == []
+
+
+@pytest.mark.asyncio
+async def test_building_start_building_rejects_second_copy(db_session):
+    owner = await create_user(db_session, telegram_id=4003)
+    settlement = await create_settlement(db_session, owner=owner, chat_id=-4003)
+    settler = await create_settler(db_session, user=owner, settlement=settlement)
+    building_type = await create_building_type(db_session, name="Колодец", emoji="🪣", is_private=False)
+    await db_session.commit()
+
+    first, _ = await core.building_startBuilding(settler, building_type.id, "town", db_session)
+    second, _ = await core.building_startBuilding(settler, building_type.id, "town", db_session)
+
+    assert first is True
+    assert second is False
+    buildings = (await db_session.execute(select(models.Building))).scalars().all()
+    assert len(buildings) == 1
+
+
+@pytest.mark.asyncio
+async def test_concurrent_building_starts_never_overspend_resources(db_session):
+    owner = await create_user(db_session, telegram_id=4004)
+    settlement = await create_settlement(db_session, owner=owner, chat_id=-4004)
+    settler = await create_settler(db_session, user=owner, settlement=settlement)
+    metal = await create_resource(db_session, name="Сырьё", emoji="🔩", category="Материалы")
+    await grant_resource(db_session, settler=settler, resource=metal, quantity=10)
+    first_type = await create_building_type(db_session, name="Кузня", emoji="⚒", is_private=True, costs={metal: 10})
+    second_type = await create_building_type(db_session, name="Мастерская", emoji="🧰", is_private=True, costs={metal: 10})
+    await db_session.commit()
+
+    async def build(type_id):
+        async with app_db.SessionLocal() as session:
+            success, _ = await core.building_startBuilding(settler, type_id, "my", session)
+            return success
+
+    results = await asyncio.gather(build(first_type.id), build(second_type.id))
+
+    assert sorted(results) == [False, True]
+    async with app_db.SessionLocal() as session:
+        left = (await session.execute(
+            select(models.settler_resources.c.quantity).where(models.settler_resources.c.settler_id == settler.id)
+        )).scalar()
+    assert left == 0
+
+
+@pytest.mark.asyncio
 async def test_settler_add_exp_promotes_rank_and_notifies(db_session, monkeypatch):
     sender = AsyncMock()
     monkeypatch.setattr(telegram_gateway, "send_message", sender)
@@ -114,6 +177,23 @@ async def test_settler_add_exp_promotes_rank_and_notifies(db_session, monkeypatc
     assert updated.rank == "Вольный"
     assert updated.emoji in {"🌾", "🌱", "🍃"}
     sender.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_settler_add_exp_never_goes_negative_on_multi_level_up(db_session, monkeypatch):
+    monkeypatch.setattr(telegram_gateway, "send_message", AsyncMock())
+
+    user = await create_user(db_session, telegram_id=5002, name="Grinder")
+    settlement = await create_settlement(db_session, owner=user, chat_id=-5002)
+    settler = await create_settler(db_session, user=user, settlement=settlement, level=0)
+    await db_session.commit()
+
+    updated = await core.settler_addExp(settler, db_session, 15)
+
+    # 15 = 7 (0 → 1) + 7 (1 → 2) + 1 остаток
+    assert updated.level == 2
+    assert updated.exp == 1
+    assert updated.target_exp == 9
 
 
 @pytest.mark.asyncio
@@ -142,6 +222,26 @@ async def test_settler_update_quote_rewards_and_resets_progress(db_session, monk
     assert settler.quote_is_completed is True
     assert settler.balance > 0
     sender.assert_awaited()
+
+
+@pytest.mark.asyncio
+async def test_settler_update_quote_message_has_rewards_and_hint(db_session, monkeypatch):
+    sender = AsyncMock()
+    monkeypatch.setattr(telegram_gateway, "send_message", sender)
+    monkeypatch.setattr(core.random, "randint", lambda start, end: start)
+
+    user = await create_user(db_session, telegram_id=6002, name="Newbie")
+    settlement = await create_settlement(db_session, owner=user, chat_id=-6002)
+    settler = await create_settler(db_session, user=user, settlement=settlement, level=1, quote=6, target_quote=7)
+    settler.target_exp = 999
+    await db_session.commit()
+
+    await core.settler_updateQuote(settler, settlement, db_session, add_quote=1)
+
+    quote_message = sender.await_args_list[-1].args[1]
+    assert "исполнил меру" in quote_message
+    assert "🗂: +" in quote_message
+    assert "ℹ️" in quote_message
 
 
 @pytest.mark.asyncio

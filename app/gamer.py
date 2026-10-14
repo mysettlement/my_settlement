@@ -228,7 +228,7 @@ class Catch(Step):
         else:
             self.game_over = True
             self.won = False
-            return "miss"
+            return "lose"
         
     def copy(self):
         return copy.deepcopy(self)
@@ -378,7 +378,6 @@ class ProgressBar(Step):
         self.current = 0
         self.game_over = False
         self.won = False
-        self.lose = False
 
 
 class Workflow(Step):
@@ -391,6 +390,7 @@ class Workflow(Step):
         self.failed = False
 
     def build_with_context(self, work_id: str):
+        self.work_id = work_id
         for idx, step in enumerate(self.steps):
             step.set_context(work_id, idx)
             if isinstance(step, Workflow):

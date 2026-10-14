@@ -32,6 +32,12 @@ log = setup_logging(logging.getLogger(__name__))
 tf = TimezoneFinder()
 
 
+def is_menu_owner(callback: types.CallbackQuery) -> bool:
+    #* Нажал ли кнопку тот, чьей командой вызвано меню. Если исходное сообщение удалено, проверить нельзя: запрещаем
+    reply = callback.message.reply_to_message if callback.message else None
+    return bool(reply and reply.from_user and reply.from_user.id == callback.from_user.id)
+
+
 # ================= Private chats ================
 
 @router.my_chat_member()
@@ -40,6 +46,7 @@ async def bot_added_to_chat_event(event: types.ChatMemberUpdated):
     chat = event.chat
     kb = InlineKeyboardBuilder()
     i18n = create_translator_hub().get_translator_by_locale("ru")
+    text = None
 
     if event.new_chat_member.status in ["left", "kicked"]:
         log.debug(f"{chat.id} | Бот исключен из группы {chat.title}")
@@ -79,7 +86,10 @@ async def bot_added_to_chat_event(event: types.ChatMemberUpdated):
     elif event.new_chat_member.status in ["member", "restricted"] and event.old_chat_member.status == "administrator":
         text = "⚠️ " + i18n.text.other.bot.added.no_admin()
         text_log = f"{chat.id} | Бот снят с администратора"
-    
+
+    if text is None:
+        return
+
     await event.answer(text, reply_markup=kb.as_markup())
     log.debug(text_log)
 
@@ -243,14 +253,14 @@ async def show_settings_menu(message: types.Message, user: models.User, submenu:
             submenu = None 
 
     if submenu == "timezone":
-        last_change = arrow.get(user.last_tz_change) or arrow.get(datetime.min)
+        last_change = arrow.get(user.last_tz_change)
         unlock_time = last_change.shift(days=settings.TZ_CHANGE_COOLDOWN_DAYS)
         now = arrow.now()
         
         if now < unlock_time:
             time_left = utils.format_relative_time(unlock_time, now, fallback=True)
             if callback: await callback.answer("⏳ " + i18n.callback.settings.timezone.error.locked(time_left=time_left), show_alert=True)
-            else: message.reply("⏳ " + i18n.text.settings.timezone.error.locked(time_left=time_left))
+            else: await message.reply("⏳ " + i18n.text.settings.timezone.error.locked(time_left=time_left))
             return
 
         determine_text = "📍 " + i18n.button.settings.timezone.determine()
@@ -368,7 +378,7 @@ async def set_tz_callback(callback: types.CallbackQuery, i18n: TranslatorRunner)
     async with app_db.SessionLocal() as session:
         result = await session.execute(select(models.User).where(models.User.telegram_id == callback.from_user.id))
         user = result.scalars().first()
-        last_change = arrow.get(user.last_tz_change) or arrow.get(datetime.min)
+        last_change = arrow.get(user.last_tz_change)
         unlock_time = last_change.shift(days=settings.TZ_CHANGE_COOLDOWN_DAYS)
         now = arrow.now()
         if now < unlock_time:
@@ -388,7 +398,7 @@ async def set_tz_callback(callback: types.CallbackQuery, i18n: TranslatorRunner)
 
 @router.callback_query(F.data.startswith("set_lang:"))
 async def set_language(callback: types.CallbackQuery, i18n_middleware: I18nMiddleware, i18n: TranslatorRunner):
-    if callback.from_user.id != callback.message.reply_to_message.from_user.id:
+    if not is_menu_owner(callback):
         await callback.answer("⚠️ " + i18n.callback.common.dont_touch(), True)
         return
     
@@ -444,7 +454,7 @@ async def private_handler(message: types.Message, user: models.User, command: Co
             if menu == "settings":
                 await show_settings_menu(message, user, submenu, i18n=i18n)
             elif menu == "id":
-                await show_id_menu(message, user)
+                await show_id_menu(message, user, i18n)
 
             return
         
@@ -473,10 +483,13 @@ async def start_command(message: types.Message, i18n: TranslatorRunner):
 
     kb = InlineKeyboardBuilder()
     kb.button(text="👤 " + i18n.button.settlement.profile(), switch_inline_query_current_chat="Лик")
-    if settlement.owner.telegram_id == message.from_user.id:
+    if settlement.owner and settlement.owner.telegram_id == message.from_user.id:
         kb.row(InlineKeyboardButton(text="📜 " + i18n.button.settlement.rename(), switch_inline_query_current_chat="Переименовать поселение"), InlineKeyboardButton(text="🏗 " + i18n.button.settlement.buildings(), switch_inline_query_current_chat="Городские постройки"))
 
-    owner_name = settlement.owner.name or (i18n.text.settlement.view.owner.fallback(telegram_id=settlement.owner.telegram_id) if settlement.owner else i18n.text.settlement.view.owner.missing())
+    if not settlement.owner:
+        owner_name = i18n.text.settlement.view.owner.missing()
+    else:
+        owner_name = settlement.owner.name or i18n.text.settlement.view.owner.fallback(telegram_id=settlement.owner.telegram_id)
     text = (
         f"<b>{settlement.name}</b> (основан {utils.format_relative_time(settlement.created_at)})\n"
         f"👥{len(settlement.members)} 👑 <b>{owner_name}</b>"
@@ -584,7 +597,7 @@ async def show_buildings_menu(message: types.Message, user: models.User, settlem
                     status = "✅" if user.compact_style else "✅ " + (i18n.text.buildings.status.active() if i18n else "Активно")
                 else:
                     status = f"⏳ ({time_left})" if user.compact_style else "⏳ " + (i18n.text.buildings.status.construction(time_left=time_left) if i18n else f"Построится {time_left}")
-                text += f"\n\n{b.type.emoji} <b>{b.type.name}</b> ({b.level}/{b.type.max_level}):" + f"\n{status}\n" if not user.compact_style else f"{status}\n"
+                text += f"\n\n{b.type.emoji} <b>{b.type.name}</b> ({b.level}/{b.type.max_level}):" + (f"\n{status}\n" if not user.compact_style else f" {status}\n")
                 btn_text = f"{b.type.emoji} {b.type.name} ({'✅' if b.is_ready else '⏳'})"
                 kb.button(text=btn_text, callback_data=f"bld_view:{b.id}:{scope}")
             
@@ -688,7 +701,7 @@ async def buildings_callback(callback: types.CallbackQuery, i18n: TranslatorRunn
         cost_text = []
         is_res_enough = True
         is_mayor = True
-        if scope == "town" and not settlement.owner or settlement.owner.telegram_id != callback.from_user.id:
+        if scope == "town" and (not settlement.owner or settlement.owner.telegram_id != callback.from_user.id):
             is_mayor = False
     
         async with app_db.SessionLocal() as session:
@@ -825,7 +838,7 @@ async def cosmetics_command(message: types.Message, user: models.User, i18n: Tra
 @router.callback_query(F.data.startswith("cosmetics_select_"))
 async def cosmetics_select(callback: types.CallbackQuery, i18n: TranslatorRunner):
     #* Выбор эмодзи косметики
-    if callback.from_user.id != callback.message.reply_to_message.from_user.id:
+    if not is_menu_owner(callback):
         await callback.answer("⚠️ " + i18n.callback.common.dont_touch(), True)
         return
     
@@ -840,11 +853,19 @@ async def cosmetics_select(callback: types.CallbackQuery, i18n: TranslatorRunner
             select(models.Settler).where(models.Settler.id == settler.id)
         )
         db_settler = result.scalars().first()
-        if db_settler:
-            db_settler.emoji = emoji
-            await session.commit()
-            await session.refresh(db_settler, ["user", "settlement"])
-            log.debug(f"{callback.message.chat.id} | {user.id} | ✅ Эмодзи изменен: {emoji}")
+        if not db_settler:
+            await callback.answer("❌ " + i18n.text.settler.error.not_found(), show_alert=True)
+            return
+
+        available_emojis = (db_settler.rank_emoji_available or []) + (db_settler.special_emoji_available or [])
+        if emoji not in available_emojis:
+            await callback.answer("⚠️ " + i18n.text.settler.cosmetics.none(), show_alert=True)
+            return
+
+        db_settler.emoji = emoji
+        await session.commit()
+        await session.refresh(db_settler, ["user", "settlement"])
+        log.debug(f"{callback.message.chat.id} | {user.id} | ✅ Эмодзи изменен: {emoji}")
 
     await callback.answer(text=f"🪭 " + i18n.text.settler.cosmetics.accepted(emoji=emoji))
     
@@ -867,7 +888,7 @@ async def cosmetics_select(callback: types.CallbackQuery, i18n: TranslatorRunner
                 ))
     
     kb = InlineKeyboardBuilder().row(*buttons).as_markup()
-    await callback.message.edit_text(text=f"🪭 " + i18n.text.settler.cosmetics.title() + f"\n\n🎭 " + i18n.text.settler.cosmetics.current(emoji=db_settler.emoji), reply_markup=kb)
+    await callback.message.edit_text(text=f"🪭 <b>" + i18n.text.settler.cosmetics.title() + f"</b>\n\n🎭 <b>" + i18n.text.settler.cosmetics.current() + f":</b> {db_settler.emoji}", reply_markup=kb)
 
 
 @router.message(or_f(Command("overtime"), TextCommand("страда", "overtime", "понадмір", "зайва міра")))
@@ -907,7 +928,7 @@ async def overtime_command(message: types.Message, user: models.User, i18n: Tran
 async def overtime_take(callback: types.CallbackQuery, i18n: TranslatorRunner):
     #* Взять страду
     async with app_db.SessionLocal() as session:
-        if callback.from_user.id != callback.message.reply_to_message.from_user.id:
+        if not is_menu_owner(callback):
             await callback.answer("⚠️ " + i18n.callback.common.dont_touch(), True)
             return
 
@@ -917,6 +938,10 @@ async def overtime_take(callback: types.CallbackQuery, i18n: TranslatorRunner):
 
         if settler.overtime_is_toggled and not settler.quote_is_completed:
             await callback.answer("⚠️ " + i18n.callback.settler.overtime.already(), True)
+            return
+
+        if not settler.quote_is_completed:
+            await callback.answer("⚠️ " + i18n.text.settler.overtime.status.need_quota(), True)
             return
 
         new_quote = round((settler.level * 0.85 + 6) + (2 * (settler.overtime_count + 1)))
@@ -1031,7 +1056,7 @@ async def select_craft_callback(callback: types.CallbackQuery, i18n: TranslatorR
         settlement = await core.settlement_getOrCreate(callback.message.chat)
         settler = await core.settler_getOrCreate(user, settlement)
 
-        if callback.from_user.id != callback.message.reply_to_message.from_user.id:
+        if not is_menu_owner(callback):
             await callback.answer("⚠️ " + i18n.callback.common.dont_touch(), True)
             return
         
@@ -1049,7 +1074,8 @@ async def select_craft_callback(callback: types.CallbackQuery, i18n: TranslatorR
             can_choose, when = utils.can_choose_craft(settler.last_profession_change, fallback=True)
             if not can_choose:
                 await callback.answer("⚠️ " + i18n.callback.craft.cooldown(when=when), True)
-        
+                return
+
         await session.execute(
             update(models.Settler)
             .where(models.Settler.id == settler.id)
@@ -1069,7 +1095,7 @@ async def craft_command(message: types.Message, user: models.User, i18n: Transla
 
     available_works = [
         work for work in models.WORKS_REGISTRY.values()
-        if work.profession_id == settler.profession_id or work.profession_id is None
+        if work.is_available_for(settler)
     ]
 
     if not settler.profession_id:
@@ -1099,7 +1125,7 @@ async def work_selection_callback(callback: types.CallbackQuery, i18n: Translato
     settlement = await core.settlement_getOrCreate(callback.message.chat)
     settler = await core.settler_getOrCreate(user, settlement)
 
-    if callback.from_user.id != callback.message.reply_to_message.from_user.id:
+    if not is_menu_owner(callback):
         await callback.answer("⚠️ " + i18n.callback.common.dont_touch(), True)
         return
     
@@ -1108,7 +1134,7 @@ async def work_selection_callback(callback: types.CallbackQuery, i18n: Translato
         await callback.answer("⚠️ " + i18n.callback.craft.work_not_found(), True)
         return
     
-    if work.profession_id != settler.profession_id:
+    if not work.is_available_for(settler):
         await callback.answer("⚠️ " + i18n.callback.craft.wrong_profession(), True)
         return
 
@@ -1156,7 +1182,11 @@ async def work_callback(callback: types.CallbackQuery, i18n: TranslatorRunner):
         await callback.answer("⚠️ " + i18n.callback.craft.work_not_found())
         return
     
-    if step_idx >= len(workflow.steps):
+    if work_id != getattr(workflow, "work_id", None):
+        await callback.answer("⚠️ " + i18n.callback.common.work.not_found())
+        return
+
+    if step_idx >= len(workflow.steps) or step_idx != workflow.current_step:
         await callback.answer("⚠️ " + i18n.callback.common.invalid_step())
         return
 

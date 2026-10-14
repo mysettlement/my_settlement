@@ -1,4 +1,5 @@
 import asyncio
+import math
 from collections import defaultdict
 from sqlalchemy import select, update
 from sqlalchemy.orm import selectinload
@@ -117,7 +118,8 @@ async def day_reset():
             chats_map = defaultdict(list)
             fines_map = {}
             for settler in overtime_settlers:
-                fine = 20 + settler.level * 1.5
+                # Баланс целочисленный: округляем, как раньше округлял Postgres при записи (0.5 вверх)
+                fine = math.floor(20 + settler.level * 1.5 + 0.5)
                 fines_map[settler.id] = fine
                 user = settler.user
                 settlement = settler.settlement

@@ -1,7 +1,8 @@
 from dataclasses import dataclass, field
-from sqlalchemy import or_, text, insert, select, update, func
+from sqlalchemy import or_, text, select, update, func
 from sqlalchemy.orm import selectinload
 from sqlalchemy.exc import IntegrityError
+from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm.attributes import flag_modified
 from aiogram import types
@@ -149,6 +150,8 @@ async def building_checkRequirements(settlement: models.Settlement, settler: mod
 
     return global_prof_success, prof_text, can_afford_resources, cost_text
 
+PRIVATE_BUILDING_SCOPES = ("my", "private", "settler", "personal")
+
 async def building_startBuilding(settler: models.Settler, building_type_id: int, scope: str, session: AsyncSession) -> tuple[bool, str]:
     """Начало строительства."""
     stmt = select(models.BuildingType).options(selectinload(models.BuildingType.costs)).where(models.BuildingType.id == building_type_id)
@@ -156,6 +159,18 @@ async def building_startBuilding(settler: models.Settler, building_type_id: int,
     
     if not b_type:
         return False, "⚠️ Чертеж не найден."
+
+    is_private_scope = scope in PRIVATE_BUILDING_SCOPES
+    if bool(b_type.is_private) != is_private_scope:
+        return False, "⚠️ Этот чертёж нельзя построить здесь."
+
+    existing_stmt = select(models.Building.id).where(
+        models.Building.building_type_id == b_type.id,
+        models.Building.settlement_id == settler.settlement_id,
+        models.Building.owner_id == settler.id if is_private_scope else models.Building.owner_id.is_(None),
+    )
+    if (await session.execute(existing_stmt)).first():
+        return False, f"⚠️ {b_type.emoji} {b_type.name} уже построен(а)."
 
     settlement = await session.get(models.Settlement, settler.settlement_id)
     is_prof_enough, prof_text, is_res_enough, res_text = await building_checkRequirements(settlement, settler, b_type, session)
@@ -183,21 +198,27 @@ async def building_startBuilding(settler: models.Settler, building_type_id: int,
         return False, f"⚠️ Недостаточно ресурсов: {', '.join(missing)}!"
 
     for res_id, qty in costs_res:
-        await session.execute(
+        # Условие на остаток в самом UPDATE: параллельный запрос мог списать ресурсы после проверки выше
+        result = await session.execute(
             update(models.settler_resources)
             .where(
                 models.settler_resources.c.settler_id == settler.id,
-                models.settler_resources.c.resource_id == res_id
+                models.settler_resources.c.resource_id == res_id,
+                models.settler_resources.c.quantity >= qty
             )
             .values(quantity=models.settler_resources.c.quantity - qty)
         )
+        if result.rowcount == 0:
+            await session.rollback()
+            res_obj = await session.get(models.Resource, res_id)
+            return False, f"⚠️ Недостаточно ресурсов: {res_obj.emoji}!"
 
     finish_time = arrow.now().shift(seconds=b_type.construction_time)
     
     new_building = models.Building(
         building_type_id=b_type.id,
         settlement_id=settler.settlement_id,
-        owner_id=settler.id if scope == "my" or scope == "private" or scope == "settler" or scope == "personal" else None,
+        owner_id=settler.id if is_private_scope else None,
         level=1,
         under_construction_until=finish_time.datetime
     )
@@ -343,6 +364,7 @@ async def settler_addExp(settler: models.Settler, session: AsyncSession, exp: in
     old_emoji = settler.rank_emoji_available[0] if settler.rank_emoji_available else "❓"
 
     while settler.exp >= settler.target_exp:
+        reached_exp = settler.target_exp
         if settler.level < 15:
             settler.target_exp = 2 * settler.level + 7
             settler.rank = "Крестьянин"
@@ -360,7 +382,7 @@ async def settler_addExp(settler: models.Settler, session: AsyncSession, exp: in
             settler.rank = "Лорд"
 
         settler.level += 1
-        settler.exp -= settler.target_exp
+        settler.exp -= reached_exp
 
         text = f"🎉 <b>{user.name if user else f"User {settler.user_id}"}</b> повысил(а) ступень до <b>{settler.level}</b>! (🗂 {settler.exp}/{settler.target_exp})\n"
     
@@ -420,9 +442,22 @@ async def settler_updateResource(settler: models.Settler, session: AsyncSession,
     if check_if_enough and quantity < 0 and (current_qty + quantity) < 0:
         return False, f"⚠️ Недостаточно ресурсов: {resource.emoji} {current_qty}/{abs(quantity)}"
 
-    res = await session.execute(update(table).where(criteria).values(quantity=table.c.quantity + quantity))
+    update_stmt = update(table).where(criteria)
+    if check_if_enough and quantity < 0:
+        # Условие на остаток в самом UPDATE: параллельный запрос мог списать ресурсы после проверки выше
+        update_stmt = update_stmt.where(table.c.quantity + quantity >= 0)
+    res = await session.execute(update_stmt.values(quantity=table.c.quantity + quantity))
     if res.rowcount == 0:
-        await session.execute(insert(table).values(settler_id=settler.id, resource_id=resource.id, quantity=quantity))
+        if check_if_enough and quantity < 0:
+            return False, f"⚠️ Недостаточно ресурсов: {resource.emoji} {current_qty}/{abs(quantity)}"
+        await session.execute(
+            pg_insert(table)
+            .values(settler_id=settler.id, resource_id=resource.id, quantity=quantity)
+            .on_conflict_do_update(
+                index_elements=[table.c.settler_id, table.c.resource_id],
+                set_={"quantity": table.c.quantity + quantity},
+            )
+        )
 
     target_col, action = (models.Resource.received, "📥 Получен") if quantity > 0 else (models.Resource.spent, "📤 Снят")
     await session.execute(
@@ -452,6 +487,12 @@ async def settler_add(settler: models.Settler, session: AsyncSession, emoji: str
     obtained[emoji] = quantity
     return obtained
 
+def _target_quote(settler: models.Settler) -> int:
+    #* Цель меры. overtime_count уже включает текущую страду: overtime_take увеличивает его при взятии
+    if settler.overtime_is_toggled:
+        return round((settler.level * 0.85 + 6) + (2 * settler.overtime_count))
+    return round(settler.level * 0.85 + 6)
+
 async def settler_updateQuote(settler: models.Settler, settlement: models.Settlement, session: AsyncSession, add_quote: int = 0):
     #* Обновление меры поселенца и обработка её выполнения
     async with app_db.try_session(session) as session:
@@ -459,10 +500,7 @@ async def settler_updateQuote(settler: models.Settler, settlement: models.Settle
         if not current:
             return None
 
-        if settler.overtime_is_toggled:
-            current.target_quote = round((settler.level * 0.85 + 6) + (2 * (settler.overtime_count + 1)))
-        else:
-            current.target_quote = round(current.level * 0.85 + 6)
+        current.target_quote = _target_quote(current)
 
         if not current.quote_is_completed:
             current.quote += add_quote
@@ -493,17 +531,14 @@ async def settler_updateQuote(settler: models.Settler, settlement: models.Settle
                     earned_xp *= 0.2
                 await settler_addExp(current, session, earned_xp)
                 
-                if current:
-                    current.quote = 0
-                    if current.overtime_is_toggled:
-                        current.target_quote = round((settler.level * 0.85 + 6) + (2 * (settler.overtime_count + 1)))
-                    else:
-                        current.target_quote = round(current.level * 0.85 + 6)
-                
+                completed_target = current.target_quote
+                current.quote = 0
+                current.target_quote = _target_quote(current)
+
                 text = (
-                    f"📄 <b>{user.name if user else f'User {current.user_id}'}</b> исполнил меру <b>{current.target_quote}/{current.target_quote}</b>!"
-                    f"\n🗂: {round(earned_xp):+} | 💰: {round(earned_money):+}" if earned_xp > 0 else f"\n💰: {round(earned_money):+}"
-                    f"\nℹ️ Чтоб в мудрости возрасти, доведётся каталог 🗂 до конца довести; каталог 🗂 опыт заменяет" if current.level <= 2 and user.show_hints else ""
+                    f"📄 <b>{user.name if user else f'User {current.user_id}'}</b> исполнил меру <b>{completed_target}/{completed_target}</b>!"
+                    + (f"\n🗂: {round(earned_xp):+} | 💰: {round(earned_money):+}" if earned_xp > 0 else f"\n💰: {round(earned_money):+}")
+                    + (f"\nℹ️ Чтоб в мудрости возрасти, доведётся каталог 🗂 до конца довести; каталог 🗂 опыт заменяет" if current.level <= 2 and user and user.show_hints else "")
                 )
                 
                 await telegram_gateway.send_message(settlement.chat_id, text)
@@ -543,22 +578,29 @@ async def settler_startWorkflow(message_or_callback: Union[types.Message, types.
     if not can_start:
         await message_or_callback.answer(error) if is_message else await message_or_callback.answer(error, show_alert=True)
         return False
-    
-    async with app_db.SessionLocal() as session:
-        for emoji, qty in work.requirements.items():
-            if emoji == "level":
-                if settler.level < qty:
-                    text = f"⚠️ Сие дело тебе не по плечу. 💡 Требуемая ступень: {settler.level}/{qty}"
-                    await message_or_callback.answer(text) if is_message else await message_or_callback.answer(text, show_alert=True)
-                    return False
-                continue
-            success, result = await settler_updateResource(settler, session, emoji, - qty, check_if_enough=True)
-            if not success:
-                await message_or_callback.answer(result) if is_message else await message_or_callback.answer(result, show_alert=True)
-                return success
-        await session.commit()
-    
+
+    # Занимаем чат сразу после проверки, до первого await: иначе два запроса успевают начать работу одновременно
     utils.start_work(chat_id)
+    try:
+        async with app_db.SessionLocal() as session:
+            for emoji, qty in work.requirements.items():
+                if emoji == "level":
+                    if settler.level < qty:
+                        utils.release_work(chat_id)
+                        text = f"⚠️ Сие дело тебе не по плечу. 💡 Требуемая ступень: {settler.level}/{qty}"
+                        await message_or_callback.answer(text) if is_message else await message_or_callback.answer(text, show_alert=True)
+                        return False
+                    continue
+                success, result = await settler_updateResource(settler, session, emoji, - qty, check_if_enough=True)
+                if not success:
+                    utils.release_work(chat_id)
+                    await message_or_callback.answer(result) if is_message else await message_or_callback.answer(result, show_alert=True)
+                    return success
+            await session.commit()
+    except Exception:
+        utils.release_work(chat_id)
+        raise
+
     workflow = work.build()
     utils.active_games[user_key] = workflow
 
@@ -718,24 +760,10 @@ def _get_effective_bonuses(item: models.LootItem, settler_bonuses: BonusSet, set
     #* Создает итоговый набор бонусов для предмета, учитывая флаги affected_by
     effective = BonusSet()
 
-    def merge(source: BonusSet):
-        effective.global_chance += source.global_chance
-        effective.global_qty_mod += source.global_qty_mod
-        effective.global_qty_mult *= source.global_qty_mult
-        
-        for k, v in source.category_chance.items(): effective.category_chance[k] = effective.category_chance.get(k, 0.0) + v
-        for k, v in source.resource_chance.items(): effective.resource_chance[k] = effective.resource_chance.get(k, 0.0) + v
-        
-        for k, v in source.category_qty_mod.items(): effective.category_qty_mod[k] = effective.category_qty_mod.get(k, 0) + v
-        for k, v in source.resource_qty_mod.items(): effective.resource_qty_mod[k] = effective.resource_qty_mod.get(k, 0) + v
-        
-        for k, v in source.category_qty_mult.items(): effective.category_qty_mult[k] = effective.category_qty_mult.get(k, 1.0) * v
-        for k, v in source.resource_qty_mult.items(): effective.resource_qty_mult[k] = effective.resource_qty_mult.get(k, 1.0) * v
-
     if item.affected_by_settler_bonuses:
-        merge(settler_bonuses)
+        effective.merge(settler_bonuses)
     if item.affected_by_settlement_bonuses:
-        merge(settlement_bonuses)
+        effective.merge(settlement_bonuses)
         
     return effective
 

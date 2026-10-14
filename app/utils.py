@@ -72,7 +72,6 @@ class TextCommand(BaseFilter):
 
         processed_text = utils.default_process(text)
 
-        from app.utils import KNOWN_TYPOS
         if processed_text in KNOWN_TYPOS and KNOWN_TYPOS[processed_text] in self.aliases:
             return True
 
@@ -252,13 +251,22 @@ def format_relative_time(target: Union[datetime, int, timedelta], now: Union[dat
     return f'<tg-time unix="{unix_time}" format="{tg_format}">{fallback_text}</tg-time>' if not fallback else fallback_text
 
 
+CLICK_COOLDOWN_SECONDS = 1.3
+CLICK_TIMES_PRUNE_SIZE = 10_000
+
 def can_click_button(user_key: str) -> bool:
     current_time = time.time()
     last_click = user_last_click_time.get(user_key, 0)
     
-    if current_time - last_click < 1.3:
+    if current_time - last_click < CLICK_COOLDOWN_SECONDS:
         return False
-    
+
+    # Записи старше кулдауна больше не нужны: без чистки словарь растёт на каждого игрока, нажавшего кнопку
+    if len(user_last_click_time) >= CLICK_TIMES_PRUNE_SIZE:
+        for key, clicked_at in list(user_last_click_time.items()):
+            if current_time - clicked_at >= CLICK_COOLDOWN_SECONDS:
+                del user_last_click_time[key]
+
     user_last_click_time[user_key] = current_time
     return True
 
@@ -298,7 +306,7 @@ def get_work_remaining_time(chat_id: int) -> int:
         return 0
     
     elapsed = time.time() - work_start_time[chat_id]
-    remaining = 180 - elapsed  # 3 минуты = 180 секунд
+    remaining = settings.WORK_TIMEOUT_SECONDS - elapsed
     return max(0, int(remaining))
 
 def can_start_work(chat_id: int) -> tuple[bool, str]:
@@ -324,6 +332,16 @@ def start_work(chat_id: int):
         work_timeout_tasks[chat_id].cancel()
     
     work_timeout_tasks[chat_id] = asyncio.create_task(timeout_work(chat_id))
+
+def release_work(chat_id: int):
+    """Освобождает чат, если работа так и не началась (без паузы между трудами)."""
+    work_in_progress[chat_id] = False
+
+    if chat_id in work_timeout_tasks:
+        work_timeout_tasks[chat_id].cancel()
+        del work_timeout_tasks[chat_id]
+
+    work_start_time.pop(chat_id, None)
 
 def end_work(chat_id: int):
     work_in_progress[chat_id] = False
@@ -371,7 +389,7 @@ async def notify_developers(message: str):
 
 def get_timezones_at_hour(target_hour: int) -> list[str]:
     target_timezones = []
-    for tz_name in pytz.common_timezones:
+    for tz_name in pytz.all_timezones:
         try:
             if arrow.now(tz_name).hour == target_hour:
                 target_timezones.append(tz_name)

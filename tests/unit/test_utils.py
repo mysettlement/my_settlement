@@ -260,7 +260,7 @@ async def test_mark_work_completed_and_notify_developers(monkeypatch):
 
 
 def test_get_timezones_at_hour(monkeypatch):
-    monkeypatch.setattr(utils.pytz, "common_timezones", ["UTC", "Europe/Berlin"])
+    monkeypatch.setattr(utils.pytz, "all_timezones", ["UTC", "Europe/Berlin"])
 
     def fake_now(timezone_name):
         if timezone_name == "Europe/Berlin":
@@ -270,3 +270,27 @@ def test_get_timezones_at_hour(monkeypatch):
 
     monkeypatch.setattr(utils.arrow, "now", fake_now)
     assert utils.get_timezones_at_hour(10) == ["UTC"]
+
+
+def test_get_timezones_at_hour_includes_default_user_timezone():
+    # Europe/Kiev стоит по умолчанию у User.timezone, но его нет в pytz.common_timezones
+    hour = arrow.now("Europe/Kiev").hour
+    assert "Europe/Kiev" in utils.get_timezones_at_hour(hour)
+
+
+def test_get_work_remaining_time_follows_timeout_setting(monkeypatch):
+    monkeypatch.setattr(utils.settings, "WORK_TIMEOUT_SECONDS", 60)
+    monkeypatch.setitem(utils.work_start_time, 998, 100.0)
+    monkeypatch.setattr(utils.time, "time", lambda: 120.0)
+
+    assert utils.get_work_remaining_time(998) == 40
+
+
+def test_can_click_button_prunes_stale_click_times(monkeypatch):
+    monkeypatch.setattr(utils, "CLICK_TIMES_PRUNE_SIZE", 3)
+    monkeypatch.setattr(utils.time, "time", lambda: 1000.0)
+    for key in ("a", "b", "c"):
+        utils.user_last_click_time[key] = 900.0
+
+    assert utils.can_click_button("d") is True
+    assert set(utils.user_last_click_time) == {"d"}

@@ -265,7 +265,7 @@ class Work:
     name: str
     emoji: str
 
-    profession_id: Optional[int] = None
+    profession_emoji: Optional[str] = None                         # Эмодзи профессии. None = доступна всем
     requirements: Dict[str, Any] = field(default_factory=dict)     # {"🎋": 3, "level": 2}
     steps: List[Step] = field(default_factory=list)                # [Hitting(...), Timer(...)]
     rewards: List[LootItem] = field(default_factory=list)          # [{"emoji": "🐟", "min_qty": 1, "max_qty": 3, "chance": 0.8}, {"emoji": "🗂", "min_qty": 1, "max_qty": 5, "chance": 1.0}]
@@ -364,6 +364,11 @@ class Work:
             copied_workflow.get_status_text = lambda: copied_workflow._workflow_status_func(copied_workflow)
         return copied_workflow
 
+    def is_available_for(self, settler: "Settler") -> bool:
+        if self.profession_emoji is None:
+            return True
+        return settler.profession is not None and settler.profession.emoji == self.profession_emoji
+
     def get_answer_text(self, result: str, step_idx: int, workflow=None, step=None) -> Optional[str]:
         key_combo = f"step_{step_idx}_{result}"
         entry = None
@@ -426,7 +431,7 @@ def catcher_milking() -> Work:
         id="catcher_milking",
         name="Доение коровы",
         emoji="🪣",
-        profession_id=3,
+        profession_emoji="🐾",
         steps=[step1, step2],
         rewards=[
             LootItem(emoji="🥛", chance=1.0),
@@ -462,7 +467,7 @@ def catcher_fishing() -> Work:
         id="catcher_fishing",
         name="Рыбалка",
         emoji="🎣",
-        profession_id=3,
+        profession_emoji="🐾",
         steps=[step1],
         rewards=[
             LootItem(emoji="🐟", chance=1.0),
@@ -487,7 +492,7 @@ def catcher_shearing() -> Work:
         id="catcher_shearing",
         name="Стрижка овцы",
         emoji="🐑",
-        profession_id=3,
+        profession_emoji="🐾",
         steps=[step1],
         rewards=[
             LootItem(emoji="☁️", chance=1.0),
@@ -530,7 +535,7 @@ def farmer_harvest_grain() -> Work:
         id="farmer_harvest_grain",
         name="Сбор урожая",
         emoji="🌾",
-        profession_id=1,
+        profession_emoji="🌻",
         steps=[step1],
         rewards=[
             LootItem(emoji="🌾", chance=None),
@@ -575,7 +580,7 @@ def healer_herb_gathering() -> Work:
         id="healer_herb_gathering",
         name="Сбор трав",
         emoji="🪴",
-        profession_id=2,
+        profession_emoji="📔",
         steps=[step1],
         rewards=[
             LootItem(emoji="🎋", chance=None),
@@ -614,7 +619,7 @@ def healer_tea_brewing() -> Work:
         id="healer_tea_brewing",
         name="Приготовление отвара",
         emoji="🍵",
-        profession_id=2,
+        profession_emoji="📔",
         steps=[step1, step2],
         requirements={
             "🎋": 3

@@ -1,4 +1,6 @@
 import ast
+import logging
+import secrets
 from sqlalchemy import or_
 from sqlalchemy.orm import selectinload
 from sqladmin import Admin, ModelView
@@ -8,11 +10,16 @@ from fastapi import FastAPI
 from wtforms import TextAreaField, ValidationError
 
 import app.db as app_db
-from app.config import settings
+from app.config import settings, setup_logging
 from app.models import (
     User, Settlement, Settler, Resource, 
     Profession, BuildingType, Building
 )
+
+log = setup_logging(logging.getLogger(__name__))
+
+DEFAULT_ADMIN_PASSWORD = "change_me"
+
 
 class PythonListField(TextAreaField):
     """
@@ -37,13 +44,14 @@ class PythonListField(TextAreaField):
 class AdminAuth(AuthenticationBackend):
     async def login(self, request: Request) -> bool:
         form = await request.form()
-        username = form.get("username")
-        password = form.get("password")
+        username = str(form.get("username") or "")
+        password = str(form.get("password") or "")
 
-        valid_user = getattr(settings, "ADMIN_USERNAME", "admin")
-        valid_pass = getattr(settings, "ADMIN_PASSWORD", "admin")
+        # compare_digest сравнивает за постоянное время, чтобы пароль нельзя было подобрать по времени ответа
+        user_ok = secrets.compare_digest(username.encode(), settings.ADMIN_USERNAME.encode())
+        pass_ok = secrets.compare_digest(password.encode(), settings.ADMIN_PASSWORD.encode())
 
-        if username == valid_user and password == valid_pass:
+        if user_ok and pass_ok:
             request.session.update({"token": "valid_token"})
             return True
         return False
@@ -215,6 +223,9 @@ class BuildingAdmin(ModelView, model=Building):
 # === 3. Функция инициализации ===
 
 def setup_panel(app: FastAPI, db_engine=None):
+    if settings.ADMIN_PASSWORD == DEFAULT_ADMIN_PASSWORD:
+        log.warning("⚠️ ADMIN_PASSWORD не задан, админ-панель открыта с паролем по умолчанию. Задайте его в .env")
+
     authentication_backend = AdminAuth(secret_key=settings.BOT_TOKEN) 
     
     admin = Admin(

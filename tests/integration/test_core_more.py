@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 from types import SimpleNamespace
 from unittest.mock import AsyncMock
 
@@ -308,7 +309,7 @@ async def test_settler_update_quote_covers_high_rank_overtime_branch(db_session,
 
     user = await create_user(db_session, telegram_id=5292, name="Veteran")
     settlement = await create_settlement(db_session, owner=user, chat_id=-5292)
-    target_quote = round((40 * 0.85 + 6) + (2 * (1 + 1)))
+    target_quote = round((40 * 0.85 + 6) + (2 * 1))
     settler = await create_settler(
         db_session,
         user=user,
@@ -480,3 +481,62 @@ async def test_settler_can_work_and_start_workflow(db_session, monkeypatch):
     )
     monkeypatch.setattr(core.utils, "can_start_work", lambda chat_id: (False, "busy"))
     assert await core.settler_startWorkflow(callback, work, user, settler) is False
+
+
+@pytest.mark.asyncio
+async def test_start_workflow_locks_chat_once_and_releases_on_failed_requirements(db_session):
+    owner = await create_user(db_session, telegram_id=5294, name="Rival")
+    settlement = await create_settlement(db_session, owner=owner, chat_id=-5294)
+    settler = await create_settler(db_session, user=owner, settlement=settlement, level=1)
+    await db_session.commit()
+
+    tg_user = build_user(user_id=owner.telegram_id, first_name="Rival")
+    chat = build_chat(chat_id=settlement.chat_id, chat_type="supergroup", title=settlement.name)
+
+    level_message = build_message(text="work", from_user=tg_user, chat=chat)
+    object.__setattr__(level_message, "answer", AsyncMock())
+    level_work = models.Work(
+        id="need-level-lock",
+        name="Need Level",
+        emoji="📚",
+        requirements={"level": 5},
+        steps=[ProgressBar(bar_length=1)],
+    )
+    assert await core.settler_startWorkflow(level_message, level_work, owner, settler) is False
+    assert core.utils.can_start_work(chat.id) == (True, "")
+
+    def make_callback():
+        return SimpleNamespace(message=SimpleNamespace(chat=chat, edit_text=AsyncMock()), answer=AsyncMock())
+
+    work = models.Work(id="race-work", name="Race", emoji="🏁", steps=[ProgressBar(bar_length=1)])
+    results = await asyncio.gather(
+        core.settler_startWorkflow(make_callback(), work, owner, settler),
+        core.settler_startWorkflow(make_callback(), work, owner, settler),
+    )
+    assert sorted(results) == [False, True]
+
+
+@pytest.mark.asyncio
+async def test_overtime_target_matches_value_announced_on_take(db_session, monkeypatch):
+    monkeypatch.setattr(core.telegram_gateway, "send_message", AsyncMock())
+
+    user = await create_user(db_session, telegram_id=5295, name="Overtimer")
+    settlement = await create_settlement(db_session, owner=user, chat_id=-5295)
+    announced = round((3 * 0.85 + 6) + (2 * (0 + 1)))  # как считает overtime_take при overtime_count = 0
+    settler = await create_settler(
+        db_session,
+        user=user,
+        settlement=settlement,
+        level=3,
+        quote=0,
+        target_quote=announced,
+        overtime_is_toggled=True,
+    )
+    settler.overtime_count = 1
+    await db_session.commit()
+
+    await core.settler_updateQuote(settler, settlement, db_session, add_quote=1)
+    await db_session.refresh(settler)
+
+    assert settler.quote == 1
+    assert settler.target_quote == announced

@@ -1,5 +1,4 @@
 from aiogram import BaseMiddleware, types
-from certifi import core
 from app.config import setup_logging
 import logging
 from aiogram import BaseMiddleware
